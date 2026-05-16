@@ -156,47 +156,6 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
     if (onCancel) onCancel(); else navigate({ to: '/backoffice/jackpots' });
   };
 
-  // Helper component for brighter labels
-  const BrightLabel = ({ htmlFor, children, className = '' }: { htmlFor?: string; children: React.ReactNode; className?: string }) => (
-    <Label htmlFor={htmlFor} className={`text-neutral-100 ${className}`}>{children}</Label>
-  );
-
-  // Helper component for currency input
-  const CurrencyInput = ({ id, ...props }: React.ComponentProps<typeof Input> & { id: string }) => (
-    <div className="relative">
-      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">€</span>
-      <Input id={id} {...props} className={`pl-8 ${props.className || ''}`} />
-    </div>
-  );
-
-  // Helper component for percentage input
-  const PercentageInput = ({ id, ...props }: React.ComponentProps<typeof Input> & { id: string }) => (
-    <div className="relative">
-      <Input id={id} {...props} className={props.className || ''} />
-      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">%</span>
-    </div>
-  );
-
-// Helper components hoisted to module scope so their identity is stable across
-// renders. Defining them inside the component would unmount inputs on every
-// keystroke and steal focus.
-const BrightLabel = ({ htmlFor, children, className = '' }: { htmlFor?: string; children: React.ReactNode; className?: string }) => (
-  <Label htmlFor={htmlFor} className={`text-neutral-100 ${className}`}>{children}</Label>
-);
-
-const CurrencyInput = ({ id, ...props }: React.ComponentProps<typeof Input> & { id: string }) => (
-  <div className="relative">
-    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">€</span>
-    <Input id={id} {...props} className={`pl-8 ${props.className || ''}`} />
-  </div>
-);
-
-const PercentageInput = ({ id, ...props }: React.ComponentProps<typeof Input> & { id: string }) => (
-  <div className="relative">
-    <Input id={id} {...props} className={props.className || ''} />
-    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">%</span>
-  </div>
-);
 
 
   type JackpotSavePayload = {
