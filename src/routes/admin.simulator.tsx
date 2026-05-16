@@ -1,4 +1,4 @@
-import { createFileRoute, useRouterState, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useRouterState, useNavigate, Link } from "@tanstack/react-router";
 import * as React from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
