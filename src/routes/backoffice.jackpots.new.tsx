@@ -79,14 +79,6 @@ const initialState: FormState = {
   ],
 };
 
-const STEPS = [
-  { key: "type", label: "Type" },
-  { key: "basic", label: "Basic" },
-  { key: "model", label: "Model" },
-  { key: "pool", label: "Pool & Seed" },
-  { key: "summary", label: "Summary" },
-] as const;
-type StepKey = typeof STEPS[number]["key"];
 
 // ─── Styles ───────────────────────────────────────────────────────────────
 const S = {
