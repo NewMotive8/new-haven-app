@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as BackofficeRouteImport } from './routes/backoffice'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiV2JackpotsIndexRouteImport } from './routes/api/v2/jackpots/index'
 import { Route as ApiV1JackpotsIndexRouteImport } from './routes/api/v1/jackpots/index'
 import { Route as ApiV1JackpotsTopupRouteImport } from './routes/api/v1/jackpots/topup'
 import { Route as ApiV1JackpotsIdRouteImport } from './routes/api/v1/jackpots/$id'
@@ -27,6 +28,11 @@ const BackofficeRoute = BackofficeRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV2JackpotsIndexRoute = ApiV2JackpotsIndexRouteImport.update({
+  id: '/api/v2/jackpots/',
+  path: '/api/v2/jackpots/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiV1JackpotsIndexRoute = ApiV1JackpotsIndexRouteImport.update({
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/api/v1/jackpots/$id': typeof ApiV1JackpotsIdRoute
   '/api/v1/jackpots/topup': typeof ApiV1JackpotsTopupRoute
   '/api/v1/jackpots/': typeof ApiV1JackpotsIndexRoute
+  '/api/v2/jackpots/': typeof ApiV2JackpotsIndexRoute
   '/api/v1/jackpots/disable/$id': typeof ApiV1JackpotsDisableIdRoute
   '/api/v1/jackpots/enable/$id': typeof ApiV1JackpotsEnableIdRoute
 }
@@ -84,6 +91,7 @@ export interface FileRoutesByTo {
   '/api/v1/jackpots/$id': typeof ApiV1JackpotsIdRoute
   '/api/v1/jackpots/topup': typeof ApiV1JackpotsTopupRoute
   '/api/v1/jackpots': typeof ApiV1JackpotsIndexRoute
+  '/api/v2/jackpots': typeof ApiV2JackpotsIndexRoute
   '/api/v1/jackpots/disable/$id': typeof ApiV1JackpotsDisableIdRoute
   '/api/v1/jackpots/enable/$id': typeof ApiV1JackpotsEnableIdRoute
 }
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   '/api/v1/jackpots/$id': typeof ApiV1JackpotsIdRoute
   '/api/v1/jackpots/topup': typeof ApiV1JackpotsTopupRoute
   '/api/v1/jackpots/': typeof ApiV1JackpotsIndexRoute
+  '/api/v2/jackpots/': typeof ApiV2JackpotsIndexRoute
   '/api/v1/jackpots/disable/$id': typeof ApiV1JackpotsDisableIdRoute
   '/api/v1/jackpots/enable/$id': typeof ApiV1JackpotsEnableIdRoute
 }
@@ -109,6 +118,7 @@ export interface FileRouteTypes {
     | '/api/v1/jackpots/$id'
     | '/api/v1/jackpots/topup'
     | '/api/v1/jackpots/'
+    | '/api/v2/jackpots/'
     | '/api/v1/jackpots/disable/$id'
     | '/api/v1/jackpots/enable/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -120,6 +130,7 @@ export interface FileRouteTypes {
     | '/api/v1/jackpots/$id'
     | '/api/v1/jackpots/topup'
     | '/api/v1/jackpots'
+    | '/api/v2/jackpots'
     | '/api/v1/jackpots/disable/$id'
     | '/api/v1/jackpots/enable/$id'
   id:
@@ -131,6 +142,7 @@ export interface FileRouteTypes {
     | '/api/v1/jackpots/$id'
     | '/api/v1/jackpots/topup'
     | '/api/v1/jackpots/'
+    | '/api/v2/jackpots/'
     | '/api/v1/jackpots/disable/$id'
     | '/api/v1/jackpots/enable/$id'
   fileRoutesById: FileRoutesById
@@ -143,6 +155,7 @@ export interface RootRouteChildren {
   ApiV1JackpotsIdRoute: typeof ApiV1JackpotsIdRoute
   ApiV1JackpotsTopupRoute: typeof ApiV1JackpotsTopupRoute
   ApiV1JackpotsIndexRoute: typeof ApiV1JackpotsIndexRoute
+  ApiV2JackpotsIndexRoute: typeof ApiV2JackpotsIndexRoute
   ApiV1JackpotsDisableIdRoute: typeof ApiV1JackpotsDisableIdRoute
   ApiV1JackpotsEnableIdRoute: typeof ApiV1JackpotsEnableIdRoute
 }
@@ -161,6 +174,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v2/jackpots/': {
+      id: '/api/v2/jackpots/'
+      path: '/api/v2/jackpots'
+      fullPath: '/api/v2/jackpots/'
+      preLoaderRoute: typeof ApiV2JackpotsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/v1/jackpots/': {
@@ -223,6 +243,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1JackpotsIdRoute: ApiV1JackpotsIdRoute,
   ApiV1JackpotsTopupRoute: ApiV1JackpotsTopupRoute,
   ApiV1JackpotsIndexRoute: ApiV1JackpotsIndexRoute,
+  ApiV2JackpotsIndexRoute: ApiV2JackpotsIndexRoute,
   ApiV1JackpotsDisableIdRoute: ApiV1JackpotsDisableIdRoute,
   ApiV1JackpotsEnableIdRoute: ApiV1JackpotsEnableIdRoute,
 }
