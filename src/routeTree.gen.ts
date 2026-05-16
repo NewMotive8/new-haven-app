@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as BackofficeRouteImport } from './routes/backoffice'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BackofficeIndexRouteImport } from './routes/backoffice.index'
+import { Route as BackofficeSimulatorRouteImport } from './routes/backoffice.simulator'
 import { Route as BackofficeJackpotsRouteImport } from './routes/backoffice.jackpots'
 import { Route as ApiV2JackpotsIndexRouteImport } from './routes/api/v2/jackpots/index'
 import { Route as ApiV1JackpotsIndexRouteImport } from './routes/api/v1/jackpots/index'
@@ -35,6 +36,11 @@ const IndexRoute = IndexRouteImport.update({
 const BackofficeIndexRoute = BackofficeIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => BackofficeRoute,
+} as any)
+const BackofficeSimulatorRoute = BackofficeSimulatorRouteImport.update({
+  id: '/simulator',
+  path: '/simulator',
   getParentRoute: () => BackofficeRoute,
 } as any)
 const BackofficeJackpotsRoute = BackofficeJackpotsRouteImport.update({
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/backoffice': typeof BackofficeRouteWithChildren
   '/backoffice/jackpots': typeof BackofficeJackpotsRoute
+  '/backoffice/simulator': typeof BackofficeSimulatorRoute
   '/backoffice/': typeof BackofficeIndexRoute
   '/api/v1/event/simulate': typeof ApiV1EventSimulateRoute
   '/api/v1/event/simulate-bet': typeof ApiV1EventSimulateBetRoute
@@ -100,6 +107,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/backoffice/jackpots': typeof BackofficeJackpotsRoute
+  '/backoffice/simulator': typeof BackofficeSimulatorRoute
   '/backoffice': typeof BackofficeIndexRoute
   '/api/v1/event/simulate': typeof ApiV1EventSimulateRoute
   '/api/v1/event/simulate-bet': typeof ApiV1EventSimulateBetRoute
@@ -115,6 +123,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/backoffice': typeof BackofficeRouteWithChildren
   '/backoffice/jackpots': typeof BackofficeJackpotsRoute
+  '/backoffice/simulator': typeof BackofficeSimulatorRoute
   '/backoffice/': typeof BackofficeIndexRoute
   '/api/v1/event/simulate': typeof ApiV1EventSimulateRoute
   '/api/v1/event/simulate-bet': typeof ApiV1EventSimulateBetRoute
@@ -131,6 +140,7 @@ export interface FileRouteTypes {
     | '/'
     | '/backoffice'
     | '/backoffice/jackpots'
+    | '/backoffice/simulator'
     | '/backoffice/'
     | '/api/v1/event/simulate'
     | '/api/v1/event/simulate-bet'
@@ -144,6 +154,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/backoffice/jackpots'
+    | '/backoffice/simulator'
     | '/backoffice'
     | '/api/v1/event/simulate'
     | '/api/v1/event/simulate-bet'
@@ -158,6 +169,7 @@ export interface FileRouteTypes {
     | '/'
     | '/backoffice'
     | '/backoffice/jackpots'
+    | '/backoffice/simulator'
     | '/backoffice/'
     | '/api/v1/event/simulate'
     | '/api/v1/event/simulate-bet'
@@ -203,6 +215,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/backoffice/'
       preLoaderRoute: typeof BackofficeIndexRouteImport
+      parentRoute: typeof BackofficeRoute
+    }
+    '/backoffice/simulator': {
+      id: '/backoffice/simulator'
+      path: '/simulator'
+      fullPath: '/backoffice/simulator'
+      preLoaderRoute: typeof BackofficeSimulatorRouteImport
       parentRoute: typeof BackofficeRoute
     }
     '/backoffice/jackpots': {
@@ -273,11 +292,13 @@ declare module '@tanstack/react-router' {
 
 interface BackofficeRouteChildren {
   BackofficeJackpotsRoute: typeof BackofficeJackpotsRoute
+  BackofficeSimulatorRoute: typeof BackofficeSimulatorRoute
   BackofficeIndexRoute: typeof BackofficeIndexRoute
 }
 
 const BackofficeRouteChildren: BackofficeRouteChildren = {
   BackofficeJackpotsRoute: BackofficeJackpotsRoute,
+  BackofficeSimulatorRoute: BackofficeSimulatorRoute,
   BackofficeIndexRoute: BackofficeIndexRoute,
 }
 
@@ -300,3 +321,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
