@@ -223,26 +223,46 @@ function SimulatorPage() {
               {loading ? `Simulating ${iterations.toLocaleString()} spins…` : "Run simulation"}
             </button>
             {cameFromCreationFlow && (
-              <button
-                onClick={() =>
-                  navigate({
-                    to: "/admin/jackpots/new",
-                    state: { jackpotConfig: originalPayloadRef.current } as never,
-                  })
-                }
-                style={{
-                  background: "transparent",
-                  color: "#9fb0c8",
-                  border: "1px solid #1f2a44",
-                  padding: "10px 14px",
-                  borderRadius: 8,
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                ← Back to Editor
-              </button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() =>
+                    navigate({
+                      to: "/admin/jackpots/new",
+                      state: { jackpotConfig: originalPayloadRef.current } as never,
+                    })
+                  }
+                  style={{
+                    flex: 1,
+                    background: "transparent",
+                    color: "#9fb0c8",
+                    border: "1px solid #1f2a44",
+                    padding: "10px 14px",
+                    borderRadius: 8,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  ← Back to Editor
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving || loading}
+                  style={{
+                    flex: 1,
+                    background: saving ? "#1e293b" : "linear-gradient(135deg, #10b981, #059669)",
+                    color: "#fff",
+                    border: "none",
+                    padding: "10px 14px",
+                    borderRadius: 8,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: saving ? "wait" : "pointer",
+                  }}
+                >
+                  {saving ? "Saving…" : "Save Jackpot"}
+                </button>
+              </div>
             )}
             {error && <div style={{ color: "#f87171", fontSize: 13 }}>{error}</div>}
           </div>
