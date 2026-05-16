@@ -715,6 +715,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="min-win"
                                 type="number"
                                 placeholder="0"
+                                value={minWinAmount || ''}
+                                onChange={(e) => setMinWinAmount(parseFloat(e.target.value) || 0)}
                                 className="bg-neutral-800 border-neutral-700"
                               />
                             </div>
