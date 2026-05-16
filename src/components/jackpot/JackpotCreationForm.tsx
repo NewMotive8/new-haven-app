@@ -909,7 +909,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                   id="pool-contribution"
                                   type="number"
                                   placeholder="3"
-                                  defaultValue="3"
+                                  value={poolPercentageValue[0]}
+                                  onChange={(e) => setPoolPercentageValue([parseFloat(e.target.value) || 0])}
                                   className="bg-neutral-800 border-neutral-700"
                                 />
                               </div>
