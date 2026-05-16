@@ -70,6 +70,12 @@ export type JackpotSavePayload = {
   communitySplit: number;
   isTemplate: boolean;
   selectedWidget: string;
+  fixedWinAmount: number;
+  averageWinAmount: number;
+  minWinAmount: number;
+  maxWinAmount: number;
+  minWagerAmount: number;
+  maxWagerAmount: number;
 };
 
 export interface JackpotCreationFormProps {
