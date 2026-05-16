@@ -136,7 +136,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const scrollToSection = (ref: React.RefObject<HTMLDivElement>) => {
+  const scrollToSection = (ref: React.RefObject<HTMLDivElement | null>) => {
     if (ref.current) {
       const top = ref.current.offsetTop - 100;
       window.scrollTo({ top, behavior: 'smooth' });
