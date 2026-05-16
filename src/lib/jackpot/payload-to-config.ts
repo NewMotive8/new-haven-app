@@ -97,8 +97,8 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
           operatorShare: num(t.operatorShare, poolOperatorShare),
         },
         seed: {
-          currentAmount: num(t.seedContributionAmount, seedContributionAmount),
-          targetAmount: tierAvgWin,
+          currentAmount: num(t.seedInitialAmount, num(t.seedContributionAmount, seedContributionAmount)),
+          targetAmount: num(t.seedTargetAmount, tierAvgWin),
           contributionAmount: num(t.seedContributionAmount, seedContributionAmount),
           contributionType:
             (t.seedContributionType ?? payload.seedContributionType) === "fixed"
