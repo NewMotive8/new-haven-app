@@ -148,13 +148,18 @@ export async function createJackpot(
   brandId: string,
   dto: Partial<JackpotDTO>,
 ): Promise<JackpotDTO> {
+  const triggerCondition: Record<string, any> = {
+    threshold: Number(dto.triggerThreshold ?? 1000),
+    ...(dto.jackpotType ? { type: dto.jackpotType } : {}),
+    ...(dto.config && typeof dto.config === "object" ? dto.config : {}),
+  };
   const insertRow = {
     name: dto.name ?? "New Jackpot",
     brand_id: brandIdNum(brandId),
     enabled: dto.enabled ?? true,
     contribution_percentage: Number(dto.contributionRate ?? 0.01),
-    volatility: 5,
-    trigger_condition: { threshold: Number(dto.triggerThreshold ?? 1000) },
+    volatility: Number(dto.volatility ?? 5),
+    trigger_condition: triggerCondition,
   };
   const { data: jp, error } = await supabaseAdmin
     .from("jackpots")
