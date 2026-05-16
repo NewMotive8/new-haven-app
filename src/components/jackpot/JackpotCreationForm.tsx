@@ -121,6 +121,14 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   const [monthlyFrequencyDay, setMonthlyFrequencyDay] = useState<string>(initial?.monthlyFrequencyDay ?? '');
   const [separateContributionFrequency, setSeparateContributionFrequency] = useState(initial?.separateContributionFrequency ?? false);
 
+  // Win/wager amounts (Classic)
+  const [fixedWinAmount, setFixedWinAmount] = useState<number>(initial?.fixedWinAmount ?? 0);
+  const [averageWinAmount, setAverageWinAmount] = useState<number>(initial?.averageWinAmount ?? 0);
+  const [minWinAmount, setMinWinAmount] = useState<number>(initial?.minWinAmount ?? 0);
+  const [maxWinAmount, setMaxWinAmount] = useState<number>(initial?.maxWinAmount ?? 0);
+  const [minWagerAmount, setMinWagerAmount] = useState<number>(initial?.minWagerAmount ?? 0);
+  const [maxWagerAmount, setMaxWagerAmount] = useState<number>(initial?.maxWagerAmount ?? 0);
+
   // Section refs for scroll tracking
   const basicRef = useRef<HTMLDivElement>(null);
   const modelRef = useRef<HTMLDivElement>(null);
