@@ -199,7 +199,7 @@ export async function updateJackpot(
   if (Object.keys(patch).length > 0) {
     const { error } = await supabaseAdmin
       .from("jackpots")
-      .update(patch)
+      .update(patch as any)
       .eq("id", id);
     if (error) throw new Error(error.message);
   }
