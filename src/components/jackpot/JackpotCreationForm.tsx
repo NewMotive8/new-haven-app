@@ -209,8 +209,10 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
     selectedWidget: string;
   };
 
-  function triggerSave() {
-    onSave({
+  const [continueError, setContinueError] = useState<string | null>(null);
+
+  function buildPayload(): JackpotSavePayload {
+    return {
       name: name.trim(),
       description: description.trim(),
       type: selectedType,
@@ -238,6 +240,29 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       communitySplit: communitySplit[0],
       isTemplate,
       selectedWidget,
+    };
+  }
+
+  function handleContinue() {
+    setContinueError(null);
+    const payload = buildPayload();
+
+    if (!payload.name) {
+      setContinueError('Internal Name is required.');
+      return;
+    }
+    if (payload.type === 'multi_level' && payload.segments.length === 0) {
+      setContinueError('Multi-Level jackpots need at least one tier.');
+      return;
+    }
+    if ((payload.type === 'frequency' || payload.type === 'must_drop') && !payload.recurrenceType) {
+      setContinueError('Pick a recurrence to continue.');
+      return;
+    }
+
+    navigate({
+      to: '/backoffice/simulator',
+      state: { jackpotConfig: payload } as never,
     });
   }
 
