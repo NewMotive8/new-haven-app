@@ -299,6 +299,36 @@ function SimulatorPage() {
             <StatCard title="Final seed" value={result ? result.finalSeed.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} />
           </div>
 
+          {result?.tierResults && result.tierResults.length > 0 && (
+            <div style={panel}>
+              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
+                Multi-Level tier results
+                <span style={{ marginLeft: 8, fontSize: 11, color: "#9fb0c8", fontWeight: 400 }}>
+                  · {result.structuralType ?? "MULTI_LEVEL"}
+                </span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
+                {result.tierResults.map((t) => (
+                  <div key={t.tier} style={{ background: "#0b1220", border: "1px solid #1f2a44", borderRadius: 8, padding: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#f8fafc" }}>
+                        T{t.tier} · {t.label}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#9fb0c8" }}>{t.winCounter} wins</div>
+                    </div>
+                    <div style={{ marginTop: 8, display: "grid", gap: 4, fontSize: 12, color: "#cbd5e1" }}>
+                      <Row k="Total paid" v={t.winAmountCounter} />
+                      <Row k="Max win" v={t.maxWinAmount} />
+                      <Row k="Final pool" v={t.finalPool} />
+                      <Row k="Final seed" v={t.finalSeed} />
+                      <Row k="Rejected" v={t.rejectedByGate} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div style={panel}>
             <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Tier wins</div>
             {Object.keys(tierWins).length === 0 ? (
