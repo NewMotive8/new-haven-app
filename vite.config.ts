@@ -31,6 +31,7 @@ export default defineConfig({
         { find: /^layouts\/(.*)$/, replacement: bo("layouts/$1") },
         { find: /^assets\/(.*)$/, replacement: bo("assets/$1") },
         { find: /^styles\/(.*)$/, replacement: bo("styles/$1") },
+        { find: /^pages\/_app$/, replacement: path.resolve(__dirname, "src/backoffice/app.tsx") },
         { find: /^pages\/(.*)$/, replacement: bo("pages/$1") },
       ],
     },

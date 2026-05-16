@@ -1,75 +1,65 @@
-/* eslint-disable react-hooks/rules-of-hooks */
-/* eslint-disable react/no-danger */
-import { useRouter } from 'next/router'
-import { globalData } from 'pages/_app'
-import React from 'react'
-import EditTranslation from './editorTranslation'
+// Minimal port of the original TextTranslated. The original component included
+// an in-place translation editor (editorTranslation/*) that pulled in TinyMCE,
+// the full UI kit, and the Next.js _app module. Step 2 only needs the lookup
+// behaviour; the editor can be ported in a later step if/when the team needs it.
+import * as React from "react";
+import { globalData } from "../../../app";
 
 interface Replaces {
-    code: string,
-    value: any
+  code: string;
+  value: any;
 }
+
 interface Props {
-    group: string,
-    key: string,
-    replaces?: Array<Replaces>,
-    defaultContent?: any,
-    returnDefault?: 'translateKey' | 'nothing' | 'defaultContent'
+  group: string;
+  key: string;
+  replaces?: Array<Replaces>;
+  defaultContent?: any;
+  returnDefault?: "translateKey" | "nothing" | "defaultContent";
 }
 
-function checkReplace(textPure: any, replaces: Array<Replaces>) {
-    let textS = textPure
-    if (replaces?.length && textPure) {
-        replaces.map((r: Replaces) => {
-            if (textS && typeof textS === 'string') {
-                textS = textS?.replace(r.code, r.value)
-            }
-            return textS || textPure
-        })
+function applyReplaces(text: any, replaces?: Array<Replaces>) {
+  if (!replaces?.length || typeof text !== "string") return text;
+  return replaces.reduce((acc, r) => acc.replace(r.code, String(r.value)), text);
+}
+
+function lookup(group: string, key: string, locale: string) {
+  const { translations } = globalData;
+  if (!Array.isArray(translations) || translations.length === 0) return null;
+  const g = group?.toLowerCase();
+  const k = key?.toLowerCase();
+  const l = locale?.toLowerCase();
+  return (
+    translations.find(
+      (t: any) =>
+        t.group?.toLowerCase() === g && t.key?.toLowerCase() === k && t.locale?.toLowerCase() === l
+    ) ||
+    translations.find(
+      (t: any) =>
+        t.group?.toLowerCase() === g && t.key?.toLowerCase() === k && t.locale?.toLowerCase() === "en-gb"
+    ) ||
+    null
+  );
+}
+
+export function textTranslated(props: Props): React.ReactNode {
+  const { group, key, replaces, returnDefault, defaultContent } = props;
+  const found: any = lookup(group, key, globalData.locale);
+  if (found) {
+    if (found.isHTML || found.isHtml) {
+      return (
+        <span
+          dangerouslySetInnerHTML={{ __html: String(applyReplaces(found.value ?? key, replaces)) }}
+        />
+      );
     }
-    return textS || textPure
+    return applyReplaces(found.value ?? key, replaces);
+  }
+  if (returnDefault === "nothing") return "";
+  if (returnDefault === "defaultContent" && defaultContent !== undefined) return defaultContent;
+  return key;
 }
 
-function returnText(translations: any, group: any, textCode: any, locale: any) {
-    const textFromLocale = (translations?.length && translations?.find((t: any) => (t.group?.toLowerCase() === group?.toLowerCase() && t.key?.toLowerCase() === textCode?.toLowerCase() && t.locale?.toLowerCase() === locale?.toLowerCase())))
-    return textFromLocale || (translations?.length && translations?.find((t: any) => (t.group?.toLowerCase() === group?.toLowerCase() && t.key?.toLowerCase() === textCode?.toLowerCase() && t.locale?.toLowerCase() === 'en-gb')))
-}
-
-export function textTranslated(props: Props) {
-    const {
-        group,
-        key,
-        replaces,
-        returnDefault,
-        defaultContent,
-    } = props
-    const { translations, editTranslations, locale } = globalData
-    const text: any = returnText(translations, group, key, locale) || {}
-
-    if (editTranslations) {
-        return (
-            <>
-                {
-                    text
-                        ? text.isHTML || text.isHtml
-                            ? <section dangerouslySetInnerHTML={{ __html: (checkReplace((text.value || key), replaces as Array<Replaces>)) }} />
-                            : checkReplace((text.value || key), replaces as Array<Replaces>)
-                        : key
-                }
-                <EditTranslation
-                    currentTranslation={{
-                        group, key, client: 'BO', locale, replaces,
-                    }}
-                />
-            </>
-        )
-    }
-
-    const returnDefaultValue = returnDefault === 'nothing' ? '' : returnDefault === 'defaultContent' ? defaultContent : key
-
-    return text
-        ? text.isHTML || text.isHtml
-            ? <section dangerouslySetInnerHTML={{ __html: (checkReplace((text.value || returnDefaultValue), replaces as Array<Replaces>)) }} />
-            : checkReplace((text.value || returnDefaultValue), replaces as Array<Replaces>)
-        : returnDefaultValue
+export default function TextTranslated(props: Props) {
+  return <>{textTranslated(props)}</>;
 }
