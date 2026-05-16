@@ -1,80 +1,41 @@
 ## Goal
 
-Build the backend endpoints the React frontend expects, replacing the original Spring Boot service. Use TanStack Start **server routes** (file-based, under `src/routes/api/v1/...`) with an in-memory mock store keyed by `brandId` for multi-tenancy. No database yet — this is a mock layer so the frontend tables can fetch data immediately.
+Replace the static "Engagd Backoffice" badge landing with a dashboard grid of nav cards so the user always has somewhere to click from `/backoffice`.
 
-## Types (src/lib/jackpot/types.ts)
+## Cards (one per top-level area from the original backoffice)
 
-```ts
-export interface JackpotDTO {
-  id: number;
-  name: string;
-  enabled: boolean;
-  poolBalance: number;       // was BigDecimal
-  seedAmount: number;        // was BigDecimal
-  contributionRate: number;  // was BigDecimal (0..1)
-  triggerThreshold: number;  // was BigDecimal
-  brandId: string;
-  createdAt: string;         // ISO-8601 (was Instant)
-  updatedAt: string;         // ISO-8601 (was ZonedDateTime)
-}
+Each card: icon + title + short description + status badge.
 
-export interface TopupDTO {
-  jackpotId: number;
-  amount: number;
-  backofficeUser: string;
-  isSeed: boolean;
-}
+| Card             | Target route                  | Status        |
+|------------------|-------------------------------|---------------|
+| Jackpots         | `/backoffice/jackpots`        | Active (link) |
+| Simulator        | `/backoffice/jackpots/simulator` | Coming soon |
+| Lucky Wheel      | `/backoffice/lucky-wheel`     | Coming soon  |
+| Raffles          | `/backoffice/raffles`         | Coming soon  |
+| Spin Sprint      | `/backoffice/spinsprint`      | Coming soon  |
+| Tournament       | `/backoffice/tournament`      | Coming soon  |
+| Admin            | `/backoffice/admin`           | Coming soon  |
+| Root / Catalog   | `/backoffice/root`            | Coming soon  |
 
-export interface SimulatorDTO {
-  jackpotId: number;
-  iterations: number;
-  wager: number;
-  rngSeed?: number;
-}
-```
+Active cards render as TanStack `<Link>`s. Coming-soon cards render as a non-clickable tile with a muted "Coming soon" pill — no dead routes, no 404s.
 
-## Mock store (src/lib/jackpot/store.server.ts)
+## Implementation
 
-- Module-level `Map<brandId, Map<id, JackpotDTO>>` seeded with ~3 sample jackpots per brand on first access.
-- Helpers: `list(brandId, filterExp?)`, `get(brandId, id)`, `create(brandId, dto)`, `update(brandId, id, dto)`, `remove(brandId, id)`, `setEnabled(brandId, id, enabled)`, `topup(brandId, dto)`.
-- `filterExp`: simple `field=value` substring match across `name`/`enabled`; safe fallback when empty.
-- All numeric fields stored/returned as `number`; all timestamps as ISO strings via `new Date().toISOString()`.
+1. Replace `BackofficeLanding` (`src/backoffice/src/components/backofficeLanding/BackofficeLanding.tsx`) with a responsive grid:
+   - Header row: small "Engagd Backoffice" eyebrow + welcome line ("Pick a module to get started.") using the existing `TextTranslated`/`Typography` flow so it still routes through i18n.
+   - Grid: `grid-template-columns: repeat(auto-fill, minmax(260px, 1fr))`, gap 16px, max-width container.
+   - Each card: dark panel matching the current shell palette (`#0f172a` / `#1f2a44` border), 20px padding, 12px radius, icon (`react-icons/fa`) top-left, title, description, status pill bottom-right.
+   - Hover state on active cards: subtle lift + border highlight. Disabled cards: `opacity: 0.55`, `cursor: not-allowed`.
+2. Move the existing "No default page set" copy into a small footnote under the grid so the translation key still resolves (keeps the i18n wiring honest).
+3. No SCSS module changes required beyond what we already have; keep styles inline (matches the rest of the ported shell) to avoid pulling in more of the legacy SCSS toolchain at this step.
+4. No header/nav changes — Home and Jackpots stay as-is. We will grow the header nav as each "coming soon" card gets a real screen in later steps.
 
-## Shared route helpers (src/lib/jackpot/http.ts)
+## Out of scope
 
-- `requireBrandId(request) -> string` (reads `brandId` header, 400 if missing).
-- `CORS_HEADERS` + `json(data, init?)` wrapping responses with CORS + `Content-Type: application/json`.
-- `OPTIONS` handler factory for preflight.
+- Porting any of the "coming soon" screens (Simulator, Admin, etc.). That belongs in Step 3.
+- Restyling the global header.
+- Adding a real default-page setting per user.
 
-## Routes
+## Files touched
 
-All under `src/routes/api/v1/`. Each file exports `Route = createFileRoute(...)({ server: { handlers: { ... } } })` with `OPTIONS` + the listed verbs. Every handler reads `brandId` via `requireBrandId`.
-
-### Group 1 — `src/routes/api/v1/jackpots/`
-- `index.ts` → `GET /api/v1/jackpots?filterExp=` (list) and `POST /api/v1/jackpots` (create).
-- `$id.ts` → `GET`, `PUT`, `DELETE` for `/api/v1/jackpots/:id`.
-
-### Group 2 — state management
-- `enable.$id.ts` → `GET /api/v1/jackpots/enable/:id` → sets `enabled=true`, returns DTO.
-- `disable.$id.ts` → `GET /api/v1/jackpots/disable/:id` → sets `enabled=false`, returns DTO.
-- `topup.ts` → `POST /api/v1/jackpots/topup` with `TopupDTO` body. If `isSeed=true` adds to `seedAmount`; always adds to `poolBalance`. Returns updated DTO.
-
-### Group 3 — simulation engine, `src/routes/api/v1/event/`
-- `simulate.ts` → `POST /api/v1/event/simulate` with `SimulatorDTO` body. Runs a deterministic mock loop returning `{ iterations, totalWagered, totalContributed, hits, finalPool }`.
-- `simulate-bet.ts` → `POST /api/v1/event/simulate-bet?iterations=&wager=` with `JackpotDTO` body. Returns per-iteration summary `{ contributions, hits, finalPool, sample: [...] }`.
-
-Simulation math (mock): per iteration, `contribution = wager * contributionRate`; random hit when `poolBalance + contribution >= triggerThreshold` and `Math.random() < 0.01`; on hit, reset pool to `seedAmount`.
-
-## Conventions enforced
-- `brandId` header required on every route (400 otherwise).
-- All response numbers are plain JS `number`; all timestamps ISO-8601 strings.
-- CORS headers included on every response (incl. errors) and an `OPTIONS` handler on every file.
-- No `createServerFn` used here — these are external-style REST endpoints, so file-based server routes are the right shape.
-
-## Out of scope (this round)
-- Persistence (Lovable Cloud / Supabase) — can be layered in later by swapping the store module.
-- Auth — endpoints are open; add later if needed.
-- Frontend wiring — no React/UI changes; ready for the existing tables to fetch.
-
-## After implementation
-I'll invoke `GET /api/v1/jackpots` with a sample `brandId` header to confirm the routes respond before handing back for frontend testing.
+- `src/backoffice/src/components/backofficeLanding/BackofficeLanding.tsx` (rewritten)
