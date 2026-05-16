@@ -121,7 +121,7 @@ export function BackofficeApp({ children }: { children: React.ReactNode }) {
     [isAuthenticated, token]
   );
 
-  const [currentBrand, setCurrentBrand] = React.useState<any>(undefined);
+  const [currentBrand, setCurrentBrand] = React.useState<any>({ id: 1, name: "Default Brand" });
   const brand = React.useMemo<BrandContextI>(
     () => ({
       currentBrand,
