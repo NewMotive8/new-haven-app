@@ -24,7 +24,7 @@ function UsersPage() {
   const invite = useServerFn(inviteUser);
   const setEnabled = useServerFn(setUserEnabled);
   const del = useServerFn(deleteUser);
-  const reset = useServerFn(sendUserPasswordReset);
+  const setPwd = useServerFn(setUserPassword);
   const qc = useQueryClient();
 
   const usersQ = useQuery({ queryKey: ["admin-users"], queryFn: () => list() });
