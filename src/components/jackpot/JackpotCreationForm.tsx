@@ -231,6 +231,12 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       communitySplit: communitySplit[0],
       isTemplate,
       selectedWidget,
+      fixedWinAmount,
+      averageWinAmount,
+      minWinAmount,
+      maxWinAmount,
+      minWagerAmount,
+      maxWagerAmount,
     };
   }
 
