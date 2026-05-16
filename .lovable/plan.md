@@ -1,26 +1,33 @@
+
 ## Problem
 
-When a Multi-Level jackpot is selected, the form silently sets `volatility = 2` but renders **no slider** for it. The other three structural types (Classic, Must-Drop, Frequency) all expose a volatility slider in their Win Logic & Model section, so operators have no way to inspect or tune the cascading-hit exponent for Multi-Level.
+In `src/routes/admin.simulator.tsx`, the summary cards (RTP, Win count, Total win amount) read top-level fields directly off the server response (`result.rtp`, `result.winCounter`, `result.winAmountCounter`). For MULTI_LEVEL runs, those top-level counters from the engine are not reflecting per-spin variance — only `rejectedByGate` and the per-tier `tierResults[]` change between runs. So the top KPIs look frozen even though the engine is alive.
 
-## Proposed change
+The fix is purely in the dashboard rendering: when `tierResults[]` is present, compute the grand totals by summing across tiers and derive RTP from those sums plus `totalWagered`. No backend changes.
 
-Add a **"Global Parameters"** block at the top of the existing Multi-Level "Engine Configuration" card (`src/components/jackpot/JackpotCreationForm.tsx`, around line 4208, just above the Tiers header) containing:
+## Plan
 
-1. **Volatility slider** — identical control to the one used in the other branches (`Slider` from `@/components/ui/slider`, range 0–10, step 0.5, default 2, wired to existing `volatility` / `setVolatility` state). Includes the live numeric readout and a one-line helper:
-   *"Exponent applied to each tier's hit-chance curve. Lower = looser/more frequent wins, higher = tighter/rarer wins."*
+1. In `src/routes/admin.simulator.tsx`, add a derived `summary` memo computed from `result`:
+   - If `result.tierResults?.length`, sum:
+     - `totalWins = Σ t.winCounter`
+     - `totalPaid = Σ t.winAmountCounter`
+     - `totalRejected = Σ t.rejectedByGate` (use this for the "Rejected by gate" card so it also reflects tier aggregation)
+     - `maxWin = max(t.maxWinAmount)` (fallback to existing `maxWin` logic)
+   - Else fall back to the top-level fields (`result.winCounter`, `result.winAmountCounter`, `result.rejectedByGate`, existing `maxWin`).
+   - `rtp = totalWagered > 0 ? (totalPaid / totalWagered) * 100 : 0`.
 
-2. **Jackpot Maximum Win Amount** — currency input wired to existing `maxWinAmount` / `setMaxWinAmount` state (currently only editable in the Classic/Frequency branches, also invisible for Multi-Level). Default 50000. Acts as the global cap referenced by the Mega tier.
+2. Wire the three "frozen" StatCards to the derived values:
+   - **RTP** → `summary.rtp.toFixed(2) + "%"`
+   - **Win count** → `summary.totalWins`
+   - **Total win amount** → `summary.totalPaid.toLocaleString(...)`
+   - Also update **Rejected by gate** and **Max win** to use the aggregated values for consistency.
 
-Both fields use the same `BrightLabel` / `CurrencyInput` / `Slider` primitives already used elsewhere in the form, so they inherit the existing dark-mode styling and look native to the section.
+3. Remove the `maxWin` IIFE and `tierWins` fallback hardcoding only where it overlaps with the new memo; keep the `tierWins` bucket logic for the existing "Tier wins" panel.
 
-## Why here
+4. Leave all other cards (totals already coming from server scalars: `totalWagered`, `walletContributions`, `operatorContributions`, `finalPool`, `finalSeed`) untouched — they are not the reported frozen ones.
 
-- The existing `useEffect` that resets defaults when switching to Multi-Level already initializes these two values (`setVolatility([2])`, `setMaxWinAmount(50000)`) — the slider/input just need to be rendered so the operator can see and edit them.
-- Placing them inside the Multi-Level engine card (rather than the Win Logic section) keeps all multi-level-specific controls grouped, matching the visual structure operators already use for tier rows.
-- No backend, payload, or mapper changes needed — `buildPayload()` and `payload-to-config.ts` already read from `volatility[0]` and `maxWinAmount`.
+No changes to `simulator.ts`, server routes, types, or DEFAULT_CONFIG. The DEFAULT_CONFIG is only the textarea seed, not a result fallback, so it isn't masking anything.
 
-## Files touched
+## Files changed
 
-- `src/components/jackpot/JackpotCreationForm.tsx` — insert ~25 lines for the Global Parameters block inside the `selectedType === 'multi_level'` Card.
-
-No type changes, no migration, no mapper changes.
+- `src/routes/admin.simulator.tsx` — add `summary` memo, rewire 5 StatCards to it.

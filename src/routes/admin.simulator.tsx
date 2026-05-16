@@ -149,12 +149,37 @@ function SimulatorPage() {
     }
   }
 
-  const maxWin = (() => {
-    if (typeof result?.maxWinAmount === "number") return result.maxWinAmount;
-    if (!result?.winEvents?.length) return 0;
-    let m = 0;
-    for (const w of result.winEvents) if (w.amount > m) m = w.amount;
-    return m;
+  const summary = (() => {
+    if (!result) {
+      return { totalWins: 0, totalPaid: 0, totalRejected: 0, maxWin: 0, rtp: 0 };
+    }
+    const tiers = result.tierResults ?? [];
+    if (tiers.length > 0) {
+      let totalWins = 0;
+      let totalPaid = 0;
+      let totalRejected = 0;
+      let maxWin = 0;
+      for (const t of tiers) {
+        totalWins += t.winCounter || 0;
+        totalPaid += t.winAmountCounter || 0;
+        totalRejected += t.rejectedByGate || 0;
+        if ((t.maxWinAmount || 0) > maxWin) maxWin = t.maxWinAmount || 0;
+      }
+      const totalWagered = result.totalWagered || 0;
+      const rtp = totalWagered > 0 ? (totalPaid / totalWagered) * 100 : 0;
+      return { totalWins, totalPaid, totalRejected, maxWin, rtp };
+    }
+    let maxWin = typeof result.maxWinAmount === "number" ? result.maxWinAmount : 0;
+    if (!maxWin && result.winEvents?.length) {
+      for (const w of result.winEvents) if (w.amount > maxWin) maxWin = w.amount;
+    }
+    return {
+      totalWins: result.winCounter || 0,
+      totalPaid: result.winAmountCounter || 0,
+      totalRejected: result.rejectedByGate ?? 0,
+      maxWin,
+      rtp: result.rtp || 0,
+    };
   })();
 
   const tierWins = (() => {
@@ -304,11 +329,11 @@ function SimulatorPage() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
-            <StatCard title="RTP" value={result ? `${result.rtp.toFixed(2)}%` : "—"} />
-            <StatCard title="Win count" value={result ? String(result.winCounter) : "—"} />
-            <StatCard title="Rejected by gate" value={result ? String(result.rejectedByGate ?? 0) : "—"} hint="CDF hits dropped by minWin / seed gate" />
-            <StatCard title="Max win" value={result ? maxWin.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} />
-            <StatCard title="Total win amount" value={result ? result.winAmountCounter.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} />
+            <StatCard title="RTP" value={result ? `${summary.rtp.toFixed(2)}%` : "—"} />
+            <StatCard title="Win count" value={result ? summary.totalWins.toLocaleString() : "—"} />
+            <StatCard title="Rejected by gate" value={result ? summary.totalRejected.toLocaleString() : "—"} hint="CDF hits dropped by minWin / seed gate" />
+            <StatCard title="Max win" value={result ? summary.maxWin.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} />
+            <StatCard title="Total win amount" value={result ? summary.totalPaid.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} />
             <StatCard title="Total wagered" value={result ? result.totalWagered.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} />
             <StatCard title="Wallet contributions" value={result ? (result.walletContributions ?? result.totalContributions).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} hint="Java: fromWallet" />
             <StatCard title="Operator contributions" value={result ? (result.operatorContributions ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} hint="Java: notFromWallet" />
