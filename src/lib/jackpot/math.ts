@@ -1,11 +1,36 @@
 // Math engine for jackpot win evaluation.
 // Ported natively to TypeScript from the Spring Boot service.
 
-const FAIRNESS_MULTIPLIER = 100;
-const DEFAULT_MAXIMUM_VOLATILITY_EXPONENT = 75;
-const MAXIMUM_VOLATILITY_MULTIPLIER = 15;
-const DEFAULT_AVERAGE_VOLATILITY_EXPONENT = 50;
-const AVERAGE_VOLATILITY_MULTIPLIER = 5;
+export const FAIRNESS_MULTIPLIER = 100;
+export const DEFAULT_MAXIMUM_VOLATILITY_EXPONENT = 75;
+export const MAXIMUM_VOLATILITY_MULTIPLIER = 15;
+export const DEFAULT_AVERAGE_VOLATILITY_EXPONENT = 50;
+export const AVERAGE_VOLATILITY_MULTIPLIER = 5;
+
+/**
+ * Java parity: JackpotEngineMaths.calculateMaximumHitChance.
+ * Returns the deterministic threshold (NOT a boolean) so callers like the
+ * timed branch can add it to other chance terms before the RNG compare.
+ */
+export function calculateMaximumHitChance(
+  currentAmount: number,
+  targetAmount: number,
+  contributionAmount: number,
+  rawVolatility: number,
+): number {
+  const safeTarget = Math.max(targetAmount, 2.0);
+  const volatility = rawVolatility
+    ? rawVolatility * MAXIMUM_VOLATILITY_MULTIPLIER
+    : DEFAULT_MAXIMUM_VOLATILITY_EXPONENT;
+  const logValue = customLogPublic(currentAmount, safeTarget);
+  const exponent = Math.pow(logValue, volatility);
+  // JMS-244 Fairness Logic
+  return (exponent * FAIRNESS_MULTIPLIER * (contributionAmount * FAIRNESS_MULTIPLIER)) / FAIRNESS_MULTIPLIER;
+}
+
+function customLogPublic(value: number, base: number): number {
+  return Math.log(value) / Math.log(base);
+}
 
 // Standard Normal Distribution CDF using an Abramowitz & Stegun erf approximation.
 export function normalCdf(mean: number, stdDev: number, value: number): number {

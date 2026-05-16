@@ -78,6 +78,26 @@ export type JackpotSavePayload = {
   maxWagerAmount: number;
   reseedingAmount: number;
   maximumSeedAmount: number;
+  // --- Optional: MUST_DROP / FREQUENCY virtual lifespan (minutes).
+  lifespanMinutes?: number;
+  mustDropPeriod?: 1 | 2 | 3 | 4;
+  // --- Optional: MULTI_LEVEL tier rows (2–4 entries). When present, the
+  //     payload→config mapper produces a tiered JackpotConfigDTO.
+  tiers?: Array<{
+    label?: string;
+    multiLevelTier: number;        // 1..4
+    multiLevelWeight: number;      // 0..1
+    reseedingAmount: number;
+    minWinAmount: number;
+    maxWinAmount: number;
+    averageWinAmount: number;
+    poolContributionType?: "fixed" | "percentage";
+    poolContributionAmount?: number;
+    seedContributionType?: "fixed" | "percentage";
+    seedContributionAmount?: number;
+    operatorShare?: number;        // pool, 0..100
+    seedOperatorShare?: number;    // seed, 0..100
+  }>;
 };
 
 export interface JackpotCreationFormProps {
