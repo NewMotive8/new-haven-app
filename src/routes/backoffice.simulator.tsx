@@ -180,7 +180,7 @@ function SimulatorPage() {
                 cursor: loading ? "wait" : "pointer",
               }}
             >
-              {loading ? "Simulating…" : "Run simulation"}
+              {loading ? `Simulating ${iterations.toLocaleString()} spins…` : "Run simulation"}
             </button>
             {error && <div style={{ color: "#f87171", fontSize: 13 }}>{error}</div>}
           </div>
