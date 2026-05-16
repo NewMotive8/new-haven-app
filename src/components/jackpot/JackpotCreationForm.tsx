@@ -4083,17 +4083,21 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
           )}
         </div>
 
-        {/* Universal Save Bar */}
+        {/* Continue bar — bottom-right, navigates to /backoffice/simulator */}
         <div className="flex items-center justify-between pt-8 pb-16 border-t border-neutral-800 mt-8">
-          <Button variant="outline" size="lg" onClick={handleBack}>Cancel</Button>
-          <Button
-            size="lg"
-            className="bg-blue-500 hover:bg-blue-600"
-            disabled={submitting || !name.trim()}
-            onClick={triggerSave}
-          >
-            {submitting ? 'Saving…' : 'Save Jackpot'}
-          </Button>
+          <Button variant="outline" size="lg" onClick={handleBack}>Back</Button>
+          <div className="flex items-center gap-4">
+            {continueError && (
+              <span className="text-sm text-red-400">{continueError}</span>
+            )}
+            <Button
+              size="lg"
+              className="bg-blue-500 hover:bg-blue-600"
+              onClick={handleContinue}
+            >
+              Continue
+            </Button>
+          </div>
         </div>
       </main>
     </div>
