@@ -4245,6 +4245,55 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                           <BrightLabel>Average / Target Win</BrightLabel>
                           <CurrencyInput id={`tier-avgwin-${idx}`} type="number" value={t.averageWinAmount} onChange={(e) => updateTier(idx, { averageWinAmount: parseFloat(e.target.value) || 0 })} className="bg-neutral-800 border-neutral-700" />
                         </div>
+                        <div className="space-y-2">
+                          <BrightLabel>Max Pool Cap</BrightLabel>
+                          <CurrencyInput id={`tier-maxpool-${idx}`} type="number" value={t.maximumPoolAmount ?? 0} onChange={(e) => updateTier(idx, { maximumPoolAmount: parseFloat(e.target.value) || 0 })} className="bg-neutral-800 border-neutral-700" />
+                          <p className="text-[10px] text-neutral-500">0 = uncapped</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-4 border-t border-neutral-800">
+                        <div className="text-xs uppercase tracking-wider text-neutral-500 mb-3">Contributions &amp; Operator Share</div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="space-y-2">
+                            <BrightLabel>Pool Contribution Type</BrightLabel>
+                            <select
+                              value={t.poolContributionType ?? 'percentage'}
+                              onChange={(e) => updateTier(idx, { poolContributionType: e.target.value as 'fixed' | 'percentage' })}
+                              className="w-full h-10 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-neutral-100"
+                            >
+                              <option value="percentage">Percentage (%)</option>
+                              <option value="fixed">Fixed</option>
+                            </select>
+                          </div>
+                          <div className="space-y-2">
+                            <BrightLabel>Pool Contribution Amount</BrightLabel>
+                            <Input type="number" step="0.01" min={0} value={t.poolContributionAmount ?? 0} onChange={(e) => updateTier(idx, { poolContributionAmount: parseFloat(e.target.value) || 0 })} className="bg-neutral-800 border-neutral-700" />
+                          </div>
+                          <div className="space-y-2">
+                            <BrightLabel>Seed Contribution Type</BrightLabel>
+                            <select
+                              value={t.seedContributionType ?? 'percentage'}
+                              onChange={(e) => updateTier(idx, { seedContributionType: e.target.value as 'fixed' | 'percentage' })}
+                              className="w-full h-10 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-neutral-100"
+                            >
+                              <option value="percentage">Percentage (%)</option>
+                              <option value="fixed">Fixed</option>
+                            </select>
+                          </div>
+                          <div className="space-y-2">
+                            <BrightLabel>Seed Contribution Amount</BrightLabel>
+                            <Input type="number" step="0.01" min={0} value={t.seedContributionAmount ?? 0} onChange={(e) => updateTier(idx, { seedContributionAmount: parseFloat(e.target.value) || 0 })} className="bg-neutral-800 border-neutral-700" />
+                          </div>
+                          <div className="space-y-2">
+                            <BrightLabel>Pool Operator Share (%)</BrightLabel>
+                            <Input type="number" step="0.1" min={0} max={100} value={t.operatorShare ?? 0} onChange={(e) => updateTier(idx, { operatorShare: Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)) })} className="bg-neutral-800 border-neutral-700" />
+                          </div>
+                          <div className="space-y-2">
+                            <BrightLabel>Seed Operator Share (%)</BrightLabel>
+                            <Input type="number" step="0.1" min={0} max={100} value={t.seedOperatorShare ?? 0} onChange={(e) => updateTier(idx, { seedOperatorShare: Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)) })} className="bg-neutral-800 border-neutral-700" />
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}
