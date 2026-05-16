@@ -178,7 +178,6 @@ function simulateClassic(
   const tierCounts: Record<string, number> = {};
   const winEvents: WinEventDTO[] = [];
   const nowIso = new Date().toISOString();
-  let engineScopeAudit: EngineScopeAuditDTO | undefined;
 
   for (let i = 0; i < iterations; i++) {
     rt.poolCurrent = Math.min(rt.poolCap, rt.poolCurrent + rt.poolContribForCalc);
@@ -295,6 +294,7 @@ function simulateMultiLevel(
   const tierCounts: Record<string, number> = {};
   const winEvents: WinEventDTO[] = [];
   const nowIso = new Date().toISOString();
+  let engineScopeAudit: EngineScopeAuditDTO | undefined;
 
   for (let i = 0; i < iterations; i++) {
     // 1. Distribute contributions to EVERY tier by weight (Java per-pool loop).
