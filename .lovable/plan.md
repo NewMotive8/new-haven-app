@@ -1,39 +1,31 @@
-The simulator JSON shows hardcoded `pool.minimumAmount: 500` and `pool.maximumAmount: 10000` because the **Min Win Amount / Max Win Amount / Fixed Win Amount / Average Win Amount / Min Wager / Max Wager** inputs in the Jackpot creation form have no `value` or `onChange` — they're visual stubs not wired to state. The payload-to-config mapper then falls back to baked-in numbers.
+## Goal
 
-## Fix: wire the win-amount fields end-to-end
+Add a **Save** button next to the **← Back to Editor** button on the Simulator page (`/admin/simulator`) so users can persist the jackpot without round-tripping through the creation form.
 
-### `src/components/jackpot/JackpotCreationForm.tsx` (Classic jackpot only)
-Add state and bind inputs for:
-- `fixedWinAmount` (Fixed model — line ~638)
-- `averageWinAmount` (Average model — line ~702)
-- `minWinAmount` (used by Average & Maximum — lines ~715, 790)
-- `maxWinAmount` (used by Average & Maximum — lines ~727, 802)
-- `minWagerAmount` (Fixed & Average — lines ~673, 761)
-- `maxWagerAmount` (Fixed & Average — lines ~685, 773)
+## Scope
 
-Each input gets `value={state}` and `onChange={(e) => setState(parseFloat(e.target.value) || 0)}`. Initialize from `initial?.fieldName` so the Back-from-Simulator round-trip restores them.
+Only shows when the simulator was opened from the Jackpot Creation / Edit flow (i.e. `originalPayloadRef.current` exists). Same visibility rule as the existing Back button.
 
-### `JackpotSavePayload` type (same file)
-Add the six new numeric fields. Update `buildPayload()` to include them.
+## Changes
 
-### `src/lib/jackpot/payload-to-config.ts`
-Replace the hardcoded `minimumAmount: 500` / `maximumAmount: 10000` with values from the payload:
+### `src/routes/admin.simulator.tsx`
 
-```
-pool: {
-  currentAmount: poolCurrent,
-  minimumAmount: num(payload.minWinAmount, 500),
-  maximumAmount: num(payload.maxWinAmount, 10000),
-  contributionAmount: poolContributionAmount,
-  contributionType: poolContributionType,
-}
-```
+1. Add `saving` state and `handleSave` that mirrors `admin.jackpots.new.tsx`:
+   - Validate `payload.name` and `brandId` (toast errors).
+   - Build the same body shape (`buildTriggerCondition`, `contributionRate`, `seedAmount`, etc.) — extract `buildTriggerCondition` into a shared helper at `src/lib/jackpot/build-create-body.ts` and import it from both the simulator route and `admin.jackpots.new.tsx` to avoid duplication.
+   - `POST /api/v1/jackpots` with `brandId` header.
+   - On success: toast "Jackpot created" and `navigate({ to: "/admin/jackpots" })`.
+   - On error: toast the message.
 
-For the engine win-amount overrides:
-- `payoutModel === 'fixed'` → `fixedWinAmount: num(payload.fixedWinAmount, 100)`
-- `payoutModel === 'maximum'` → `maximumWinAmount: num(payload.maxWinAmount, 10000)`
-- `payoutModel === 'average'` → no override (engine pays current pool; min/max constrain the pool)
+2. Render a new primary-styled **Save Jackpot** button immediately before the existing Back button inside the `cameFromCreationFlow` block (so they sit side by side). Disable while `saving` or `loading`. Keep the inline-style aesthetic of the surrounding buttons.
+
+3. Source of truth for save = `originalPayloadRef.current` (the form payload), **not** the editable JSON textarea — the create API consumes the form payload shape, not `JackpotConfigDTO`.
+
+### `src/lib/jackpot/build-create-body.ts` (new)
+
+Export `buildTriggerCondition(payload)` and a `buildCreateBody(payload)` helper returning `{ name, enabled, contributionRate, seedAmount, poolBalance, triggerThreshold, volatility, jackpotType, config }`. Update `admin.jackpots.new.tsx` to import from it.
 
 ## Out of scope
-- The **Frequency** jackpot type has the same duplicate field set (lines ~3181-3347); leaving them visual-only for now since the bug report and current JSON are Classic. Can wire them in a follow-up if needed.
-- Must-Drop and Multi-Level use different fields and aren't affected by this report.
+
+- Editing the JSON in the simulator does not affect what gets saved (the JSON is a simulation-only override).
+- No edit/update endpoint — only create, matching current behavior.

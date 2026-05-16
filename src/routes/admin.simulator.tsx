@@ -1,10 +1,12 @@
 import { createFileRoute, useRouterState, useNavigate } from "@tanstack/react-router";
 import * as React from "react";
 import axios from "axios";
+import { toast } from "react-toastify";
 import { BrandContext } from "../backoffice/app";
 import type { JackpotConfigDTO, SimulatorResponseDTO } from "@/lib/jackpot/types";
 import type { JackpotSavePayload } from "@/components/jackpot/JackpotCreationForm";
 import { mapPayloadToConfig } from "@/lib/jackpot/payload-to-config";
+import { buildCreateBody } from "@/lib/jackpot/build-create-body";
 
 const DEFAULT_CONFIG: JackpotConfigDTO = {
   id: 1,
@@ -75,6 +77,38 @@ function SimulatorPage() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [result, setResult] = React.useState<SimulatorResponseDTO | null>(null);
+  const [saving, setSaving] = React.useState(false);
+
+  async function handleSave() {
+    const payload = originalPayloadRef.current;
+    if (!payload) return;
+    if (!payload.name) {
+      toast.error("Jackpot name is required");
+      return;
+    }
+    if (brandId == null) {
+      toast.error("No brand selected");
+      return;
+    }
+    setSaving(true);
+    try {
+      const body = buildCreateBody(payload);
+      await axios.post("/api/v1/jackpots", body, {
+        headers: { brandId: String(brandId), "Content-Type": "application/json" },
+      });
+      toast.success("Jackpot created");
+      navigate({ to: "/admin/jackpots" });
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } }; message?: string })
+          ?.response?.data?.message ??
+        (err as { message?: string })?.message ??
+        "Failed to create jackpot";
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function handleSimulate() {
     setError(null);
@@ -189,26 +223,46 @@ function SimulatorPage() {
               {loading ? `Simulating ${iterations.toLocaleString()} spins…` : "Run simulation"}
             </button>
             {cameFromCreationFlow && (
-              <button
-                onClick={() =>
-                  navigate({
-                    to: "/admin/jackpots/new",
-                    state: { jackpotConfig: originalPayloadRef.current } as never,
-                  })
-                }
-                style={{
-                  background: "transparent",
-                  color: "#9fb0c8",
-                  border: "1px solid #1f2a44",
-                  padding: "10px 14px",
-                  borderRadius: 8,
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                ← Back to Editor
-              </button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() =>
+                    navigate({
+                      to: "/admin/jackpots/new",
+                      state: { jackpotConfig: originalPayloadRef.current } as never,
+                    })
+                  }
+                  style={{
+                    flex: 1,
+                    background: "transparent",
+                    color: "#9fb0c8",
+                    border: "1px solid #1f2a44",
+                    padding: "10px 14px",
+                    borderRadius: 8,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  ← Back to Editor
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving || loading}
+                  style={{
+                    flex: 1,
+                    background: saving ? "#1e293b" : "linear-gradient(135deg, #10b981, #059669)",
+                    color: "#fff",
+                    border: "none",
+                    padding: "10px 14px",
+                    borderRadius: 8,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: saving ? "wait" : "pointer",
+                  }}
+                >
+                  {saving ? "Saving…" : "Save Jackpot"}
+                </button>
+              </div>
             )}
             {error && <div style={{ color: "#f87171", fontSize: 13 }}>{error}</div>}
           </div>
