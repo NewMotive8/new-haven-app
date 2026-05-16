@@ -121,7 +121,7 @@ const BackofficeLanding: React.FC = () => {
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
         <FaRocket color="#6366f1" />
         <span style={{ fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", color: "#9fb0c8" }}>
-          Insentiv8 Backoffice
+          Admin
         </span>
       </div>
       <h1 style={{ margin: "0 0 6px", fontSize: 26, fontWeight: 700, color: "#f8fafc" }}>

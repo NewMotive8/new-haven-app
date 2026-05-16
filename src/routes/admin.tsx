@@ -21,7 +21,7 @@ function BackofficeShell({ onLogout, email }: { onLogout: () => void; email: str
         }}
       >
         <img src={logoUrl} alt="Incentiv8" style={{ height: 28, width: "auto" }} />
-        <strong style={{ fontSize: 18, letterSpacing: 0.4 }}>Insentiv8 Backoffice</strong>
+        <strong style={{ fontSize: 18, letterSpacing: 0.4 }}>Admin</strong>
         <nav style={{ display: "flex", gap: 18, fontSize: 14 }}>
           <Link to="/admin" activeOptions={{ exact: true }} activeProps={{ style: { color: "#fff", textDecoration: "underline" } }} style={{ color: "#9fb0c8", textDecoration: "none" }}>Home</Link>
           <Link to="/admin/jackpots" activeProps={{ style: { color: "#fff", textDecoration: "underline" } }} style={{ color: "#9fb0c8", textDecoration: "none" }}>Jackpots</Link>
