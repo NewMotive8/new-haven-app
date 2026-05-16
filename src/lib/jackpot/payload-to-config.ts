@@ -60,8 +60,8 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
     volatility,
     pool: {
       currentAmount: poolCurrent,
-      minimumAmount: 500,
-      maximumAmount: 10000,
+      minimumAmount: num(payload.minWinAmount, 500),
+      maximumAmount: num(payload.maxWinAmount, 10000),
       contributionAmount: poolContributionAmount,
       contributionType: poolContributionType,
     },
@@ -72,7 +72,11 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
       contributionType: seedContributionType,
     },
     // Engine-level overrides per win model
-    ...(payload.payoutModel === "fixed" ? { fixedWinAmount: 100 } : {}),
-    ...(payload.payoutModel === "maximum" ? { maximumWinAmount: 10000 } : {}),
+    ...(payload.payoutModel === "fixed"
+      ? { fixedWinAmount: num(payload.fixedWinAmount, 100) }
+      : {}),
+    ...(payload.payoutModel === "maximum"
+      ? { maximumWinAmount: num(payload.maxWinAmount, 10000) }
+      : {}),
   };
 }

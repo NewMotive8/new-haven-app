@@ -70,6 +70,12 @@ export type JackpotSavePayload = {
   communitySplit: number;
   isTemplate: boolean;
   selectedWidget: string;
+  fixedWinAmount: number;
+  averageWinAmount: number;
+  minWinAmount: number;
+  maxWinAmount: number;
+  minWagerAmount: number;
+  maxWagerAmount: number;
 };
 
 export interface JackpotCreationFormProps {
@@ -120,6 +126,14 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   const [weeklyFrequencyDay, setWeeklyFrequencyDay] = useState<string>(initial?.weeklyFrequencyDay ?? '');
   const [monthlyFrequencyDay, setMonthlyFrequencyDay] = useState<string>(initial?.monthlyFrequencyDay ?? '');
   const [separateContributionFrequency, setSeparateContributionFrequency] = useState(initial?.separateContributionFrequency ?? false);
+
+  // Win/wager amounts (Classic)
+  const [fixedWinAmount, setFixedWinAmount] = useState<number>(initial?.fixedWinAmount ?? 0);
+  const [averageWinAmount, setAverageWinAmount] = useState<number>(initial?.averageWinAmount ?? 0);
+  const [minWinAmount, setMinWinAmount] = useState<number>(initial?.minWinAmount ?? 0);
+  const [maxWinAmount, setMaxWinAmount] = useState<number>(initial?.maxWinAmount ?? 0);
+  const [minWagerAmount, setMinWagerAmount] = useState<number>(initial?.minWagerAmount ?? 0);
+  const [maxWagerAmount, setMaxWagerAmount] = useState<number>(initial?.maxWagerAmount ?? 0);
 
   // Section refs for scroll tracking
   const basicRef = useRef<HTMLDivElement>(null);
@@ -185,35 +199,6 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
 
 
-  type JackpotSavePayload = {
-    name: string;
-    description: string;
-    type: JackpotType;
-    payoutModel: PayoutModel;
-    contributionType: ContributionType;
-    seedContributionType: ContributionType;
-    volatility: number;
-    playerContribution: number;
-    operatorContribution: number;
-    seedPlayerContribution: number;
-    seedOperatorContribution: number;
-    poolPercentageValue: number;
-    seedPercentageValue: number;
-    recurrenceType: RecurrenceType;
-    weeklyDay: string;
-    monthlyDay: string;
-    displayFrequency: DisplayFrequency;
-    weeklyFrequencyDay: string;
-    monthlyFrequencyDay: string;
-    separateContributionFrequency: boolean;
-    payoutInterval: string;
-    isSegmented: boolean;
-    segments: string[];
-    isCommunity: boolean;
-    communitySplit: number;
-    isTemplate: boolean;
-    selectedWidget: string;
-  };
 
   const [continueError, setContinueError] = useState<string | null>(null);
 
@@ -246,6 +231,12 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       communitySplit: communitySplit[0],
       isTemplate,
       selectedWidget,
+      fixedWinAmount,
+      averageWinAmount,
+      minWinAmount,
+      maxWinAmount,
+      minWagerAmount,
+      maxWagerAmount,
     };
   }
 
@@ -639,6 +630,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="fixed-amount"
                                 type="number"
                                 placeholder="0"
+                                value={fixedWinAmount || ''}
+                                onChange={(e) => setFixedWinAmount(parseFloat(e.target.value) || 0)}
                                 className="bg-neutral-800 border-neutral-700"
                               />
                               <p className="text-xs text-red-400">This field is required</p>
@@ -674,6 +667,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="min-wager-fixed"
                                 type="number"
                                 placeholder="0"
+                                value={minWagerAmount || ''}
+                                onChange={(e) => setMinWagerAmount(parseFloat(e.target.value) || 0)}
                                 className="bg-neutral-800 border-neutral-700"
                               />
                             </div>
@@ -686,6 +681,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="max-wager-fixed"
                                 type="number"
                                 placeholder="0"
+                                value={maxWagerAmount || ''}
+                                onChange={(e) => setMaxWagerAmount(parseFloat(e.target.value) || 0)}
                                 className="bg-neutral-800 border-neutral-700"
                               />
                             </div>
@@ -703,6 +700,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="avg-target"
                                 type="number"
                                 placeholder="0"
+                                value={averageWinAmount || ''}
+                                onChange={(e) => setAverageWinAmount(parseFloat(e.target.value) || 0)}
                                 className="bg-neutral-800 border-neutral-700"
                               />
                               <p className="text-xs text-red-400">This field is required</p>
@@ -716,6 +715,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="min-win"
                                 type="number"
                                 placeholder="0"
+                                value={minWinAmount || ''}
+                                onChange={(e) => setMinWinAmount(parseFloat(e.target.value) || 0)}
                                 className="bg-neutral-800 border-neutral-700"
                               />
                             </div>
@@ -728,6 +729,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="max-win"
                                 type="number"
                                 placeholder="0"
+                                value={maxWinAmount || ''}
+                                onChange={(e) => setMaxWinAmount(parseFloat(e.target.value) || 0)}
                                 className="bg-neutral-800 border-neutral-700"
                               />
                             </div>
@@ -762,6 +765,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="min-wager"
                                 type="number"
                                 placeholder="0"
+                                value={minWagerAmount || ''}
+                                onChange={(e) => setMinWagerAmount(parseFloat(e.target.value) || 0)}
                                 className="bg-neutral-800 border-neutral-700"
                               />
                             </div>
@@ -774,6 +779,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="max-wager"
                                 type="number"
                                 placeholder="0"
+                                value={maxWagerAmount || ''}
+                                onChange={(e) => setMaxWagerAmount(parseFloat(e.target.value) || 0)}
                                 className="bg-neutral-800 border-neutral-700"
                               />
                             </div>
@@ -791,6 +798,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="min-win-max"
                                 type="number"
                                 placeholder="0"
+                                value={minWinAmount || ''}
+                                onChange={(e) => setMinWinAmount(parseFloat(e.target.value) || 0)}
                                 className="bg-neutral-800 border-neutral-700"
                               />
                             </div>
@@ -803,6 +812,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="max-win-max"
                                 type="number"
                                 placeholder="0"
+                                value={maxWinAmount || ''}
+                                onChange={(e) => setMaxWinAmount(parseFloat(e.target.value) || 0)}
                                 className="bg-neutral-800 border-neutral-700"
                               />
                             </div>

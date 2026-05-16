@@ -1,24 +1,39 @@
-Add a round-trip "Back to Editor" button on the Simulator page so users can return to the Create Jackpot form with every field preserved exactly as they left it.
+The simulator JSON shows hardcoded `pool.minimumAmount: 500` and `pool.maximumAmount: 10000` because the **Min Win Amount / Max Win Amount / Fixed Win Amount / Average Win Amount / Min Wager / Max Wager** inputs in the Jackpot creation form have no `value` or `onChange` — they're visual stubs not wired to state. The payload-to-config mapper then falls back to baked-in numbers.
 
-## How it works
+## Fix: wire the win-amount fields end-to-end
 
-- When the user leaves the creation form for the simulator, the payload is already passed via TanStack Router location state.
-- We keep that original payload alive in the simulator component.
-- A new **"Back to Editor"** button navigates back to `/admin/jackpots/new`, passing the same payload back through router state.
-- The creation form reads that incoming state on mount and uses it as the initial value for every field instead of hard-coded defaults.
+### `src/components/jackpot/JackpotCreationForm.tsx` (Classic jackpot only)
+Add state and bind inputs for:
+- `fixedWinAmount` (Fixed model — line ~638)
+- `averageWinAmount` (Average model — line ~702)
+- `minWinAmount` (used by Average & Maximum — lines ~715, 790)
+- `maxWinAmount` (used by Average & Maximum — lines ~727, 802)
+- `minWagerAmount` (Fixed & Average — lines ~673, 761)
+- `maxWagerAmount` (Fixed & Average — lines ~685, 773)
 
-## Files to change
+Each input gets `value={state}` and `onChange={(e) => setState(parseFloat(e.target.value) || 0)}`. Initialize from `initial?.fieldName` so the Back-from-Simulator round-trip restores them.
 
-### `src/routes/admin.simulator.tsx`
-- Store the original `JackpotSavePayload` from `useRouterState` in component state.
-- Add a **"Back to Editor"** button below the *Run simulation* button.
-- On click, `navigate({ to: '/admin/jackpots/new', state: { jackpotConfig: originalPayload } })`.
+### `JackpotSavePayload` type (same file)
+Add the six new numeric fields. Update `buildPayload()` to include them.
 
-### `src/components/jackpot/JackpotCreationForm.tsx`
-- Import `useRouterState` from `@tanstack/react-router`.
-- Read incoming `jackpotConfig` from router location state.
-- Initialize every `useState` field from the incoming payload when present, falling back to existing defaults when absent (so direct navigation to `/admin/jackpots/new` still works normally).
-- Fields covered: `selectedType`, `name`, `description`, `payoutModel`, `contributionType`, `seedContributionType`, `volatility`, `playerContribution`, `operatorContribution`, `seedPlayerContribution`, `seedOperatorContribution`, `poolPercentageValue`, `seedPercentageValue`, `isTemplate`, `selectedWidget`, `isSegmented`, `segments`, `isCommunity`, `communitySplit`, `payoutInterval`, `recurrenceType`, `weeklyDay`, `monthlyDay`, `displayFrequency`, `weeklyFrequencyDay`, `monthlyFrequencyDay`, `separateContributionFrequency`.
+### `src/lib/jackpot/payload-to-config.ts`
+Replace the hardcoded `minimumAmount: 500` / `maximumAmount: 10000` with values from the payload:
 
-## No database or backend changes required
-This is purely a client-side state round-trip via TanStack Router location state.
+```
+pool: {
+  currentAmount: poolCurrent,
+  minimumAmount: num(payload.minWinAmount, 500),
+  maximumAmount: num(payload.maxWinAmount, 10000),
+  contributionAmount: poolContributionAmount,
+  contributionType: poolContributionType,
+}
+```
+
+For the engine win-amount overrides:
+- `payoutModel === 'fixed'` → `fixedWinAmount: num(payload.fixedWinAmount, 100)`
+- `payoutModel === 'maximum'` → `maximumWinAmount: num(payload.maxWinAmount, 10000)`
+- `payoutModel === 'average'` → no override (engine pays current pool; min/max constrain the pool)
+
+## Out of scope
+- The **Frequency** jackpot type has the same duplicate field set (lines ~3181-3347); leaving them visual-only for now since the bug report and current JSON are Classic. Can wire them in a follow-up if needed.
+- Must-Drop and Multi-Level use different fields and aren't affected by this report.
