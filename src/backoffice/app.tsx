@@ -100,10 +100,10 @@ export const globalData: {
   locale: string;
   brandId: number | undefined;
 } = {
-  translations: [],
+  translations: defaultTranslations as any[],
   editTranslations: false,
   locale: "en-GB",
-  brandId: 0,
+  brandId: 1,
 };
 
 // ---------- Wrapper ----------
@@ -116,22 +116,24 @@ export function BackofficeApp({ children }: { children: React.ReactNode }) {
   });
   const [sideMenuListener, setSideMenuListener] = React.useState<any>(null);
 
-  const [isAuthenticated, setAuth] = React.useState(false);
-  const [token, setToken] = React.useState<string | undefined>(undefined);
+  // Seed a mock ROOT admin so internal permission checks pass automatically.
+  const [user, setUser] = React.useState<MockUser | null>(MOCK_USER);
+  const [token, setToken] = React.useState<string | undefined>("mock-token");
   const auth = React.useMemo<AuthContextI>(
     () => ({
-      isAuthenticated,
+      isAuthenticated: !!user,
+      user,
       token,
       saveNewToken: (t: string) => {
         setToken(t);
-        setAuth(true);
+        setUser(MOCK_USER);
       },
       logout: () => {
         setToken(undefined);
-        setAuth(false);
+        setUser(null);
       },
     }),
-    [isAuthenticated, token]
+    [user, token]
   );
 
   const [currentBrand, setCurrentBrand] = React.useState<any>({ id: 1, name: "Default Brand" });
