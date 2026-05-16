@@ -1,0 +1,24 @@
+import React from 'react'
+import Grid from 'components/uiKit/grid'
+import { textTranslated } from 'components/TextTranslated'
+import InputGroup from 'components/uiKit/inputs/inputGroup'
+import { CrudContext } from '../..'
+import { FormContext } from '..'
+
+export default function BasicTab() {
+    const {
+        selectedItem,
+    } = React.useContext(CrudContext)
+    const {
+        errors,
+        updateField,
+        setCurrentInfo,
+    } = React.useContext(FormContext)
+    return (
+        <Grid gap="0.5rem">
+            <Grid responsiveWidth={{ sm: 100, md: 'calc(50% - 0.25rem)' }}>
+                ...
+            </Grid>
+        </Grid>
+    )
+}

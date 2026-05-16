@@ -1,0 +1,20 @@
+.card {
+  margin: 0;
+  padding: 0;
+}
+
+.logo {
+  background-color: var(--primary);
+  height: '100%';
+  width: '100%';
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
+}
+
+:root[data-theme='dark'],
+html[data-theme='dark'],
+body[data-theme='dark'] {
+  .logo {
+    background-color: var(--side-bar-bg);
+}
+}

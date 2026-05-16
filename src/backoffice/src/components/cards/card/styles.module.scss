@@ -1,0 +1,95 @@
+.card{
+    border-radius: 8pt;
+}
+
+.card[data-color='root'] {
+    background-color: var(--root-bg);
+    color: var(--text-color);
+}
+.card[data-color='section'] {
+    background-color: var(--section-bg);
+    color: var(--text-color);
+}
+
+.card[data-color='primary'] {
+    background-color: var(--primary);
+    border: solid 2px;
+    border-color: var(--primary-800);
+    color: var(--text-color-primary);
+}
+
+
+.card[data-color='primary-full'] {
+    background-color: var(--text-color-primary);
+    border: solid 2px;
+    border-color: var(--text-color-primary);
+    color: var(--primary) ;
+}
+
+.card[data-color='primary-outline'] {
+    background-color: transparent;
+    border: solid 2px;
+    border-color: var(--text-color);
+    color: var(--text-color);
+}
+
+.card[data-color='secondary'] {
+    background-color: var(--section-bg);
+    color: var(--text-color-secondary);
+    box-shadow: 0px 0px 10px -5px var(--shadow-color);
+}
+
+
+
+.card[data-color='danger'] {
+    background-color: var(--danger);
+    border: solid 2px;
+    border-color: var(--danger);
+    color: var(--text-color-light);
+}
+.card[data-color='danger-outline'] {
+    background-color: var(--section-bg);
+    border: solid 2px;
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.card[data-color='success'] {
+    background-color: var(--success);
+    border: solid 2px;
+    border-color: var(--success);
+    color: var(--text-color-light);
+}
+.card[data-color='success-outline'] {
+    background-color: var(--section-bg);
+    border: solid 2px;
+    border-color: var(--success);
+    color: var(--success);
+}
+
+.card[data-color='warning'] {
+    background-color: var(--warning);
+    border: solid 2px;
+    border-color: var(--warning);
+
+    color: var(--text-color-light);
+}
+.card[data-color='warning-outline'] {
+    background-color: var(--section-bg);
+    border: solid 2px;
+    border-color: var(--warning);
+    color: var(--warning);
+}
+
+.card[data-color='info'] {
+    background-color: var(--info);
+    border: solid 2px;
+    border-color: var(--info);
+    color: var(--text-color-light);
+}
+.card[data-color='info-outline'] {
+    background-color: var(--section-bg);
+    border: solid 2px;
+    border-color: var(--info);
+    color: var(--info);
+}

@@ -1,0 +1,395 @@
+
+
+#jooba-container-root {
+    position: relative;
+}
+
+#jooba-widget-wrapper {
+    top: calc(100vh - 270px);
+    width: 150px;
+    height: -webkit-fit-content;
+    height: -moz-fit-content;
+    height: fit-content;
+    position: absolute;
+    left: calc(100vw - 150px - 0.5rem);
+    z-index: 998;
+    -ms-touch-action: none;
+    touch-action: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    cursor: move;
+}
+
+@media (min-width:768px) {
+    #jooba-widget-wrapper {
+        top: 70px;
+        left: 1rem;
+    }
+}
+
+#jooba-widget {
+    width: 100%;
+    height: -webkit-fit-content;
+    height: -moz-fit-content;
+    height: fit-content;
+    position: relative;
+    top: 0;
+    left: 0;
+}
+
+#jooba-widget-wrapper[data-is-closed='true'] {
+    position: fixed;
+    top: calc(100vh - 70px - 40px) !important;
+    left: 0.5rem !important;
+    -webkit-transform: translateY(-100%) !important;
+    -ms-transform: translateY(-100%) !important;
+    transform: translateY(-100%) !important;
+    width: 40px;
+}
+
+#jooba-widget-wrapper[data-is-closed='true'][data-action-bar-open='true'] {
+    top: calc(100vh - 70px - 180px) !important;
+    left: 0.5rem !important;
+    -webkit-transform: translateY(-100%) !important;
+    -ms-transform: translateY(-100%) !important;
+    transform: translateY(-100%) !important;
+}
+
+#jooba-widget-wrapper[data-is-closed='true'] #jooba-widget-actions-bar {
+    background: #FFD700;
+    min-height: 36px;
+    border-radius: 2pt;
+}
+
+#jooba-widget-header {
+    width: 100%;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    border-radius: 5px 5px 0px 0px;
+}
+
+#jooba-widget-current-amount {
+    width: 100%;
+    text-align: center;
+    font-weight: 600;
+    color: #FFD700;
+    font-size: xx-large;
+    border-radius: 10px;
+    text-shadow: 0px 1px 2px #000;
+
+}
+
+#jooba-widget-actions-bar {
+    z-index: 999;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    gap: 1.5rem;
+    -webkit-transition: all ease-in-out 0.5s;
+    -o-transition: all ease-in-out 0.5s;
+    transition: all ease-in-out 0.5s;
+    padding: 0.5rem;
+    max-height: 40px;
+    overflow-y: hidden;
+    overflow-x: hidden;
+    position: absolute;
+    right: 0;
+    width: 36px;
+}
+
+
+#jooba-widget-wrapper[data-action-bar-open='true'] #jooba-widget-actions-bar {
+    width: 36px;
+    background: #FFD700;
+    border-radius: 4pt;
+    -ms-flex-wrap: wrap;
+    flex-wrap: wrap;
+    text-align: center;
+    max-height: 1000px;
+    -webkit-transition: max-height ease-in-out 0.5s;
+    -o-transition: max-height ease-in-out 0.5s;
+    transition: max-height ease-in-out 0.5s;
+}
+
+#jooba-widget-close-button,
+#jooba-widget-minimize-button,
+#jooba-widget-maximize-button,
+#jooba-widget-info-button,
+#jooba-widget-hamburger-menu {
+    font-weight: 700;
+    line-height: 10px;
+    background-color: transparent;
+    color: #fff;
+    text-shadow: 0px 1px 2px #000;
+    border: 0px;
+    outline: unset;
+    cursor: pointer;
+    font-family: monospace;
+    font-size: x-large;
+}
+
+#jooba-widget-hamburger-menu {
+    -webkit-transform: translateY(35%);
+    -ms-transform: translateY(35%);
+    transform: translateY(35%);
+}
+
+#jooba-widget-info-button,
+#jooba-widget-close-button,
+#jooba-widget-minimize-button {
+    -webkit-transform: translateX(-3px);
+    -ms-transform: translateX(-3px);
+    transform: translateX(-3px);
+}
+
+#jooba-widget-maximize-button {
+    -webkit-transform: translateX(-5px);
+    -ms-transform: translateX(-5px);
+    transform: translateX(-5px);
+}
+
+#jooba-widget-notification-animation-wrapper {
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+    background: transparent;
+    text-align: center;
+    border-radius: 0.25rem;
+    background: -webkit-gradient(linear, left top, left bottom, from(#00000000), color-stop(#000), to(#00000000));
+    background: -o-linear-gradient(#00000000, #000, #00000000);
+    background: linear-gradient(#00000000, #000, #00000000);
+}
+
+#jooba-widget-notification-animation-text {
+    text-align: center;
+    background: -o-linear-gradient(338.91deg, #fdff80 25.62%, #ffa31e 75.75%);
+    background: linear-gradient(111.09deg, #fdff80 25.62%, #ffa31e 75.75%);
+    -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text;
+    background-clip: text;
+    font-size: xx-large;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+#jooba-widget-body {
+    position: relative;
+    padding-bottom: 0.5rem;
+}
+
+#jooba-widget-media-wrapper,
+#jooba-widget-media {
+    width: 100%;
+    height: 100%;
+}
+
+#jooba-widget-media svg,
+#jooba-widget-media img {
+    width: 100%;
+}
+
+#jooba-widget-info-label-wrapper {
+    position: relative;
+    bottom: 0;
+    left: 0px;
+    width: 100%;
+    font-size: small;
+    text-align: center;
+    height: -webkit-fit-content;
+    height: -moz-fit-content;
+    height: fit-content;
+    color: #27d674;
+    text-shadow: 1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000, 0 1px 0 #000, 0 -1px 0 #000, -1px 0 0 #000, 1px 0 0 #000, 2px 2px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000, -2px -2px 0 #000, 0 2px 0 #000, 0 -2px 0 #000, -2px 0 0 #000, 2px 0 0 #000, 1px 2px 0 #000, -1px 2px 0 #000, 1px -2px 0 #000, -1px -2px 0 #000, 2px 1px 0 #000, -2px 1px 0 #000, 2px -1px 0 #000, -2px -1px 0 #000;
+    font-weight: 500;
+}
+
+#jooba-widget-footer {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -ms-flex-wrap: wrap;
+    flex-wrap: wrap;
+}
+
+#jooba-widget-footer[hidden] {
+    display: none;
+}
+
+#jooba-widget-buttons-opt-wrapper {
+    width: 0px;
+    height: 0px;
+    max-width: 100%;
+    max-height: 60px;
+    position: absolute;
+    overflow: hidden;
+    transition: width 200ms ease-in-out, height 200ms ease-in-out;
+}
+
+#jooba-widget-wrapper:hover #jooba-widget-buttons-opt-wrapper {
+    width: 300px;
+    height: fit-content;
+    position: relative;
+}
+
+
+
+#jooba-widget-opt-in-button {
+    background-color: #FFD700;
+    -webkit-box-shadow: 0px 4px 4px 1px rgba(0, 0, 0, 0.25);
+    box-shadow: 0px 4px 4px 1px rgba(0, 0, 0, 0.25);
+    border-radius: 4px;
+    border: 2px solid rgba(0, 0, 0, 0.25);
+    outline: unset;
+    width: 100%;
+    text-align: center;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+    font-size: 16px;
+    padding: 5px;
+    cursor: pointer;
+}
+
+#jooba-widget-opt-out-button {
+    background-color: #e82962;
+    -webkit-box-shadow: 0px 4px 4px 1px rgba(0, 0, 0, 0.25);
+    box-shadow: 0px 4px 4px 1px rgba(0, 0, 0, 0.25);
+    border-radius: 4px;
+    border: 2px solid rgba(0, 0, 0, 0.25);
+    outline: unset;
+    width: 100%;
+    text-align: center;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+    font-size: 16px;
+    padding: 5px 0px;
+    cursor: pointer;
+}
+
+#jooba-widget-opt-in-button:not([disabled]):active,
+#jooba-widget-opt-out-button:not([disabled]):active {
+    -webkit-transform: translateY(4px);
+    -ms-transform: translateY(4px);
+    transform: translateY(4px);
+}
+
+#jooba-widget-opt-in-button:disabled,
+#jooba-widget-opt-out-button:disabled {
+    background-color: #99a2aa;
+}
+
+
+#jooba-infoPopup-wrapper {
+    position: absolute;
+    top: 0%;
+    left: 0%;
+    z-index: 99999999;
+    width: 100%;
+    height: 100dvh;
+    background-color: rgba(0, 0, 0, 0.25);
+    -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(5px);
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    justify-items: center;
+}
+
+#jooba-infoPopup {
+    background: #fff;
+    width: 500px;
+    max-width: 100%;
+    height: -webkit-fit-content;
+    height: -moz-fit-content;
+    height: fit-content;
+    max-height: 80vh;
+    border-radius: 10px;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -ms-flex-wrap: wrap;
+    flex-wrap: wrap;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -webkit-box-pack: justify;
+    -ms-flex-pack: justify;
+    justify-content: space-between;
+}
+
+#jooba-infoPopup-header {
+    width: 100%;
+    text-align: center;
+    font-weight: 900;
+    position: relative;
+    border-bottom: solid 2px rgba(0, 0, 0, 0.25);
+}
+
+#jooba-infoPopup-close-button {
+    position: absolute;
+    right: 5px;
+    top: 5px;
+    background-color: transparent;
+    cursor: pointer;
+    color: #333;
+    border: 0px;
+    outline: unset;
+    font-size: 16px;
+    line-height: 18px;
+    width: 18px;
+    height: 18px;
+    padding: 0px;
+}
+
+#jooba-infoPopup-body {
+    color: #333 !important;
+    padding: 30px 5px;
+}
+
+#jooba-infoPopup-body ul {
+    list-style: inside;
+    padding: 1rem;
+}
+
+#jooba-infoPopup-footer {
+    text-align: center;
+    padding: 15px;
+}
+
+#jooba-infoPopup-footer p {
+    margin-bottom: 10px;
+    font-weight: 500;
+    color: #333;
+}
+
+#jooba-infoPopup-opt-in-button,
+#jooba-infoPopup-opt-out-button {
+    background-color: #FFD700;
+    -webkit-box-shadow: 0px 4px 4px 1px rgba(0, 0, 0, 0.25);
+    box-shadow: 0px 4px 4px 1px rgba(0, 0, 0, 0.25);
+    border-radius: 4px;
+    border: 2px solid rgba(0, 0, 0, 0.25);
+    outline: unset;
+    width: 100%;
+    text-align: center;
+    font-weight: 700;
+    color: #333;
+    text-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+    font-size: 16px;
+    padding: 5px;
+    cursor: pointer;
+}
+
+#jooba-infoPopup-opt-out-button {
+    background-color: #e82962;
+}

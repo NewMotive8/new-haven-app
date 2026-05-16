@@ -1,0 +1,29 @@
+.main-wrapper {
+    width: 100%;
+    position: relative;
+    padding: 50px 0px;
+    margin: 10px 0px;
+
+    .bar-placeholder,
+    .bar-progress {
+        width: 100%;
+        height: 50px;
+        border-radius: 50px;
+    }
+    
+    .bar-placeholder {
+        background: #1C202A;
+        overflow: hidden;
+        border: solid 2px #292C36;
+    }
+    
+    .bar-progress {
+        width: 50%;
+        height: 48px;
+        border: none;
+        border-radius: 48px;
+        background: linear-gradient(102.76deg, #E23680 -3.19%, #FD6148 103.04%);
+    }
+
+
+}

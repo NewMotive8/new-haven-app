@@ -1,0 +1,19 @@
+[core]
+	repositoryformatversion = 0
+	filemode = false
+	bare = false
+	logallrefupdates = true
+	symlinks = false
+	ignorecase = true
+[branch "main"]
+	rebase = false
+	remote = new-origin
+	merge = refs/heads/main
+[user]
+	name = tomfin
+	email = tom.finlayson@gmail.com
+[remote "new-origin"]
+	url = https://github.com/practice5610/engagd-backoffice.git
+	fetch = +refs/heads/*:refs/remotes/new-origin/*
+[lfs]
+	repositoryformatversion = 0

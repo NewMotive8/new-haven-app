@@ -1,0 +1,24 @@
+/* Custom styles for react-datepicker light/dark mode */
+.light-datepicker .react-datepicker {
+  background: #fff;
+  color: #222;
+}
+.light-datepicker .react-datepicker__day--selected {
+  background: #007bff;
+  color: #fff;
+}
+
+.dark-datepicker .react-datepicker {
+  background: #222;
+  color: #fff;
+}
+.dark-datepicker .react-datepicker__day--selected {
+  background: #ff9800;
+  color: #222;
+}
+
+.react-datepicker__input-container input {
+  border-radius: 4px;
+  padding: 8px;
+  border: 1px solid #ccc;
+}

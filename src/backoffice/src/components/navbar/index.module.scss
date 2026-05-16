@@ -1,0 +1,17 @@
+.navbar-placeholder{
+    position: relative;
+    height: var(--navbar-height);
+}
+
+.navbar{
+    position: fixed;
+    width: 100%;
+    top: 0;
+    left: 0;
+    height: var(--navbar-height);
+    background-color: var(--navbar-bg);
+    *{
+
+        color: var(--navbar-text-color);
+    }
+}

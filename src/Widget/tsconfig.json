@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "es6",
+    "module": "esnext",
+    "moduleResolution": "node",
+    "declaration": true,
+    "outDir": "./dist",
+    "strict": true,
+    "typeRoots": [
+      "./types",
+      "./node_modules/@types"
+    ],
+    "esModuleInterop": true,
+    "paths": {
+      "sockjs-client": [
+        "./src/libs/SockJS.js"
+      ],
+      "StompJs": [
+        "./src/libs/stomp.js"
+      ],
+      "animejs": [
+        "./src/libs/animejs.js"
+      ],
+      "lottie": [
+        "./src/libs/lottie.js"
+      ]
+    }
+  },
+  "exclude": [
+    "node_modules",
+    "test"
+  ]
+}

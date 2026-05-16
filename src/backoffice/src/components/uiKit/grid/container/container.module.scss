@@ -1,0 +1,30 @@
+.container-wrapper {
+    width: 100%;
+    max-width: 100%;
+    .container{
+        width: 100%;
+    }
+}
+
+
+@media (min-width:768px) {
+    .container-wrapper {
+        display: flex;
+        justify-content: center;
+        .container{
+            width: calc(100% - 60px);
+        }
+    }
+
+}
+@media (min-width:992px) {
+    .container-wrapper {
+        display: flex;
+        justify-content: center;
+        .container{
+            width: calc(100% - 100px);
+            max-width: 1320px;
+        }
+    }
+
+}

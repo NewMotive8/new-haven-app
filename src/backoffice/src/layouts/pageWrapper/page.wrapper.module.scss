@@ -1,0 +1,22 @@
+
+.content-wrapper{
+    overflow-x: hidden;
+}
+@media (max-width:768px) {
+    .content-wrapper{
+        margin-bottom: calc(var(--navbar-height));
+    }
+
+}
+.content-wrapper::-webkit-scrollbar {
+    width: 3px;
+}
+
+.content-wrapper::-webkit-scrollbar-track {
+    margin-top: 30px;
+    margin-bottom: 30px;
+}
+
+.content-wrapper::-webkit-scrollbar-thumb {
+    background-color: var(--primary);
+}

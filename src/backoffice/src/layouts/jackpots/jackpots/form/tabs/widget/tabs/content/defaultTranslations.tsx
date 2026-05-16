@@ -1,0 +1,86 @@
+export const translationsDefault: any = [
+    {
+        key: 'optInButton',
+        translation: 'Jackpot Opt-In',
+        enabled: true,
+        category: 'widget',
+    },
+    {
+        key: 'optOutButton',
+        translation: 'Jackpot Opt-Out',
+        enabled: true,
+        category: 'widget',
+    },
+    {
+        key: 'loading',
+        translation: 'Loading',
+        enabled: true,
+        category: 'widget',
+    },
+    {
+        key: 'errorDefaultMessage',
+        translation: 'Sorry, Something went wrong, try again later.',
+        enabled: true,
+        category: 'widget',
+    },
+    {
+        key: 'userInLabel',
+        translation: "You're in, good luck!",
+        enabled: true,
+        category: 'widget',
+    },
+    {
+        key: 'userOutLabel',
+        translation: "You've opted out of this Jackpot",
+        enabled: true,
+        category: 'widget',
+    },
+    {
+        key: 'winMessage',
+        translation: 'CONGRATS!<br/> YOU WON THE JACKPOT!',
+        enabled: true,
+        category: 'widget',
+    },
+    {
+        key: 'closeWidgetConfirmMessage',
+        translation: 'Are you sure?',
+        enabled: true,
+        category: 'widget',
+    },
+    {
+        key: 'termsAndConditionsContent',
+        translation: 'Terms and Conditions',
+        enabled: true,
+        category: 'widget',
+    },
+    {
+        key: 'description',
+        translation: 'Description',
+        enabled: true,
+        category: 'widget',
+    },
+    {
+        key: 'termsPopupAcceptButtonLabel',
+        translation: 'Click below to join this Jackpot',
+        enabled: true,
+        category: 'widget',
+    },
+    {
+        key: 'termsPopupGetOutButtonLabel',
+        translation: 'Click bellow to opt out of this Jackpot',
+        enabled: true,
+        category: 'widget',
+    },
+    {
+        key: 'jackpotWin',
+        translation: 'This Jackpot was won!',
+        enabled: true,
+        category: 'widget',
+    },
+    {
+        key: 'communityJackpotWin',
+        translation: 'This community Jackpot was won!',
+        enabled: true,
+        category: 'widget',
+    },
+]

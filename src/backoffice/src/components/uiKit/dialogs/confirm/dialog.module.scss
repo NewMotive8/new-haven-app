@@ -1,0 +1,127 @@
+@keyframes animationSideAnchor {
+    0% {
+        max-width: 0;
+    }
+
+    100% {
+        max-width: 100vw;
+    }
+}
+
+.dialog-wrapper {
+    width: 100vw;
+    height: var(--vh, 100vh);
+    background-color: rgba(0, 0, 0, .15);
+    backdrop-filter: blur(10px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 999;
+    border: 0;
+    margin: 0;
+    outline: 0;
+
+    .dialog {
+        max-width: 100vw;
+        width: fit-content;
+        height: fit-content;
+        max-height: 100%;
+        overflow-y: auto;
+        position: relative;
+        overflow-x: hidden;
+       
+
+
+        .close-section {
+            position: absolute;
+            right: 0;
+            top: 0;
+            cursor: pointer;
+
+            svg {
+                path:nth-child(2) {
+                    transition: fill 300ms ease-in-out;
+                    fill: #fff;
+                }
+            }
+
+            svg:hover {
+                path:nth-child(2) {
+                    fill: #ffffff50;
+                }
+            }
+        }
+    }
+
+    .dialog::-webkit-scrollbar {
+        width: 3px;
+    }
+
+    .dialog::-webkit-scrollbar-track {
+        box-shadow: inset 0 0 6px rgba(255, 255, 255, 0.8);
+    }
+
+    .dialog::-webkit-scrollbar-thumb {
+        background-color: var(--secondary);
+    }
+
+}
+.dialog-wrapper ::-webkit-scrollbar {
+    width: 5px;
+}
+
+.dialog-wrapper ::-webkit-scrollbar-track {
+    -webkit-box-shadow: inset 0 0 6px rgba(255, 255, 255, 0.8);
+            box-shadow: inset 0 0 6px rgba(255, 255, 255, 0.8);
+}
+
+.dialog-wrapper ::-webkit-scrollbar-thumb {
+    background-color: var(--text-color);
+}
+.dialog-wrapper[data-height='UNDER-NAVBAR'] {
+    top: var(--navbar-height);
+    height: calc((var(--vh, 100vh)) - var(--navbar-height));
+}
+.dialog-wrapper[data-height='fit-content'] {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    height: fit-content;
+    width: fit-content;
+    background: transparent;
+    box-shadow: 0px 0px 10px -5px var(--shadow-color);
+}
+
+.dialog-wrapper[data-anchor='center'] {
+    .dialog {
+        border-radius: 6pt;
+    }
+}
+.dialog-wrapper[data-anchor='top'] {
+    align-items: baseline;
+}
+.dialog-wrapper[data-anchor='left'] {
+    justify-content: flex-start;
+    .dialog{
+        transition: max-width 300ms ease-in-out;
+        animation-name: animationSideAnchor;
+        animation-duration: 300ms;
+        animation-timing-function: ease-in-out;
+        animation-delay: 0;
+        animation-iteration-count: 1;
+    }
+}
+.dialog-wrapper[data-anchor='right'] {
+    justify-content: flex-end;
+    .dialog{
+        transition: max-width 300ms ease-in-out;
+        animation-name: animationSideAnchor;
+        animation-duration: 300ms;
+        animation-timing-function: ease-in-out;
+        animation-delay: 0;
+        animation-iteration-count: 1;
+    }
+}

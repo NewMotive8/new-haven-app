@@ -1,0 +1,5 @@
+import { dataGridColumnType } from 'components/uiKit/dataGridV3'
+
+export const columns: Array<dataGridColumnType> = [
+
+]

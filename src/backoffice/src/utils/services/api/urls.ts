@@ -1,0 +1,492 @@
+const urlBase = `${process.env.NEXT_PUBLIC_API_ENDPOINT}`
+const apiV1 = '/api/v1'
+const apiV2 = '/api/v2'
+const gatewayService = '/gateway'
+const jackpotService = '/jackpot'
+const luckyWheelService = '/luckywheel'
+const scratchCardService = '/scratchcard'
+const spinsprint = '/spinsprint'
+const raffle = '/raffle'
+const tournament = '/tournament'
+
+const urls = {
+
+  user: {
+    login: `${urlBase}${gatewayService}${apiV1}/authenticate`,
+    info: `${urlBase}${gatewayService}${apiV1}/account`,
+    resetPassword: `${urlBase}${gatewayService}${apiV1}/account/reset-password/init`,
+    resetPasswordFinish: `${urlBase}${gatewayService}${apiV1}/account/reset-password/finish`,
+  },
+  brand: {
+    getAll: `${urlBase}${gatewayService}${apiV1}/brands`,
+    create: `${urlBase}${gatewayService}${apiV1}/brands`,
+    update: `${urlBase}${gatewayService}${apiV1}/brands`,
+    delete: `${urlBase}${gatewayService}${apiV1}/brands`,
+    generateSignature: `${urlBase}${gatewayService}${apiV1}/brands/signature/generate/{{brandId}}/{{playerId}}/{{eventId}}`,
+    verifySignature: `${urlBase}${gatewayService}${apiV1}/brands/signature/verify/{{brandId}}`,
+  },
+  players: {
+    getAll: `${urlBase}${jackpotService}${apiV1}/players`,
+    create: `${urlBase}${jackpotService}${apiV1}/players`,
+    update: `${urlBase}${jackpotService}${apiV1}/players`,
+    delete: `${urlBase}${jackpotService}${apiV1}/players`,
+  },
+  jackpots: {
+    getAll: `${urlBase}${jackpotService}${apiV1}/jackpots`,
+    getReportsSnap: `${urlBase}${jackpotService}${apiV1}/reports/snapshot/{{jackpotId}}`,
+    getReportsBrand: `${urlBase}${jackpotService}${apiV1}/reports/brand/{{jackpotId}}`,
+    create: `${urlBase}${jackpotService}${apiV1}/jackpots`,
+    update: `${urlBase}${jackpotService}${apiV1}/jackpots`,
+    delete: `${urlBase}${jackpotService}${apiV1}/jackpots`,
+    submitApproval: `${urlBase}${jackpotService}${apiV1}/jackpot-state/submit/{{jackpotId}}`,
+    approve: `${urlBase}${jackpotService}${apiV1}/jackpot-state/approve/{{jackpotId}}`,
+    reject: `${urlBase}${jackpotService}${apiV1}/jackpot-state/reject/{{jackpotId}}`,
+    enable: `${urlBase}${jackpotService}${apiV1}/jackpots/enable/{{jackpotId}}`,
+    disable: `${urlBase}${jackpotService}${apiV1}/jackpots/disable/{{jackpotId}}`,
+    topUp: `${urlBase}${jackpotService}${apiV1}/jackpots/topup`,
+    getPlayersIdOptIns: `${urlBase}${jackpotService}${apiV1}/reports/optins/{{jackpotId}}`,
+    getPlayersIdOptOut: `${urlBase}${jackpotService}${apiV1}/reports/optouts/{{jackpotId}}`,
+  },
+  tournaments: {
+    getAll: `${urlBase}${tournament}${apiV1}/tournaments`,
+    getReportsSnap: `${urlBase}${tournament}${apiV1}/reports/snapshot/{{tournamentId}}`,
+    getReportsBrand: `${urlBase}${tournament}${apiV1}/reports/brand/{{tournamentId}}`,
+    create: `${urlBase}${tournament}${apiV1}/tournaments`,
+    update: `${urlBase}${tournament}${apiV1}/tournaments`,
+    delete: `${urlBase}${tournament}${apiV1}/tournaments`,
+    submitApproval: `${urlBase}${tournament}${apiV1}/tournament-state/submit/{{tournamentId}}`,
+    approve: `${urlBase}${tournament}${apiV1}/tournament-state/approve/{{tournamentId}}`,
+    reject: `${urlBase}${tournament}${apiV1}/tournament-state/reject/{{tournamentId}}`,
+    enable: `${urlBase}${tournament}${apiV1}/tournaments/enable/{{tournamentId}}`,
+    disable: `${urlBase}${tournament}${apiV1}/tournaments/disable/{{tournamentId}}`,
+    topUp: `${urlBase}${tournament}${apiV1}/tournaments/topup`,
+    getPlayersIdOptIns: `${urlBase}${tournament}${apiV1}/reports/optins/{{tournamentId}}`,
+    getPlayersIdOptOut: `${urlBase}${tournament}${apiV1}/reports/optouts/{{tournamentId}}`,
+  },
+  segments: {
+    getAll: `${urlBase}${jackpotService}${apiV1}/segments`,
+    create: `${urlBase}${jackpotService}${apiV1}/segments`,
+    update: `${urlBase}${jackpotService}${apiV1}/segments`,
+    delete: `${urlBase}${jackpotService}${apiV1}/segments`,
+    file: `${urlBase}${jackpotService}${apiV1}/segments/file`,
+    segmentsPerJackpot: `${urlBase}${jackpotService}${apiV1}/segments/jackpot/{{jackpotId}}`,
+    segmentsPerPlayer: `${urlBase}${jackpotService}${apiV1}/segments/player/{{playerId}}`,
+    bind: `${urlBase}${jackpotService}${apiV1}/segments/bind/{{jackpotId}}/{{segmentId}}`,
+    unbind: `${urlBase}${jackpotService}${apiV1}/segments/unbind/{{jackpotId}}/{{segmentId}}`,
+    bindPlayer: `${urlBase}${jackpotService}${apiV1}/segments/bind/player/{{playerId}}/{{segmentId}}`,
+    unbindPlayer: `${urlBase}${jackpotService}${apiV1}/segments/unbind/player/{{playerId}}/{{segmentId}}`,
+  },
+  events: {
+    getAll: `${urlBase}${jackpotService}${apiV1}/events`,
+    create: `${urlBase}${jackpotService}${apiV1}/events`,
+    update: `${urlBase}${jackpotService}${apiV1}/events`,
+    delete: `${urlBase}${jackpotService}${apiV1}/events`,
+    file: `${urlBase}${jackpotService}${apiV1}/events/file`,
+    eventsPerJackpot: `${urlBase}${jackpotService}${apiV1}/events/jackpot/{{jackpotId}}`,
+    bind: `${urlBase}${jackpotService}${apiV1}/events/bind/{{playerId}}/{{eventId}}`,
+    unbind: `${urlBase}${jackpotService}${apiV1}/events/unbind/{{playerId}}/{{eventId}}`,
+    bindToJackpot: `${urlBase}${jackpotService}${apiV1}/events/bind/{{jackpotId}}/{{eventId}}`,
+    unbindToJackpot: `${urlBase}${jackpotService}${apiV1}/events/unbind/{{jackpotId}}/{{eventId}}`,
+  },
+  currencies: {
+    getAll: `${urlBase}${gatewayService}${apiV1}/currencies`,
+    create: `${urlBase}${gatewayService}${apiV1}/currencies`,
+    update: `${urlBase}${gatewayService}${apiV1}/currencies`,
+    delete: `${urlBase}${gatewayService}${apiV1}/currencies`,
+  },
+  playerOptins: {
+    getAll: `${urlBase}${jackpotService}${apiV1}/player-optins`,
+    create: `${urlBase}${jackpotService}${apiV1}/player-optins`,
+    update: `${urlBase}${jackpotService}${apiV1}/player-optins`,
+  },
+  seeds: {
+    getAll: `${urlBase}${jackpotService}${apiV1}/seeds`,
+    getById: `${urlBase}${jackpotService}${apiV1}/seeds`,
+    create: `${urlBase}${jackpotService}${apiV1}/seeds`,
+    update: `${urlBase}${jackpotService}${apiV1}/seeds`,
+    delete: `${urlBase}${jackpotService}${apiV1}/seeds`,
+    exports: {
+    seedTransactions: `${urlBase}${jackpotService}${apiV1}/exports/seed-transactions`,
+  },
+  },
+  pools: {
+    getAll: `${urlBase}${jackpotService}${apiV1}/pools`,
+    getById: `${urlBase}${jackpotService}${apiV1}/pools`,
+    create: `${urlBase}${jackpotService}${apiV1}/pools`,
+    update: `${urlBase}${jackpotService}${apiV1}/pools`,
+    delete: `${urlBase}${jackpotService}${apiV1}/pools`,
+    exports: {
+    poolTransactions: `${urlBase}${jackpotService}${apiV1}/exports/pool-transactions`,
+  },
+  },
+  wins: {
+    getAll: `${urlBase}${jackpotService}${apiV1}/wins`,
+    create: `${urlBase}${jackpotService}${apiV1}/wins`,
+    update: `${urlBase}${jackpotService}${apiV1}/wins`,
+    delete: `${urlBase}${jackpotService}${apiV1}/wins`,
+    csv: `${urlBase}${jackpotService}${apiV1}/wins/generate-csv`,
+     approve: `${urlBase}${jackpotService}${apiV1}/wins/approve/{{winId}}`,
+    reject: `${urlBase}${jackpotService}${apiV1}/wins/reject/{{winId}}`,
+  },
+  winsV2: {
+    getAll: `${urlBase}${jackpotService}${apiV2}/wins`,
+    create: `${urlBase}${jackpotService}${apiV2}/wins`,
+    update: `${urlBase}${jackpotService}${apiV2}/wins`,
+    delete: `${urlBase}${jackpotService}${apiV2}/wins`,
+  },
+  users: {
+    getAll: `${urlBase}${gatewayService}${apiV1}/users`,
+    create: `${urlBase}${gatewayService}${apiV1}/users`,
+    update: `${urlBase}${gatewayService}${apiV1}/users`,
+    delete: `${urlBase}${gatewayService}${apiV1}/users`,
+  },
+  translationsJP: { // this gonna be jackpot service (widget translations)
+    getDefault: `${urlBase}${jackpotService}${apiV1}/default-translations`,
+    getAll: `${urlBase}${jackpotService}${apiV1}/translations`,
+    create: `${urlBase}${jackpotService}${apiV1}/translations`,
+    update: `${urlBase}${jackpotService}${apiV1}/translations`,
+    delete: `${urlBase}${jackpotService}${apiV1}/translations`,
+  },
+  translationsBO: { // translations for common things like the BO
+    getAll: `${urlBase}${gatewayService}${apiV1}/translations`,
+    create: `${urlBase}${gatewayService}${apiV1}/translations`,
+    update: `${urlBase}${gatewayService}${apiV1}/translations`,
+    delete: `${urlBase}${gatewayService}${apiV1}/translations`,
+    file: `${urlBase}${gatewayService}${apiV1}/translations/file`,
+    csv: `${urlBase}${gatewayService}${apiV1}/translations/generate-csv`,
+  },
+  defaultTranslationsBrand: {
+    getAll: `${urlBase}${jackpotService}${apiV1}/default-translations`,
+    create: `${urlBase}${jackpotService}${apiV1}/default-translations`,
+    update: `${urlBase}${jackpotService}${apiV1}/default-translations`,
+    delete: `${urlBase}${jackpotService}${apiV1}/default-translations`,
+  },
+  operators: {
+    getAll: `${urlBase}${gatewayService}${apiV1}/operators`,
+    create: `${urlBase}${gatewayService}${apiV1}/operators`,
+    update: `${urlBase}${gatewayService}${apiV1}/operators`,
+    delete: `${urlBase}${gatewayService}${apiV1}/operators`,
+    generateKey: `${urlBase}${gatewayService}${apiV1}/operators/generate/{{operatorId}}`,
+  },
+  tiers: {
+    getAll: `${urlBase}${gatewayService}${apiV1}/tiers`,
+    create: `${urlBase}${gatewayService}${apiV1}/tiers`,
+    update: `${urlBase}${gatewayService}${apiV1}/tiers`,
+    delete: `${urlBase}${gatewayService}${apiV1}/tiers`,
+  },
+  products: {
+    getAll: `${urlBase}${gatewayService}${apiV1}/products`,
+    create: `${urlBase}${gatewayService}${apiV1}/products`,
+    update: `${urlBase}${gatewayService}${apiV1}/products`,
+    delete: `${urlBase}${gatewayService}${apiV1}/products`,
+  },
+  brandProducts: {
+    list: `${urlBase}${gatewayService}${apiV1}/brands/{{brandId}}/products`,
+    upsert: `${urlBase}${gatewayService}${apiV1}/brands/{{brandId}}/products/{{productId}}`,
+    delete: `${urlBase}${gatewayService}${apiV1}/brands/{{brandId}}/products/{{productId}}`,
+  },
+  exchangeRates: {
+    getAll: `${urlBase}${gatewayService}${apiV1}/exchange-rates`,
+    create: `${urlBase}${gatewayService}${apiV1}/exchange-rates`,
+    update: `${urlBase}${gatewayService}${apiV1}/exchange-rates`,
+    delete: `${urlBase}${gatewayService}${apiV1}/exchange-rates`,
+  },
+  seedTransaction: {
+    getAll: `${urlBase}${jackpotService}${apiV1}/seed-transactions/seed/{{seedTransactionId}}`,
+  },
+  poolTransaction: {
+    getAll: `${urlBase}${jackpotService}${apiV1}/pool-transactions/pool/{{poolTransactionId}}`,
+  },
+  alerts: {
+    getAll: `${urlBase}${jackpotService}${apiV1}/alerts`,
+    create: `${urlBase}${jackpotService}${apiV1}/alerts`,
+    update: `${urlBase}${jackpotService}${apiV1}/alerts`,
+    delete: `${urlBase}${jackpotService}${apiV1}/alerts`,
+  },
+  properties: {
+    getAll: `${urlBase}${gatewayService}${apiV1}/properties`,
+    create: `${urlBase}${gatewayService}${apiV1}/properties`,
+    update: `${urlBase}${gatewayService}${apiV1}/properties`,
+    delete: `${urlBase}${gatewayService}${apiV1}/properties`,
+  },
+  simulator: {
+    simulate: `${urlBase}${jackpotService}${apiV1}/event/simulate`,
+    bet: `${urlBase}${jackpotService}${apiV1}/event/simulate-bet`,
+  },
+  luckWheel: {
+    wheel: {
+      getAll: `${urlBase}${luckyWheelService}${apiV1}/wheels`,
+      create: `${urlBase}${luckyWheelService}${apiV1}/wheels`,
+      update: `${urlBase}${luckyWheelService}${apiV1}/wheels`,
+      delete: `${urlBase}${luckyWheelService}${apiV1}/wheels`,
+    },
+    rule: {
+      getAll: `${urlBase}${luckyWheelService}${apiV1}/wheelrules`,
+      create: `${urlBase}${luckyWheelService}${apiV1}/wheelrules`,
+      update: `${urlBase}${luckyWheelService}${apiV1}/wheelrules`,
+      delete: `${urlBase}${luckyWheelService}${apiV1}/wheelrules`,
+    },
+    ruleInstance: {
+      getAll: `${urlBase}${luckyWheelService}${apiV1}/wheelruleinstances`,
+      create: `${urlBase}${luckyWheelService}${apiV1}/wheelruleinstances`,
+      update: `${urlBase}${luckyWheelService}${apiV1}/wheelruleinstances`,
+      delete: `${urlBase}${luckyWheelService}${apiV1}/wheelruleinstances`,
+    },
+    ruleProgress: {
+      getAll: `${urlBase}${luckyWheelService}${apiV1}/ruleprogress`,
+      update: `${urlBase}${luckyWheelService}${apiV1}/ruleprogress`,
+      delete: `${urlBase}${luckyWheelService}${apiV1}/ruleprogress`,
+    },
+  },
+  //JACKPOT RACES API
+  JR: {
+
+    jackpotRace: {
+      getAll: `${urlBase}${spinsprint}${apiV1}/spinsprint`,
+      create: `${urlBase}${spinsprint}${apiV1}/spinsprint`,
+      update: `${urlBase}${spinsprint}${apiV1}/spinsprint`,
+      delete: `${urlBase}${spinsprint}${apiV1}/spinsprint`,
+    },
+    playerWins: {
+      getAll: `${urlBase}${spinsprint}${apiV1}/player-wins`,
+      create: `${urlBase}${spinsprint}${apiV1}/player-wins`,
+      update: `${urlBase}${spinsprint}${apiV1}/player-wins`,
+      delete: `${urlBase}${spinsprint}${apiV1}/player-wins`,
+      csv: `${urlBase}${spinsprint}${apiV1}/player-wins/export`,
+    },
+    player: {
+      getAll: `${urlBase}${spinsprint}${apiV1}/player`,
+      create: `${urlBase}${spinsprint}${apiV1}/player`,
+      update: `${urlBase}${spinsprint}${apiV1}/player`,
+      delete: `${urlBase}${spinsprint}${apiV1}/player`,
+    },
+    win: {
+      getAll: `${urlBase}${spinsprint}${apiV1}/spinsprint/win`,
+      create: `${urlBase}${spinsprint}${apiV1}/spinsprint/win`,
+      update: `${urlBase}${spinsprint}${apiV1}/spinsprint/win`,
+      delete: `${urlBase}${spinsprint}${apiV1}/spinsprint/win`,
+      updateInstantWin: `${urlBase}${spinsprint}${apiV1}/spinsprint/win`,
+    },
+    instance: {
+      getAll: `${urlBase}${spinsprint}${apiV1}/spinsprint/instance`,
+      create: `${urlBase}${spinsprint}${apiV1}/spinsprint/instance`,
+      update: `${urlBase}${spinsprint}${apiV1}/spinsprint/instance`,
+      delete: `${urlBase}${spinsprint}${apiV1}/spinsprint/instance`,
+      bulkGenerate: `${urlBase}${spinsprint}${apiV1}/spinsprint/instance/bulk-generate`,
+    },
+    widget: {
+  getAll: `${urlBase}${spinsprint}${apiV1}/spinsprint/widget`,
+  getBySprint: `${urlBase}${spinsprint}${apiV1}/spinsprint/widget/{{spinSprintId}}`,
+  create: `${urlBase}${spinsprint}${apiV1}/spinsprint/widget`,
+  update: `${urlBase}${spinsprint}${apiV1}/spinsprint/widget`,
+  delete: `${urlBase}${spinsprint}${apiV1}/spinsprint/widget`,
+},
+
+    payout: {
+      getAll: `${urlBase}${spinsprint}${apiV1}/spinsprint/payout`,
+      getByRace: `${urlBase}${spinsprint}${apiV1}/spinsprint/payout/race/{{raceId}}`,
+      create: `${urlBase}${spinsprint}${apiV1}/spinsprint/payout`,
+      update: `${urlBase}${spinsprint}${apiV1}/spinsprint/payout`,
+      delete: `${urlBase}${spinsprint}${apiV1}/spinsprint/payout`,
+    },
+    segments: {
+      getAll: `${urlBase}${spinsprint}${apiV1}/segments`,
+      create: `${urlBase}${spinsprint}${apiV1}/segments`,
+      update: `${urlBase}${spinsprint}${apiV1}/segments`,
+      delete: `${urlBase}${spinsprint}${apiV1}/segments`,
+      file: `${urlBase}${spinsprint}${apiV1}/segments/file`,
+      segmentsPerJackpotRace: `${urlBase}${spinsprint}${apiV1}/segments/spinsprint/{{spinSprintId}}`,
+      segmentsPerPlayer: `${urlBase}${spinsprint}${apiV1}/segments/player/{{playerId}}`,
+      bind: `${urlBase}${spinsprint}${apiV1}/segments/bind/{{spinSprintId}}/{{segmentId}}`,
+      unbind: `${urlBase}${spinsprint}${apiV1}/segments/unbind/{{spinSprintId}}/{{segmentId}}`,
+      bindPlayer: `${urlBase}${spinsprint}${apiV1}/segments/bind/player/{{playerId}}/{{segmentId}}`,
+      unbindPlayer: `${urlBase}${spinsprint}${apiV1}/segments/unbind/player/{{playerId}}/{{segmentId}}`,
+    },
+    playerOptins: {
+      getAll: `${urlBase}${spinsprint}${apiV1}/player-optins`,
+      create: `${urlBase}${spinsprint}${apiV1}/player-optins`,
+      update: `${urlBase}${spinsprint}${apiV1}/player-optins`,
+    },
+    events: {
+      getAll: `${urlBase}${spinsprint}${apiV1}/events`,
+      create: `${urlBase}${spinsprint}${apiV1}/events`,
+      update: `${urlBase}${spinsprint}${apiV1}/events`,
+      delete: `${urlBase}${spinsprint}${apiV1}/events`,
+      file: `${urlBase}${spinsprint}${apiV1}/events/file`,
+      eventsPerJackpot: `${urlBase}${spinsprint}${apiV1}/events/spinsprint/{{spinSprintId}}`,
+      bindPlayer: `${urlBase}${spinsprint}${apiV1}/events/bind/{{playerId}}/{{eventId}}`,
+      unbindPlayer: `${urlBase}${spinsprint}${apiV1}/events/unbind/{{playerId}}/{{eventId}}`,
+      bindToJackpotRace: `${urlBase}${spinsprint}${apiV1}/events/bind/{{spinSprintId}}/{{eventId}}`,
+      unbindToJackpotRace: `${urlBase}${spinsprint}${apiV1}/events/unbind/{{spinSprintId}}/{{eventId}}`,
+    },
+  },
+  //JACKPOT RACES API
+
+  // RAFFLE API
+  RF: {
+
+    raffle: {
+      getAll: `${urlBase}${raffle}${apiV1}/raffle`,
+      create: `${urlBase}${raffle}${apiV1}/raffle`,
+      update: `${urlBase}${raffle}${apiV1}/raffle`,
+      delete: `${urlBase}${raffle}${apiV1}/raffle`,
+    },
+    playerWins: {
+      getAll: `${urlBase}${raffle}${apiV1}/player-wins`,
+      create: `${urlBase}${raffle}${apiV1}/player-wins`,
+      update: `${urlBase}${raffle}${apiV1}/player-wins`,
+      delete: `${urlBase}${raffle}${apiV1}/player-wins`,
+      csv: `${urlBase}${raffle}${apiV1}/player-wins/export`,
+    },
+    player: {
+      getAll: `${urlBase}${raffle}${apiV1}/player`,
+      create: `${urlBase}${raffle}${apiV1}/player`,
+      update: `${urlBase}${raffle}${apiV1}/player`,
+      delete: `${urlBase}${raffle}${apiV1}/player`,
+    },
+    win: {
+      getAll: `${urlBase}${raffle}${apiV1}/raffle/win`,
+      create: `${urlBase}${raffle}${apiV1}/raffle/win`,
+      update: `${urlBase}${raffle}${apiV1}/raffle/win`,
+      delete: `${urlBase}${raffle}${apiV1}/raffle/win`,
+      updateInstantWin: `${urlBase}${raffle}${apiV1}/raffle/win`,
+    },
+    instance: {
+      getAll: `${urlBase}${raffle}${apiV1}/raffle/instance`,
+      create: `${urlBase}${raffle}${apiV1}/raffle/instance`,
+      update: `${urlBase}${raffle}${apiV1}/raffle/instance`,
+      delete: `${urlBase}${raffle}${apiV1}/raffle/instance`,
+      bulkGenerate: `${urlBase}${raffle}${apiV1}/raffle/instance/bulk-generate`,
+    },
+    widget: {
+      getAll: `${urlBase}${raffle}${apiV1}/raffle/widget`,
+      getByRaffle: `${urlBase}${raffle}${apiV1}/raffle/widget/{{raffleId}}`,
+      create: `${urlBase}${raffle}${apiV1}/raffle/widget`,
+      update: `${urlBase}${raffle}${apiV1}/raffle/widget`,
+      delete: `${urlBase}${raffle}${apiV1}/raffle/widget`,
+    },
+
+    payout: {
+      getAll: `${urlBase}${raffle}${apiV1}/raffle/payout`,
+      getByRace: `${urlBase}${raffle}${apiV1}/raffle/payout/raffle/{{raceId}}`,
+      create: `${urlBase}${raffle}${apiV1}/raffle/payout`,
+      update: `${urlBase}${raffle}${apiV1}/raffle/payout`,
+      delete: `${urlBase}${raffle}${apiV1}/raffle/payout`,
+    },
+    segments: {
+      getAll: `${urlBase}${raffle}${apiV1}/segments`,
+      create: `${urlBase}${raffle}${apiV1}/segments`,
+      update: `${urlBase}${raffle}${apiV1}/segments`,
+      delete: `${urlBase}${raffle}${apiV1}/segments`,
+      file: `${urlBase}${raffle}${apiV1}/segments/file`,
+      segmentsPerRaffle: `${urlBase}${raffle}${apiV1}/segments/raffle/{{raffleId}}`,
+      segmentsPerPlayer: `${urlBase}${raffle}${apiV1}/segments/player/{{playerId}}`,
+      bind: `${urlBase}${raffle}${apiV1}/segments/bind/{{raffleId}}/{{segmentId}}`,
+      unbind: `${urlBase}${raffle}${apiV1}/segments/unbind/{{raffleId}}/{{segmentId}}`,
+      bindPlayer: `${urlBase}${raffle}${apiV1}/segments/bind/player/{{playerId}}/{{segmentId}}`,
+      unbindPlayer: `${urlBase}${raffle}${apiV1}/segments/unbind/player/{{playerId}}/{{segmentId}}`,
+    },
+    playerOptins: {
+      getAll: `${urlBase}${raffle}${apiV1}/player-optins`,
+      create: `${urlBase}${raffle}${apiV1}/player-optins`,
+      update: `${urlBase}${raffle}${apiV1}/player-optins`,
+      delete: `${urlBase}${raffle}${apiV1}/player-optins`,
+    },
+    events: {
+      getAll: `${urlBase}${raffle}${apiV1}/events`,
+      create: `${urlBase}${raffle}${apiV1}/events`,
+      update: `${urlBase}${raffle}${apiV1}/events`,
+      delete: `${urlBase}${raffle}${apiV1}/events`,
+      file: `${urlBase}${raffle}${apiV1}/events/file`,
+      eventsPerRaffle: `${urlBase}${raffle}${apiV1}/events/raffle/{{raffleId}}`,
+      bindPlayer: `${urlBase}${raffle}${apiV1}/events/bind/{{playerId}}/{{eventId}}`,
+      unbindPlayer: `${urlBase}${raffle}${apiV1}/events/unbind/{{playerId}}/{{eventId}}`,
+      bindToRaffle: `${urlBase}${raffle}${apiV1}/events/bind/{{raffleId}}/{{eventId}}`,
+      unbindToRaffle: `${urlBase}${raffle}${apiV1}/events/unbind/{{raffleId}}/{{eventId}}`,
+    },
+  },
+  // RAFFLE API
+
+  // TOURNAMENTS RACES API
+TR: {
+
+    tournament: {
+      getAll: `${urlBase}${tournament}${apiV1}/tournament`,
+      create: `${urlBase}${tournament}${apiV1}/tournament`,
+      update: `${urlBase}${tournament}${apiV1}/tournament`,
+      delete: `${urlBase}${tournament}${apiV1}/tournament`,
+    },
+    playerWins: {
+      getAll: `${urlBase}${tournament}${apiV1}/player-wins`,
+      create: `${urlBase}${tournament}${apiV1}/player-wins`,
+      update: `${urlBase}${tournament}${apiV1}/player-wins`,
+      delete: `${urlBase}${tournament}${apiV1}/player-wins`,
+    },
+    player: {
+      getAll: `${urlBase}${tournament}${apiV1}/player`,
+      create: `${urlBase}${tournament}${apiV1}/player`,
+      update: `${urlBase}${tournament}${apiV1}/player`,
+      delete: `${urlBase}${tournament}${apiV1}/player`,
+    },
+    win: {
+      getAll: `${urlBase}${tournament}${apiV1}/tournament/win`,
+      create: `${urlBase}${tournament}${apiV1}/tournament/win`,
+      update: `${urlBase}${tournament}${apiV1}/tournament/win`,
+      delete: `${urlBase}${tournament}${apiV1}/tournament/win`,
+    },
+    instance: {
+      getAll: `${urlBase}${tournament}${apiV1}/tournament/instance`,
+      create: `${urlBase}${tournament}${apiV1}/tournament/instance`,
+      update: `${urlBase}${tournament}${apiV1}/tournament/instance`,
+      delete: `${urlBase}${tournament}${apiV1}/tournament/instance`,
+    },
+    payout: {
+      getAll: `${urlBase}${tournament}${apiV1}/tournament/payout`,
+      getByRace: `${urlBase}${tournament}${apiV1}/tournament/payout/race/{{raceId}}`,
+      create: `${urlBase}${tournament}${apiV1}/tournament/payout`,
+      update: `${urlBase}${tournament}${apiV1}/tournament/payout`,
+      delete: `${urlBase}${tournament}${apiV1}/tournament/payout`,
+  },
+
+     rule: {
+      getAllByTournament: `${urlBase}${tournament}${apiV1}/rule/tournament/{{tournamentId}}`,
+      getAllByInstance: `${urlBase}${tournament}${apiV1}/rule/instance/{{tournamentInstanceId}}`,
+      create: `${urlBase}${tournament}${apiV1}/rule`,
+      update: `${urlBase}${tournament}${apiV1}/rule`,
+      delete: `${urlBase}${tournament}${apiV1}/rule`,
+    },
+    segments: {
+      getAll: `${urlBase}${tournament}${apiV1}/segments`,
+      create: `${urlBase}${tournament}${apiV1}/segments`,
+      update: `${urlBase}${tournament}${apiV1}/segments`,
+      delete: `${urlBase}${tournament}${apiV1}/segments`,
+      file: `${urlBase}${tournament}${apiV1}/segments/file`,
+      segmentsPerJTournamentRace: `${urlBase}${tournament}${apiV1}/segments/tournament/{{tournamentId}}`,
+      segmentsPerPlayer: `${urlBase}${tournament}${apiV1}/segments/player/{{playerId}}`,
+      bind: `${urlBase}${tournament}${apiV1}/segments/bind/{{spinSprintId}}/{{segmentId}}`,
+      unbind: `${urlBase}${tournament}${apiV1}/segments/unbind/{{spinSprintId}}/{{segmentId}}`,
+      bindPlayer: `${urlBase}${tournament}${apiV1}/segments/bind/player/{{playerId}}/{{segmentId}}`,
+      unbindPlayer: `${urlBase}${tournament}${apiV1}/segments/unbind/player/{{playerId}}/{{segmentId}}`,
+    },
+    playerOptins: {
+      getAll: `${urlBase}${tournament}${apiV1}/player-optins`,
+      create: `${urlBase}${tournament}${apiV1}/player-optins`,
+      update: `${urlBase}${tournament}${apiV1}/player-optins`,
+    },
+    events: {
+      getAll: `${urlBase}${tournament}${apiV1}/events`,
+      create: `${urlBase}${tournament}${apiV1}/events`,
+      update: `${urlBase}${tournament}${apiV1}/events`,
+      delete: `${urlBase}${tournament}${apiV1}/events`,
+      file: `${urlBase}${tournament}${apiV1}/events/file`,
+      eventsPerTournament: `${urlBase}${tournament}${apiV1}/events/tournament/{{tournamentId}}`,
+      bindPlayer: `${urlBase}${tournament}${apiV1}/events/bind/{{playerId}}/{{eventId}}`,
+      unbindPlayer: `${urlBase}${tournament}${apiV1}/events/unbind/{{playerId}}/{{eventId}}`,
+      bindToTournamentRace: `${urlBase}${tournament}${apiV1}/events/bind/{{tournamentId}}/{{eventId}}`,
+      unbindToTournamentRace: `${urlBase}${tournament}${apiV1}/events/unbind/{{tournamentId}}/{{eventId}}`,
+    },
+  },
+  // TOURNAMENTS API
+}
+
+export default urls

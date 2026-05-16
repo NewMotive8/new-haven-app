@@ -1,0 +1,24 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 6px;
+  white-space: nowrap;
+  background: var(--badge-bg, #666);
+  color: var(--badge-text, white);
+}
+
+.iconWrapper {
+  display: flex;
+  align-items: center;
+  line-height: 1;
+  color: var(--badge-icon, currentColor);
+}
+
+.iconWrapper svg {
+  fill: currentColor;
+  stroke: currentColor;
+}

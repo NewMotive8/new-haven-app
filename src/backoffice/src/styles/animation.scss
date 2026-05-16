@@ -1,0 +1,12 @@
+@keyframes rotation {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(359deg);
+    }
+  }
+  .rotate-loading {
+    transform-origin: 50% 50%;
+    animation: rotation 1s infinite linear;
+  }

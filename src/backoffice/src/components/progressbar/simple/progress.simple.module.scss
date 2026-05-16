@@ -1,0 +1,38 @@
+.progress-wrapper {
+    width: 100%;
+    padding: 0 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    .header {
+        display: flex;
+        width: 100%;
+        justify-content: space-between;
+        margin-top: -5px;
+        .label {
+            width: calc(100% - 25px);
+            text-overflow: ellipsis;
+            overflow-x: hidden;
+            white-space: nowrap;
+        }
+        .percent {
+            width: 25px;
+            text-align: end;
+        }
+    }
+
+    .progress-placeholder {
+        width: 100%;
+        height: 4px;
+        border-radius: 4pt;
+        background-color: #eee;
+        
+        .progress {
+            content: '';
+            height: 4px;
+            background-color: var(--secondary);
+            border-radius: 4pt;
+        }
+
+    }
+}

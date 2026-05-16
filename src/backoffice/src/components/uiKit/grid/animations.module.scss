@@ -1,0 +1,546 @@
+// Fade Animations
+@keyframes fade {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fade-up {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fade-down {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fade-left {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes fade-right {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes fade-up-right {
+    from {
+        opacity: 0;
+        transform: translate(20px, 20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate(0, 0);
+    }
+}
+
+@keyframes fade-up-left {
+    from {
+        opacity: 0;
+        transform: translate(-20px, 20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate(0, 0);
+    }
+}
+
+@keyframes fade-down-right {
+    from {
+        opacity: 0;
+        transform: translate(20px, -20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate(0, 0);
+    }
+}
+
+@keyframes fade-down-left {
+    from {
+        opacity: 0;
+        transform: translate(-20px, -20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate(0, 0);
+    }
+}
+
+// Flip Animations
+@keyframes flip-up {
+    from {
+        transform: rotateX(90deg);
+    }
+
+    to {
+        transform: rotateX(0);
+    }
+}
+
+@keyframes flip-down {
+    from {
+        transform: rotateX(-90deg);
+    }
+
+    to {
+        transform: rotateX(0);
+    }
+}
+
+@keyframes flip-left {
+    from {
+        transform: rotateY(90deg);
+    }
+
+    to {
+        transform: rotateY(0);
+    }
+}
+
+@keyframes flip-right {
+    from {
+        transform: rotateY(-90deg);
+    }
+
+    to {
+        transform: rotateY(0);
+    }
+}
+
+// Slide Animations
+@keyframes slide-up {
+    from {
+        transform: translateY(100%);
+    }
+
+    to {
+        transform: translateY(0);
+    }
+}
+
+@keyframes slide-down {
+    from {
+        transform: translateY(-100%);
+    }
+
+    to {
+        transform: translateY(0);
+    }
+}
+
+@keyframes slide-left {
+    from {
+        transform: translateX(100%);
+    }
+
+    to {
+        transform: translateX(0);
+    }
+}
+
+@keyframes slide-right {
+    from {
+        transform: translateX(-100%);
+    }
+
+    to {
+        transform: translateX(0);
+    }
+}
+
+// Zoom Animations
+@keyframes zoom-in {
+    from {
+        transform: scale(0.5);
+    }
+
+    to {
+        transform: scale(1);
+    }
+}
+
+@keyframes zoom-in-up {
+    from {
+        transform: scale(0.5) translateY(20px);
+    }
+
+    to {
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes zoom-in-down {
+    from {
+        transform: scale(0.5) translateY(-20px);
+    }
+
+    to {
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes zoom-in-left {
+    from {
+        transform: scale(0.5) translateX(20px);
+    }
+
+    to {
+        transform: scale(1) translateX(0);
+    }
+}
+
+@keyframes zoom-in-right {
+    from {
+        transform: scale(0.5) translateX(-20px);
+    }
+
+    to {
+        transform: scale(1) translateX(0);
+    }
+}
+
+@keyframes zoom-out {
+    from {
+        transform: scale(1.5);
+    }
+
+    to {
+        transform: scale(1);
+    }
+}
+
+@keyframes zoom-out-up {
+    from {
+        transform: scale(1.5) translateY(20px);
+    }
+
+    to {
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes zoom-out-down {
+    from {
+        transform: scale(1.5) translateY(-20px);
+    }
+
+    to {
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes zoom-out-left {
+    from {
+        transform: scale(1.5) translateX(20px);
+    }
+
+    to {
+        transform: scale(1) translateX(0);
+    }
+}
+
+@keyframes zoom-out-right {
+    from {
+        transform: scale(1.5) translateX(-20px);
+    }
+
+    to {
+        transform: scale(1) translateX(0);
+    }
+}
+
+
+// Default state for each animation
+.fade,
+.fade-up,
+.fade-down,
+.fade-left,
+.fade-right,
+.fade-up-right,
+.fade-up-left,
+.fade-down-right,
+.fade-down-left,
+.flip-up,
+.flip-down,
+.flip-left,
+.flip-right,
+.slide-up,
+.slide-down,
+.slide-left,
+.slide-right,
+.zoom-in,
+.zoom-in-up,
+.zoom-in-down,
+.zoom-in-left,
+.zoom-in-right,
+.zoom-out,
+.zoom-out-up,
+.zoom-out-down,
+.zoom-out-left,
+.zoom-out-right {
+    opacity: 0;
+    animation-fill-mode: forwards;
+    transition: all 0.3s ease-in-out;
+}
+
+// Active state for each animation
+.fade.active {
+    animation: fade 1s;
+}
+
+.fade-up.active {
+    animation: fade-up 1s;
+}
+
+.fade-down.active {
+    animation: fade-down 1s;
+}
+
+.fade-left.active {
+    animation: fade-left 1s;
+}
+
+.fade-right.active {
+    animation: fade-right 1s;
+}
+
+.fade-up-right.active {
+    animation: fade-up-right 1s;
+}
+
+.fade-up-left.active {
+    animation: fade-up-left 1s;
+}
+
+.fade-down-right.active {
+    animation: fade-down-right 1s;
+}
+
+.fade-down-left.active {
+    animation: fade-down-left 1s;
+}
+
+.flip-up.active {
+    animation: flip-up 1s;
+}
+
+.flip-down.active {
+    animation: flip-down 1s;
+}
+
+.flip-left.active {
+    animation: flip-left 1s;
+}
+
+.flip-right.active {
+    animation: flip-right 1s;
+}
+
+.slide-up.active {
+    animation: slide-up 1s;
+}
+
+.slide-down.active {
+    animation: slide-down 1s;
+}
+
+.slide-left.active {
+    animation: slide-left 1s;
+}
+
+.slide-right.active {
+    animation: slide-right 1s;
+}
+
+.zoom-in.active {
+    animation: zoom-in 1s;
+}
+
+.zoom-in-up.active {
+    animation: zoom-in-up 1s;
+}
+
+.zoom-in-down.active {
+    animation: zoom-in-down 1s;
+}
+
+.zoom-in-left.active {
+    animation: zoom-in-left 1s;
+}
+
+.zoom-in-right.active {
+    animation: zoom-in-right 1s;
+}
+
+.zoom-out.active {
+    animation: zoom-out 1s;
+}
+
+.zoom-out-up.active {
+    animation: zoom-out-up 1s;
+}
+
+.zoom-out-down.active {
+    animation: zoom-out-down 1s;
+}
+
+.zoom-out-left.active {
+    animation: zoom-out-left 1s;
+}
+
+.zoom-out-right.active {
+    animation: zoom-out-right 1s;
+}
+
+// Anchor Placements
+.top-bottom {
+    transform-origin: top bottom;
+}
+
+.top-center {
+    transform-origin: top center;
+}
+
+.top-top {
+    transform-origin: top top;
+}
+
+.center-bottom {
+    transform-origin: center bottom;
+}
+
+.center-center {
+    transform-origin: center center;
+}
+
+.center-top {
+    transform-origin: center top;
+}
+
+.bottom-bottom {
+    transform-origin: bottom bottom;
+}
+
+.bottom-center {
+    transform-origin: bottom center;
+}
+
+.bottom-top {
+    transform-origin: bottom top;
+}
+
+// Easing Functions
+.linear {
+    animation-timing-function: linear;
+}
+
+.ease {
+    animation-timing-function: ease;
+}
+
+.ease-in {
+    animation-timing-function: ease-in;
+}
+
+.ease-out {
+    animation-timing-function: ease-out;
+}
+
+.ease-in-out {
+    animation-timing-function: ease-in-out;
+}
+
+.ease-in-back {
+    animation-timing-function: cubic-bezier(0.6, -0.28, 0.735, 0.045);
+}
+
+.ease-out-back {
+    animation-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.ease-in-sine {
+    animation-timing-function: cubic-bezier(0.47, 0, 0.745, 0.715);
+}
+
+.ease-out-sine {
+    animation-timing-function: cubic-bezier(0.39, 0.575, 0.565, 1);
+}
+
+.ease-in-out-sine {
+    animation-timing-function: cubic-bezier(0.445, 0.05, 0.55, 0.95);
+}
+
+.ease-in-quad {
+    animation-timing-function: cubic-bezier(0.55, 0.085, 0.68, 0.53);
+}
+
+.ease-out-quad {
+    animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.ease-in-out-quad {
+    animation-timing-function: cubic-bezier(0.455, 0.03, 0.515, 0.955);
+}
+
+.ease-in-cubic {
+    animation-timing-function: cubic-bezier(0.55, 0.055, 0.675, 0.19);
+}
+
+.ease-out-cubic {
+    animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+
+.ease-in-out-cubic {
+    animation-timing-function: cubic-bezier(0.645, 0.045, 0.355, 1);
+}
+
+.ease-in-quart {
+    animation-timing-function: cubic-bezier(0.895, 0.03, 0.685, 0.22);
+}
+
+.ease-out-quart {
+    animation-timing-function: cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.ease-in-out-quart {
+    animation-timing-function: cubic-bezier(0.77, 0, 0.175, 1);
+}

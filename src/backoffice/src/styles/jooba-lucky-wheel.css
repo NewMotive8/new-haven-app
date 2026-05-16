@@ -1,0 +1,161 @@
+body {
+    background: #333;
+    position: relative;
+}
+
+.jooba-wrapper-wheels {
+    position: relative;
+}
+
+.jooba-wheel {
+    position: relative;
+}
+
+.jooba-pie-selector {
+    font-size: 60px;
+    color: #fff;
+    position: absolute;
+    text-align: center;
+    top: calc(var(--size, 200) / 25 * 1px + 5px);
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 998;
+    text-shadow: 1px 1px 5px #000000;
+}
+
+.jooba-pie {
+    content: '';
+    border-radius: 50% 50% !important;
+    width: calc(var(--size, 200) * 1px) !important;
+    height: calc(var(--size, 200) * 1px) !important;
+    aspect-ratio: 1 / 1;
+    overflow: hidden !important;
+    position: relative;
+    transition: rotate 0.5s ease-in-out;
+}
+
+.jooba-pie-segment {
+    --a: -100%;
+    --b: 100%;
+    --degrees: calc((var(--offset, 0) / 100) * 360);
+    clip-path: polygon(var(--a) var(--a), var(--b) var(--a), var(--b) var(--b), var(--a) var(--b));
+    height: 100%;
+    position: absolute;
+    transform: translate(0, -50%) rotate(90deg) rotate(calc(var(--degrees) * 1deg));
+    transform-origin: 50% 100%;
+    width: 100%;
+}
+
+.jooba-pie-segment-element-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.jooba-pie-segment-text,
+.jooba-pie-segment-icon {
+    position: absolute;
+}
+
+.jooba-pie[data-segments="1"] .jooba-pie-segment-icon {
+    transform: rotate(0deg);
+    bottom: var(--bottom, 45%);
+    left: var(--left, 45%);
+    width: var(--width, 10%);
+}
+
+.jooba-pie[data-segments="2"] .jooba-pie-segment-icon {
+    transform: rotate(0deg);
+    bottom: var(--bottom, 38%);
+    left: var(--left, 45%);
+    width: var(--width, 10%);
+}
+
+.jooba-pie[data-segments="3"] .jooba-pie-segment-icon {
+    transform: rotate(-30deg);
+    bottom: var(--bottom, 25%);
+    left: var(--left, 25%);
+    width: var(--width, 15%);
+}
+
+.jooba-pie[data-segments="4"] .jooba-pie-segment-icon {
+    transform: rotate(-43deg);
+    bottom: var(--bottom, 28%);
+    left: var(--left, 15%);
+    width: var(--width, 10%);
+}
+
+.jooba-pie[data-segments="5"] .jooba-pie-segment-icon {
+    transform: rotate(-50deg);
+    bottom: var(--bottom, 22%);
+    left: var(--left, 11%);
+    width: var(--width, 10%);
+}
+
+.jooba-pie[data-segments="6"] .jooba-pie-segment-icon {
+    transform: rotate(-60deg);
+    bottom: var(--bottom, 18%);
+    left: var(--left, 11%);
+    width: var(--width, 10%);
+}
+
+.jooba-pie[data-segments="7"] .jooba-pie-segment-icon {
+    transform: rotate(-68deg);
+    bottom: var(--bottom, 16%);
+    left: var(--left, 5%);
+    width: var(--width, 8%);
+}
+
+.jooba-pie[data-segments="8"] .jooba-pie-segment-icon {
+    transform: rotate(-68deg);
+    bottom: var(--bottom, 16%);
+    left: var(--left, 5%);
+    width: var(--width, 8%);
+}
+
+.jooba-pie[data-segments="9"] .jooba-pie-segment-icon {
+    transform: rotate(-71deg);
+    bottom: var(--bottom, 14%);
+    left: var(--left, 5%);
+    width: var(--width, 7%);
+}
+
+.jooba-pie[data-segments="10"] .jooba-pie-segment-icon {
+    transform: rotate(-71deg);
+    bottom: var(--bottom, 12%);
+    left: var(--left, 3%);
+    width: var(--width, 7%);
+}
+
+.jooba-pie[data-segments="11"] .jooba-pie-segment-icon {
+    transform: rotate(-71deg);
+    bottom: var(--bottom, 10%);
+    left: var(--left, 3%);
+    width: var(--width, 7%);
+}
+
+.jooba-pie[data-segments="12"] .jooba-pie-segment-icon {
+    transform: rotate(-71deg);
+    bottom: var(--bottom, 10%);
+    left: var(--left, 3%);
+    width: var(--width, 7%);
+}
+
+.jooba-pie-segment:after,
+.jooba-pie-segment:before {
+    background-color: var(--bgc);
+    content: '';
+    height: 100%;
+    width: 100%;
+    position: absolute;
+}
+
+.jooba-pie-segment:before {
+    --degrees: calc((var(--value, 45) / 100) * 360);
+    transform: translate(0, 100%) rotate(calc(var(--degrees) * 1deg));
+    transform-origin: 50% 0%;
+}
+
+.jooba-pie-segment:after {
+    opacity: var(--over50, 0);
+}

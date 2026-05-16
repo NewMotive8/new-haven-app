@@ -1,0 +1,2314 @@
+[
+      {
+          "id": 1,
+          "key": "jackpot-type",
+          "value": "Jackpot Type",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 2,
+          "key": "must-drop",
+          "value": "Must Drop",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "simulator-form",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 3,
+          "key": "wagerAmount",
+          "value": "Average Bet Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 4,
+          "key": "iterations",
+          "value": "Number of Iterations",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 5,
+          "key": "total-items",
+          "value": "Total Count: ",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "list-info",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 6,
+          "key": "exchange-rates",
+          "value": "Exchange Rates",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "side-menu-links",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 7,
+          "key": "simulator-form",
+          "value": "Simulator",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "simulator",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 8,
+          "key": "simulator-form",
+          "value": "Jackpot Simulator",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "simulator",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 9,
+          "key": "simulator-form",
+          "value": "Simulator",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "simulator",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 10,
+          "key": "add",
+          "value": "Create a Jackpot",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "global",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 11,
+          "key": "filter",
+          "value": "Filter",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "datefilter",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 12,
+          "key": "from",
+          "value": "From",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "datefilter",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 13,
+          "key": "to",
+          "value": "To",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "datefilter",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 14,
+          "key": "clear",
+          "value": "Clear",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "datefilter",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 15,
+          "key": "apply",
+          "value": "Apply",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "datefilter",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 223,
+          "key": "cancel",
+          "value": "Cancel",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "datefilter",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 16,
+          "key": "from-date",
+          "value": "From date",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "datefilter",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 17,
+          "key": "to-date",
+          "value": "To date",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "datefilter",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 18,
+          "key": "startDate",
+          "value": "Start Date and Time",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 19,
+          "key": "endDate",
+          "value": "End Date and Time",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 20,
+          "key": "maximumWins",
+          "value": "Maximum Number of Wins",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 224,
+          "key": "payoutStatus",
+          "value": "Payout Status",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 21,
+          "key": "jackpots-administration",
+          "value": "Create a Jackpot",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "jackpots",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 22,
+          "key": "add",
+          "value": "Create a Jackpot",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "jackpots",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 23,
+          "key": "select-a-jackpot",
+          "value": "Select a Jackpot to view its reports.",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "dashboard",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 24,
+          "key": "id",
+          "value": "Event Id",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 18,
+          "key": "name",
+          "value": "Operator Name",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 19,
+          "key": "actions",
+          "value": "Actions",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 20,
+          "key": "no-items-to-display",
+          "value": "There is currently nothing to display.",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "global",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 21,
+          "key": "brand-player-id",
+          "value": "Brand's Player Id",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 22,
+          "key": "total-wins",
+          "value": "Total Jackpot Wins",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 23,
+          "key": "players",
+          "value": "Jackpot Players",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "players",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 24,
+          "key": "upload-list",
+          "value": "Upload Player CSV",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "global",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 25,
+          "key": "add",
+          "value": "Manually Add an Event",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "event",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 26,
+          "key": "description",
+          "value": "Segment Description",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 27,
+          "key": "player",
+          "value": "Brand's Player Id",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 28,
+          "key": "amountWon",
+          "value": "Amount Won",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 29,
+          "key": "wins",
+          "value": "Win Management",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "wins",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 30,
+          "key": "default-translations",
+          "value": "Default Widget Content",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "side-menu-links",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 31,
+          "key": "default-translations",
+          "value": "Default Widget Content",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "default-translations",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 32,
+          "key": "translation-key",
+          "value": "Translation Keyword",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 33,
+          "key": "translation-value",
+          "value": "Default Translation Value",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 34,
+          "key": "brand name",
+          "value": "Brand",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 35,
+          "key": "value",
+          "value": "Value",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 36,
+          "key": "level",
+          "value": "Tier Level",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 37,
+          "key": "enabled",
+          "value": "Enabled",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 38,
+          "key": "brandId",
+          "value": "Brand ID",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 39,
+          "key": "brand-name",
+          "value": "Brand Name",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 40,
+          "key": "iso3",
+          "value": "Currency Code (ISO3)",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 41,
+          "key": "current-amount",
+          "value": "Current Pool Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 42,
+          "key": "email",
+          "value": "Email Address",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 43,
+          "key": "role",
+          "value": "System Role",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 44,
+          "key": "add",
+          "value": "Add New User",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "users",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 45,
+          "key": "back-to-list",
+          "value": "Return",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "dashboard",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 46,
+          "key": "eventId",
+          "value": "Event ID",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 47,
+          "key": "input-eventId-help",
+          "value": "This is the unique event ID that would be received from the platform.",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-helpers",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 48,
+          "key": "brandPlayerId",
+          "value": "Brand's Player Id",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 49,
+          "key": "basic-info",
+          "value": "Key Information",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 50,
+          "key": "jackpot-opt",
+          "value": "Optin Status",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 51,
+          "key": "segments",
+          "value": "Segments",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 52,
+          "key": "Jackpots opted in history",
+          "value": "Current and Previous Opted-in Jackpots",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "jackpotTab-table-title",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 53,
+          "key": "Jackpots never opted before",
+          "value": "Never Opted-in Jackpots",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "jackpotTab-table-title",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 54,
+          "key": "jackpot-model-fixed-info",
+          "value": "Fixed Payout",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 55,
+          "key": "select-model",
+          "value": "Select a Payout Model",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 56,
+          "key": "jackpot-model-average-info",
+          "value": "Average Payout",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 57,
+          "key": "jackpot-model-maximum-info",
+          "value": "Maximum Payout",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 58,
+          "key": "fixedWinAmount",
+          "value": "Fixed Win Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 59,
+          "key": "volatility",
+          "value": "Volatility",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 60,
+          "key": "initial-jackpot-amount",
+          "value": "Initial Jackpot Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 61,
+          "key": "re-seed-amount-after-a-win",
+          "value": "Re-Seeding Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 62,
+          "key": "averageWinAmount",
+          "value": "Average Target Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 63,
+          "key": "minimumWinAmount",
+          "value": "Minimum Win Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 64,
+          "key": "maximumWinAmount",
+          "value": "Maximum Win Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 65,
+          "key": "pool-contribution-amount-fixed",
+          "value": "Fixed Pool Contribution Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 66,
+          "key": "pool-playerContributionPercent",
+          "value": "Player Contribution",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 67,
+          "key": "pool-operatorContribution",
+          "value": "Operator Contribution",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 68,
+          "key": "pool-contribution-amount-in-percent",
+          "value": "Percentage of Wager Pool Contribution Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 69,
+          "key": "no-seed-configuration-required-given-the-re-seed-amount-after-a-win-is-zero",
+          "value": "No Seed configuration is required given the Re-Seed amount was set to zero.",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "seed-form",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 70,
+          "key": "wins",
+          "value": "Number of Wins",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "infoCards",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 71,
+          "key": "contribution ratio",
+          "value": "Contribution Ratio",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "infoCards",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 72,
+          "key": "target",
+          "value": "Probability Target",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "infoCards",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 73,
+          "key": "won",
+          "value": "Payout Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "infoCards",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 74,
+          "key": "Contributions",
+          "value": "Contribution Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "infoCards",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 75,
+          "key": "Max Won",
+          "value": "Highest Amount Won",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "infoCards",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 76,
+          "key": "winning-amount",
+          "value": "Winning Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "global",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 77,
+          "key": " Win Amount x Pool Amount x Seed Amount",
+          "value": "Win and Pool Values at winning iteration",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "simulator-graph",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 78,
+          "key": "current-pool-amount-amount",
+          "value": "Current Pool Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "global",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 79,
+          "key": "current-seed-amount-amount",
+          "value": "Current Seed Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "global",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 80,
+          "key": "create-defaults",
+          "value": "Create Initial Default Widget Content ",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "default-translations",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 81,
+          "key": "select-the-brand",
+          "value": "Select a Brand",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "selectors",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 82,
+          "key": "locale",
+          "value": "Locale",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 83,
+          "key": "key",
+          "value": "Keyword",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 84,
+          "key": "translation",
+          "value": "Translation Value",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 85,
+          "key": "rich-text",
+          "value": "Uses Rich Text (eg. HTML)?",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 86,
+          "key": "operators-info",
+          "value": "Operator Information",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 87,
+          "key": "operatorId",
+          "value": "Operator ID",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 88,
+          "key": "secret",
+          "value": "Encryption Secret",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 89,
+          "key": "tier",
+          "value": "Current Tier",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 90,
+          "key": "application-key",
+          "value": "Application Key:",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "operator-app-key",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 91,
+          "key": "get-new-application-key",
+          "value": "Generate New Application Key",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "operator-app-key",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 92,
+          "key": "select-the-tier",
+          "value": "Select Tier",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "selectors",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 93,
+          "key": "tier-name",
+          "value": "Tier Name",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 94,
+          "key": "tier-level",
+          "value": "Tier Level",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 95,
+          "key": "tier-max-events",
+          "value": "Allowed Events",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 96,
+          "key": "operators-planInfo",
+          "value": "Plan Status",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 97,
+          "key": "name",
+          "value": "Tier Name",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "operator-plan-details",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 98,
+          "key": "current-events",
+          "value": "Processed Events",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "operator-plan-details",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 99,
+          "key": "level",
+          "value": "Tier Level",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "operator-plan-details",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 100,
+          "key": "maximum-events",
+          "value": "Allowed Events",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "operator-plan-details",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 101,
+          "key": "location",
+          "value": "Internal Location",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 102,
+          "key": "add",
+          "value": "Add Property",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "properties",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 103,
+          "key": "maximumEvents",
+          "value": "Allowed Events",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 104,
+          "key": "Brand-info",
+          "value": "Brand Information",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 105,
+          "key": "hasWorkflow",
+          "value": "Allow Approval Flow?",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 106,
+          "key": "hasOperatorContributionOnly",
+          "value": "Force Operator Contribution Only?",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 107,
+          "key": "hasWithdrawApproval",
+          "value": "Allow Payout Approval Flow?",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 108,
+          "key": "hasManualWins",
+          "value": "Manual Wins",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 109,
+          "key": "brand",
+          "value": "Brands",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "brand",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 110,
+          "key": "pushDelay",
+          "value": "Default Widget Update (in seconds)",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 111,
+          "key": "currency",
+          "value": "Reporting Currency",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 112,
+          "key": "Generate-signature",
+          "value": "Generate Signature for Verification",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "signature-tab",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 113,
+          "key": "signature-info",
+          "value": "Signature Test Tools",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 114,
+          "key": "brandPlayerId",
+          "value": "Brand's Player Id",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 115,
+          "key": "verify-signature",
+          "value": "Verify Generated Signature",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "signature-tab",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 116,
+          "key": "signature",
+          "value": "Input generated signature:",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 117,
+          "key": "classic",
+          "value": "Classic",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "jackpot-type",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 118,
+          "key": "frequency",
+          "value": "Frequency",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "jackpot-type",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 119,
+          "key": "must-drop",
+          "value": "Must Drop",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "jackpot-type",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 120,
+          "key": "jackpot-type",
+          "value": "Type",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 121,
+          "key": "input-type-CLASSIC-help",
+          "value": "<p><strong>Classic Jackpot Options</strong></p>\n<p>Create and run what we call our classic jackpots. Set these up and they'll run for as long (or as short!) as you need them to.</p>\n<p>Each jackpot can use one of our three jackpot models:<br><strong>Average amount:</strong>&nbsp;The winnings will be around this amount, give or take.<br><strong>Fixed amount:</strong>&nbsp;Each winning will be this amount and only this amount.<br><strong>Maximum amount</strong>&nbsp;The jackpot will never win higher than this amount, but could be lower.</p>\n<p>These models are perfect for any long-running promotion, or over a series of games or events such as a Premier League season, or over all your table games. Or alternatively have a jackpot only for deposits to encourage players to deposit more. Remember the more they spend, the better the chance of winning!</p>\n<p>All jackpots can be configured to be self-funding, or feel free to seed them with marketing funds for that extra boost to your players.</p>",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-helpers",
+          "isHtml": true,
+          "paths": []
+      },
+      {
+          "id": 122,
+          "key": "input-type-FREQUENCY-help",
+          "value": "<p><strong>Choose your frequency for winning</strong></p>\n<p>Expand on the Classic Jackpot and limit your jackpots to a specific time frequency.<br>Do you find that you don't have many players at the start of the week?<br>Then setup a Jackpot that can only be won Monday morning. The more spins, the more chances of winning!</p>\n<p>Or how about a Pay-Day jackpot?<br>Set a jackpot up for the 25th of each month and give your players a chance to boost their income!</p>",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-helpers",
+          "isHtml": true,
+          "paths": []
+      },
+      {
+          "id": 123,
+          "key": "input-type-MUST_DROP-help",
+          "value": "<p><strong>Urgent and immediate, perfect for sports!</strong></p>\n<p>Perfect for time-sensitive events, the Must Drop jackpot will guarantee a jackpot win within the defined time frame.</p>\n<p>Want to boost in-play bets during that big game Saturday night?<br>Setup a Must Drop jackpot during the game and every bet on that match has a chance to win.</p>\n<p>Or what about that popular TV show?<br>Get some third screen action going and run a Must Drop jackpot during the TV show, allowing your players to enjoy the show, enjoy your games and win big!</p>",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-helpers",
+          "isHtml": true,
+          "paths": []
+      },
+      {
+          "id": 124,
+          "key": "jackpot-basic",
+          "value": "Description",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 125,
+          "key": "internalName",
+          "value": "Internal Name",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 126,
+          "key": "internalDescription",
+          "value": "Internal Description",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 127,
+          "key": "input-internalName-help",
+          "value": "This name is only visible within this backoffice and is not available to players.",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-helpers",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 128,
+          "key": "input-internalDescription-help",
+          "value": "Describe what this jackpot does, what it's trying to achieve and any other useful information that might help you and your colleagues.",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-helpers",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 129,
+          "key": "template",
+          "value": "Create this as a template?",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 130,
+          "key": "are-you-sure-you-want-to-turn-this-active-jackpot-into-a-template?",
+          "value": "Please confirm you want to create this Jackpot as a template:",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "global",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 131,
+          "key": "select-a-jackpot-model",
+          "value": "Configure the model for this Jackpot",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "global",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 132,
+          "key": "jackpot-model",
+          "value": "Model",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 133,
+          "key": "jackpot-pool",
+          "value": "Pool Setup",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 134,
+          "key": "pool-minContributionAmount",
+          "value": "Minimum Wagering Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 135,
+          "key": "pool-maxContributionAmount",
+          "value": "Maximum Wagering Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 136,
+          "key": "jackpot-seed",
+          "value": "Seed Setup",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 137,
+          "key": "seed-contribution-amount-in-percent",
+          "value": "Percentage of Wager Seed Contribution Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 138,
+          "key": "seed-playerContributionPercent",
+          "value": "Player Contribution",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 139,
+          "key": "seed-operatorContribution",
+          "value": "Operator Contribution",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 140,
+          "key": "seed-minContributionAmount",
+          "value": "Initial Seed Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 141,
+          "key": "max-seed-amount",
+          "value": "Maximum Seed Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 142,
+          "key": "seed-contribution-amount-fixed",
+          "value": "Fixed Seed Contribution Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 143,
+          "key": "jackpot-schedule",
+          "value": "Scheduling",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 144,
+          "key": "jackpots-schedule-tab-help",
+          "value": "This is the date and time that the Jackpot will first become visible and usable by players. If left empty, this means start the Jackpot immediately, pending any potential approval process.",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-helpers",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 145,
+          "key": "jackpot-widget",
+          "value": "Widget Configuration",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 146,
+          "key": "jackpot-widget-basic",
+          "value": "Setup",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 147,
+          "key": "jackpot-widget-style",
+          "value": "Style",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 148,
+          "key": "jackpot-widget-animation",
+          "value": "Animations",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 149,
+          "key": "jackpot-widget-content",
+          "value": "Content",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 150,
+          "key": "optInType",
+          "value": "Player Opt-in Type",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 151,
+          "key": "auto-opt-in",
+          "value": "Automatic",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-widget-basic-optInType-setup",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 152,
+          "key": "user-opt-in",
+          "value": "Manual",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-widget-basic-optInType-setup",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 153,
+          "key": "hasInformWins",
+          "value": "Inform all players of a win?",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 154,
+          "key": "back-to-setup-re-seed",
+          "value": "Return to configure a Seed",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "seed-form",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 155,
+          "key": "widgetDesign",
+          "value": "Select your base widget design:",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 156,
+          "key": "jackpots-widget-tab-help",
+          "value": "Choose from one of our Widget Templates or use what has been defined in code.",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-helpers",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 157,
+          "key": "none-defined-in-code",
+          "value": "No Design - Defined in code",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-widget-style-widgetDesign-setup",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 158,
+          "key": "widgetMediaType",
+          "value": "Select the media type you want to use:",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 159,
+          "key": "widgetMediaUrl",
+          "value": "Widget Media URL",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 160,
+          "key": "widgetCustomCss",
+          "value": "Custom Widget CSS",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 161,
+          "key": "customAnimationCss",
+          "value": "Custom CSS for Winning Animation",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 162,
+          "key": "customAnimationLottieExamples",
+          "value": "Select from our Winning Animation library:",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 163,
+          "key": "customAnimationLottie",
+          "value": "Custom Lottie Winning Animation",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 164,
+          "key": "try-win-animation",
+          "value": "Test Winning Animation",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "widget-animation-setup",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 165,
+          "key": "input-customAnimationLottie-help",
+          "value": "This is the animation that will appear for any player who has directly won the Jackpot. As wins can be independent of the event that triggered it, this is how to communicate to a player that they've won and how much they've won.",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-helpers",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 166,
+          "key": "jackpot-simulator",
+          "value": "Simulator",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 167,
+          "key": "simulate",
+          "value": "Start Simulation",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "jackpot-simulator",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 168,
+          "key": "summary",
+          "value": "Your Jackpot Summary",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "summary-tab",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 169,
+          "key": "type",
+          "value": "Selected Type",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "infoCards",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 170,
+          "key": "model",
+          "value": "Selected Payout Model",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "infoCards",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 171,
+          "key": "player-contribution",
+          "value": "Player Contribution",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "infoCards",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 172,
+          "key": "operator-contribution",
+          "value": "Operator Contribution",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "infoCards",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 173,
+          "key": "jackpot-summary",
+          "value": "Summary",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 174,
+          "key": "frequency",
+          "value": "Select a Display Frequency:",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 175,
+          "key": "startTimeOfDay",
+          "value": "Time of day to start",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 176,
+          "key": "endTimeOfDay",
+          "value": "Time of day to end",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 177,
+          "key": "individual-contribution",
+          "value": "Do you want to configure a separate contribution frequency?",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 178,
+          "key": "many",
+          "value": "Recurring",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "schedule-must-drop-type",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 179,
+          "key": "jackpot-events",
+          "value": "Events",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 180,
+          "key": "jackpot-segments",
+          "value": "Segments",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 181,
+          "key": "jackpot-community",
+          "value": "Community Wins",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 182,
+          "key": "add-a-new-event",
+          "value": "Add Event to this Jackpot",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "jackpot-events",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 183,
+          "key": "total-items",
+          "value": "Total Items",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "global",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 184,
+          "key": "add-a-new-segment",
+          "value": "Add Segment to this Jackpot",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "jackpot-segments",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 185,
+          "key": "minimumAmount",
+          "value": "Re-Seed/Minimum Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 186,
+          "key": "pools-info",
+          "value": "Pool Information",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 187,
+          "key": "Pools-Transaction",
+          "value": "Pool Transactions",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 188,
+          "key": "currentAmount",
+          "value": "Current Pool Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 189,
+          "key": "maximunAmount",
+          "value": "Capped Pool Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 190,
+          "key": "contributionType",
+          "value": "Contribution Type",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 191,
+          "key": "contributionAmount",
+          "value": "Contribution Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 192,
+          "key": "operator",
+          "value": "Operator",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 193,
+          "key": "brand",
+          "value": "Brand",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 194,
+          "key": "seeds-info",
+          "value": "Seed Information",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 195,
+          "key": "seed-transaction",
+          "value": "Seed Transactions",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 196,
+          "key": "targetAmount",
+          "value": "Capped Seed Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 197,
+          "key": "role",
+          "value": "Select User's Role:",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-typeButton",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 198,
+          "key": "password",
+          "value": "Initial Password",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 199,
+          "key": "Set here the brands to have access",
+          "value": "Define which brands this User should have access to.",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "user-title",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 200,
+          "key": "No Access",
+          "value": "Access Denied",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "header-card",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 201,
+          "key": "With Access",
+          "value": "Access Granted",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "header-card",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 202,
+          "key": "rate",
+          "value": "Exchange rate to your reporting currency",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+       {
+          "id": 203,
+          "key": "returnAmountResponse",
+          "value": "Amount response",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+       {
+          "id": 204,
+          "key": "playerId",
+          "value": "Player Id",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+       {
+          "id": 205,
+          "key": "ruleId",
+          "value": "Rule Id",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "input-group-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 206,
+          "key": "noDefaultPage",
+          "value": "No default page set. More features coming soon!",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "backoffice-home",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 207,
+          "key": "current-winning-tier-amount",
+          "value": "Current Winning Tier Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "global",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 208,
+          "key": "Winning Tier",
+          "value": "Winning Tier",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "simulator",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 209,
+          "key": "Winning Iteration",
+          "value": "Winning Iteration",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "simulator",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 210,
+          "key": "Current Pool Amount",
+          "value": "Current Pool Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "simulator",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 211,
+          "key": "Current Seed Amount",
+          "value": "Current Seed Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "simulator",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 212,
+          "key": "Winning Amount",
+          "value": "Winning Amount",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "simulator",
+          "isHtml": false,
+          "paths": []
+      },
+       {
+          "id": 213,
+          "key": "input-minimumApprovalAmount-help",
+          "value": "This is the minimum approval amount.",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-helpers",
+          "isHtml": false,
+          "paths": []
+      },
+       {
+          "id": 214,
+          "key": "edit-instant-wins-title",
+          "value": "Edit Instant Wins",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "instant-wins-header",
+          "isHtml": false,
+          "paths": []
+      },
+       {
+          "id": 215,
+          "key": "edit-instant-wins-cancel",
+          "value": "Canel",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "instant-wins-buttons",
+          "isHtml": false,
+          "paths": []
+      },
+       {
+          "id": 216,
+          "key": "edit-instant-wins-save",
+          "value": "Save",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "instant-wins-buttons",
+          "isHtml": false,
+          "paths": []
+      },
+       {
+          "id": 217,
+          "key": "jackpot-race-widget-settings",
+          "value": "Widget Settings",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "forms-tabs-label",
+          "isHtml": false,
+          "paths": []
+      },
+      {
+          "id": 218,
+          "key": "select-or-save-jackpot-first",
+          "value": " Select or save SpinSprint first",
+          "locale": "en-GB",
+          "client": "BO",
+          "group": "jackpot-race-widget",
+          "isHtml": false,
+          "paths": []
+      },
+      [
+  {
+    "id": 219,
+    "key": "payout-status-pending",
+    "value": "Pending",
+    "locale": "en-GB",
+    "client": "BO",
+    "group": "player-wins",
+    "isHtml": false,
+    "paths": []
+  },
+  {
+    "id": 220,
+    "key": "payout-status-processing",
+    "value": "Processing",
+    "locale": "en-GB",
+    "client": "BO",
+    "group": "player-wins",
+    "isHtml": false,
+    "paths": []
+  },
+  {
+    "id": 221,
+    "key": "payout-status-paid",
+    "value": "Paid",
+    "locale": "en-GB",
+    "client": "BO",
+    "group": "player-wins",
+    "isHtml": false,
+    "paths": []
+  },
+  {
+    "id": 222,
+    "key": "payout-status-failed",
+    "value": "Failed",
+    "locale": "en-GB",
+    "client": "BO",
+    "group": "player-wins",
+    "isHtml": false,
+    "paths": []
+  }
+]
+  ]

@@ -1,0 +1,92 @@
+.input-wrapper {
+  width: 100%;
+}
+
+.filter-input {
+  cursor: pointer;
+  width: 100%;
+  padding: 0.5rem;
+  outline: unset;
+  border: unset;
+  background: var(--input-bg);
+  border-bottom: solid 1px var(--input-border);
+  border-radius: 6pt;
+  color: var(--text-color);
+  font-size: 16px;
+  font-family: inherit;
+
+  &:focus {
+    border-bottom: solid 1px var(--primary);
+  }
+
+  &:read-only {
+    opacity: 1;
+  }
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+}
+
+.modal-content {
+  background-color: var(--section-bg);
+  padding: 2rem;
+  border-radius: 8px;
+  min-width: 350px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.modal-title {
+  margin-bottom: 1.5rem;
+  color: var(--text-color);
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: var(--text-color);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.date-input-wrapper {
+  width: 100%;
+}
+
+.date-filter-input {
+  width: 100% !important;
+  padding: 0.5rem !important;
+  outline: unset !important;
+  border: unset !important;
+  background: var(--input-bg) !important;
+  border-bottom: solid 1px var(--input-border) !important;
+  border-radius: 6pt !important;
+  color: var(--text-color) !important;
+  font-size: 16px !important;
+  font-family: inherit !important;
+
+  &:focus {
+    border-bottom: solid 1px var(--primary) !important;
+  }
+}
+
+.button-group {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+}
+
+.button {
+  padding: 0.5rem 1rem;
+}

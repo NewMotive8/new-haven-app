@@ -1,0 +1,22 @@
+<svg width="500" height="90" viewBox="0 0 500 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="500" height="90" fill="#000629"/>
+<g clip-path="url(#clip0_922_1835)">
+<line x1="149.812" y1="-35.8183" x2="-14.9586" y2="152.199" stroke="white" stroke-opacity="0.4" stroke-width="40"/>
+<animateTransform attributeName="transform"
+    type="translate"
+    from="-650 0"
+    to="680 0"
+    begin="0s"
+    dur="4s"
+    repeatCount="indefinite"
+  />
+</g>
+<defs>
+<linearGradient id="paint0_linear_922_1835" x1="250" y1="0" x2="250" y2="90" gradientUnits="userSpaceOnUse">
+<stop stop-color="#transparent"/>
+</linearGradient>
+<clipPath id="clip0_922_1835">
+<rect width="500" height="90" fill="white"/>
+</clipPath>
+</defs>
+</svg>

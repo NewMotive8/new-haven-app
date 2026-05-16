@@ -1,0 +1,64 @@
+@import './variables';
+@import './ReactToastify.scss';
+@import './animation.scss';
+@import './groupSelect.scss';
+@import './editor.css';
+@import 'react-datepicker/dist/react-datepicker.css';
+
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: var(--text);
+  text-decoration: none;
+  transition: all 300ms ease-in-out;
+}
+
+a:hover {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+p {
+  margin: 0;
+}
+
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
+input {
+  color-scheme: dark;
+}
+
+
+strong,
+b {
+  font-weight: 800;
+}
+
+*:focus,
+textarea,
+button,
+select,
+a,
+div {
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+  -ms-touch-action: manipulation;
+  touch-action: manipulation;
+}
+form{
+  width: 100%;
+}
+
+:root {
+  --background-primary: #f9f9f9;
+}
+
+:root[data-theme='dark'] {
+  --background-primary: #1C1C1E;
+}

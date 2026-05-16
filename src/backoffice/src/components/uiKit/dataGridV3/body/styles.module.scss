@@ -1,0 +1,57 @@
+.row {
+    --row-fg: var(--text-color);
+
+    * {
+
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        color: var(--row-fg) !important;
+    }
+
+    div,
+    section,
+    span,
+    p {
+        background: transparent !important;
+        ;
+    }
+
+    border-bottom: solid 1px var(--grid-line);
+
+    p {
+        -webkit-line-clamp: 1;
+        line-clamp: 1;
+    }
+
+    section {
+        max-height: 4rem;
+    }
+}
+
+.row:nth-child(even) {
+    background-color: var(--even, rgba(0, 0, 0, 0.050));
+}
+
+.row:hover {
+    background-color: var(--even, rgba(0, 0, 0, 0.090));
+    font-weight: 600;
+
+    * {
+        font-weight: 600 !important;
+    }
+
+}
+
+.row[data-is-selected="true"] {
+    --row-fg: var(--row-selected-fg);
+    background-color: var(--row-selected-bg);
+    color: var(--row-selected-fg);
+    border-bottom-color: var(--row-selected-border);
+}
+
+.row:last-child() {
+    border-bottom: unset;
+}

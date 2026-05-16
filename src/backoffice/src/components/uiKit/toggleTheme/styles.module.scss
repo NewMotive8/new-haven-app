@@ -1,0 +1,39 @@
+.wrapper {
+    position: relative;
+    cursor: pointer;
+    background-color: var(--input-bg);
+    border-radius: 10pt;
+
+    .toggle {
+        content: '';
+        position: absolute;
+        top: 0.25rem;
+        bottom: 0.25rem;
+        aspect-ratio: 1 / 1;
+        background: var(--primary);
+        border-radius: 50%;
+        transition: all 1s ease-in-out;
+    }
+
+    .toggle[data-theme='light'] {
+        left: 0.25rem;
+    }
+
+    .toggle[data-theme='dark'] {
+        right: 0.25rem;
+    }
+
+    .icon-light {
+        color: var(--light);
+        * {
+            color: var(--light);
+        }
+    }
+
+    .icon-dark {
+        color: var(--dark);
+        * {
+            color: var(--dark);
+        }
+    }
+}
