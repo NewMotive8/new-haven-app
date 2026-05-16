@@ -123,6 +123,7 @@ function SimulatorPage() {
   }
 
   async function handleSimulate() {
+    throw new Error("ACID TEST PASSED: The engine is alive!");
     setError(null);
     setLoading(true);
     try {
@@ -149,15 +150,15 @@ function SimulatorPage() {
     }
   }
 
-  const maxWin = React.useMemo(() => {
+  const maxWin = (() => {
     if (typeof result?.maxWinAmount === "number") return result.maxWinAmount;
     if (!result?.winEvents?.length) return 0;
     let m = 0;
     for (const w of result.winEvents) if (w.amount > m) m = w.amount;
     return m;
-  }, [result]);
+  })();
 
-  const tierWins = React.useMemo(() => {
+  const tierWins = (() => {
     if (result?.tierCounts) return result.tierCounts;
     if (!result?.winEvents?.length) return {} as Record<string, number>;
     const buckets: Record<string, number> = {};
@@ -167,7 +168,7 @@ function SimulatorPage() {
       buckets[tier] = (buckets[tier] ?? 0) + 1;
     }
     return buckets;
-  }, [result]);
+  })();
 
   return (
     <div style={{ padding: 28, maxWidth: 1200, margin: "0 auto" }}>
