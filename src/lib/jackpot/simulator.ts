@@ -106,14 +106,13 @@ export function simulateEngine(
         });
       }
 
-      const fromSeed = seedCurrent < reseedAmount ? seedCurrent : reseedAmount;
       poolCurrent = reseedAmount;
       seedCurrent -= fromSeed;
     }
   }
 
   const totalWagered = safeWager * safeIterations;
-  const rtp = totalContributions > 0 ? (winAmountCounter / totalContributions) * 100 : 0;
+  const rtp = totalWagered > 0 ? (winAmountCounter / totalWagered) * 100 : 0;
 
   return {
     iterations: safeIterations,
