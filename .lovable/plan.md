@@ -1,78 +1,70 @@
-## Source of truth
+## Scope
 
-Figma Make repo `NewMotive8/Redesignjackpotcreationflow` (parsed):
-- `JackpotTypeSelection.tsx` — 4 types: **Classic**, **Frequency**, **Must Drop**, **Multi-Level**
-- `JackpotCreationForm.tsx` (4029 lines) — split-column dark UI: top header, left sidebar nav, main form panel, sticky footer with Cancel / Back / Next / Save
-- Dark theme tokens: `neutral-950` bg, `neutral-800` borders, `blue-500` accent
+Frontend-only changes to `src/routes/backoffice.jackpots.new.tsx`. No DB schema migration, no `store.server.ts` changes — the existing `createJackpot` already forwards `dto.config` into `jackpots.trigger_condition` and writes `jackpot_pools` / `jackpot_seeds`.
 
-## What changes
+## Right-column field schema (replaces current Model section per type)
 
-Single file rewrite of `src/routes/backoffice.jackpots.new.tsx`. List page (`backoffice.jackpots.index.tsx`) unchanged. No new routes, no DB schema changes.
+**Classic**
+- Base Seed Amount — currency input (replaces shared Pool/Seed block)
+- Contribution Percentage — percent input + range slider (0–100)
+- Volatility Score — slider 1–10 with numeric display
+- Maximum Cap Limit — toggle; when on, reveal currency input
 
-## Layout (matches Figma)
+**Frequency**
+- Base Seed Amount — currency input
+- Contribution Percentage — percent input
+- Target Hit Interval (Spins) — integer input with "spins" suffix, e.g. 50,000
+- Fairness Multiplier Curve — dropdown: Linear / Exponential / Smooth
+
+**Must Drop**
+- Base Seed Amount — currency input
+- Contribution Percentage — percent input
+- Threshold Type — segmented toggle: Value-Bound | Time-Bound
+  - Value-Bound → Must Drop By Amount (currency input)
+  - Time-Bound → Must Drop By Date/Time (shadcn Popover + Calendar date picker, with time input)
+
+**Multi-Level**
+- Global Base Seed Amount — currency input
+- Global Contribution Percentage — percent input
+- Levels Grid Manager — table with columns: Level Name, Allocation Share %, Trigger Odds/Weight; `+ Add Level Tier` button appends a row; per-row delete; minimum 1 row
+
+The shared "Pool & Seed" subsection is removed from the right column — Base Seed is now part of each type's spec, and `poolBalance` is set server-side to equal `seedAmount` when not supplied.
+
+## Persistence shape (trigger_condition JSONB)
+
+`buildConfig()` is rewritten to emit a discriminated payload, sent under `config` to `POST /api/v1/jackpots`. The store merges it into `trigger_condition` alongside the existing `threshold` and `type` keys.
 
 ```text
-┌──────────────────────────────────────────────────────────┐
-│ Logo  MYBC Game                Clock UTC      [Logout]   │  header
-├──────────┬───────────────────────────────────────────────┤
-│ Sidebar  │  Create A Jackpot                             │
-│ (nav     │  ┌─ Type ─ Basic ─ Model ─ Pool ─ Seed ─ … ─┐│  stepper
-│  links)  │  │                                          ││
-│          │  │  [4 type cards: Classic|Freq|MD|Multi]   ││  step 1
-│          │  │  — or —                                  ││
-│          │  │  Dynamic fields for selected type        ││  step 2+
-│          │  │                                          ││
-│          │  └──────────────────────────────────────────┘│
-│          │  [Cancel]                  [Back] [Next/Save]│  footer
-└──────────┴───────────────────────────────────────────────┘
+classic     → { type, contributionPct, volatility, capEnabled, capAmount? }
+frequency   → { type, contributionPct, targetIntervalSpins, fairnessCurve }
+must_drop   → { type, contributionPct, thresholdMode:"value"|"time",
+                mustDropByAmount? , mustDropByAt? (ISO) }
+multi_level → { type, contributionPct,
+                tiers:[{ name, allocationPct, triggerWeight }] }
 ```
 
-Built with existing shadcn primitives (`Card`, `Button`, `Input`, `Label`, `Select`, `Tabs`, `Switch`). Dark surface via Tailwind `bg-neutral-950 / border-neutral-800` to match Figma; no new global tokens.
+Top-level request fields stay the same: `name`, `enabled`, `contributionRate` (= contributionPct / 100), `seedAmount`, `poolBalance` (defaults to seedAmount), `volatility`, `jackpotType`, `config`. No store/server changes needed — `createJackpot` already inserts `jackpots` + `jackpot_pools` + `jackpot_seeds` in sequence and rolls forward on success.
 
-## Type → field map
+## Validation (client-side, blocking Save)
 
-Step 1 (always): **Name**, **Brand ID**, **Type selector** (4 cards).
+- Name required, ≤100 chars
+- Type selected
+- contributionPct: 0–100
+- seedAmount: ≥ 0
+- Classic: if cap toggle on → capAmount > seedAmount
+- Frequency: targetIntervalSpins ≥ 1
+- Must Drop: value-mode → mustDropByAmount > 0; time-mode → mustDropByAt in future
+- Multi-Level: ≥1 tier; allocation shares sum to 100 (warn, don't block); per-row name + numeric inputs
 
-Step 2 dynamic fields, by type:
+## UX details
 
-| Type | Specific inputs (in addition to shared Pool + Seed) |
-|---|---|
-| `classic` | Contribution %, Volatility, Min/Max wager |
-| `must_drop` | Min/Max win amount, Volatility, Min/Max wager, Frequency (daily/weekly/monthly), Start/End date, Community split toggle |
-| `multi_level` | Tier table (level, min win, max win, contribution %) — variable rows |
-| `frequency` | Fixed win amount OR Avg+Min/Max win, Volatility, Min/Max wager, Frequency cadence |
+- Date picker uses shadcn `Popover` + `Calendar` with `pointer-events-auto` (per project convention)
+- Sliders use native `<input type="range">` styled to match existing dark theme — no new dependency
+- "Save Jackpot" stays disabled until type + name are valid; on success → `toast.success("Jackpot created")` → navigate to `/backoffice/jackpots`
+- On failure → `toast.error(serverMessage)`, stay on form
 
-Shared across all types: **Initial pool balance**, **Base seed amount**, **Enabled** toggle.
+## Files touched
 
-Switching type instantly swaps the dynamic block (controlled by `useState<JackpotType>`); shared fields persist.
+- `src/routes/backoffice.jackpots.new.tsx` — extend `FormState`, replace `ClassicFields` / `FrequencyFields` / `MustDropFields` / `MultiLevelFields`, rewrite `buildConfig()`, remove the right-column Pool & Seed subsection, add `MaxCapField` / `LevelsGrid` / `DateTimePicker` helpers.
 
-## DB mapping (no schema change)
-
-Existing columns are sparse, so unmapped fields land in `jackpots.trigger_condition` jsonb:
-
-- `jackpots`: `name`, `brand_id`, `enabled`, `contribution_percentage`, `volatility`, `trigger_condition = { type, min_win, max_win, min_wager, max_wager, frequency, start_at, end_at, tiers, community, ... }`
-- `jackpot_pools`: `{ jackpot_id, current_balance }`
-- `jackpot_seeds`: `{ jackpot_id, base_seed_amount }`
-
-## Save flow
-
-Client → `createServerFn` `createJackpotWithChildren` in `src/lib/jackpot/create.functions.ts`:
-1. Insert into `jackpots`, return id
-2. Insert into `jackpot_pools` with that id
-3. Insert into `jackpot_seeds` with that id
-4. On any failure: delete the parent `jackpots` row (compensating rollback — Supabase JS has no multi-statement tx, so this is the standard pattern)
-5. Return `{ id }`
-
-Validation via `zod` (already in deps): discriminated union keyed on `type`. Reject save until current step is valid.
-
-On success: `toast.success("Jackpot created")` (sonner), `navigate({ to: "/backoffice/jackpots" })`. On failure: `toast.error(err.message)`, stay on form.
-
-## Files
-
-- **Rewrite** `src/routes/backoffice.jackpots.new.tsx` (~500 lines: layout + 4 dynamic sub-components inline)
-- **New** `src/lib/jackpot/create.functions.ts` (server fn + zod schema)
-- **No edits** to schema, list page, or `routeTree.gen.ts`
-
-## Out of scope (call out)
-
-The Figma form has ~12 conceptual tabs (Widget, Schedule, Recurrence, Events, Segments, Community, Simulator, Summary). This plan ships the **Type + Basic + Model + Pool + Seed** steps that map to current DB. The remaining tabs are stubbed as disabled placeholders so the visual layout matches Figma without persisting fields that have no column. Confirm if you want any of those wired now — each adds schema work.
+No other files change. No migrations. No new packages (date-fns and shadcn Calendar/Popover are already available).
