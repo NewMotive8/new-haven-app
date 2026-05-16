@@ -86,7 +86,7 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
         pool: {
           currentAmount: tierReseed,
           minimumAmount: tierReseed,
-          maximumAmount: 0,
+          maximumAmount: num(t.maximumPoolAmount, 0),
           minimumWinAmount: num(t.minWinAmount, minWin),
           maximumWinAmount: num(t.maxWinAmount, maxWin),
           contributionAmount: num(t.poolContributionAmount, poolContributionAmount),

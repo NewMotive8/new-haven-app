@@ -87,7 +87,8 @@ export type JackpotSavePayload = {
     label?: string;
     multiLevelTier: number;        // 1..4
     multiLevelWeight: number;      // 0..1
-    reseedingAmount: number;
+    reseedingAmount: number;       // pool minimum / reseed amount
+    maximumPoolAmount?: number;    // pool cap (0 = uncapped)
     minWinAmount: number;
     maxWinAmount: number;
     averageWinAmount: number;
@@ -166,9 +167,9 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   // --- MULTI_LEVEL tiers editor state
   type TierRow = NonNullable<JackpotSavePayload['tiers']>[number];
   const defaultTiers: TierRow[] = [
-    { label: 'Mini',  multiLevelTier: 1, multiLevelWeight: 0.6, reseedingAmount: 100,   minWinAmount: 10,   maxWinAmount: 500,    averageWinAmount: 100 },
-    { label: 'Major', multiLevelTier: 2, multiLevelWeight: 0.3, reseedingAmount: 1000,  minWinAmount: 100,  maxWinAmount: 5000,   averageWinAmount: 1000 },
-    { label: 'Mega',  multiLevelTier: 3, multiLevelWeight: 0.1, reseedingAmount: 10000, minWinAmount: 1000, maxWinAmount: 100000, averageWinAmount: 10000 },
+    { label: 'Mini',  multiLevelTier: 1, multiLevelWeight: 0.6, reseedingAmount: 100,   maximumPoolAmount: 1000,    minWinAmount: 10,   maxWinAmount: 500,    averageWinAmount: 100,   poolContributionType: 'percentage', poolContributionAmount: 1, seedContributionType: 'percentage', seedContributionAmount: 0.5, operatorShare: 0, seedOperatorShare: 0 },
+    { label: 'Major', multiLevelTier: 2, multiLevelWeight: 0.3, reseedingAmount: 1000,  maximumPoolAmount: 10000,   minWinAmount: 100,  maxWinAmount: 5000,   averageWinAmount: 1000,  poolContributionType: 'percentage', poolContributionAmount: 1, seedContributionType: 'percentage', seedContributionAmount: 0.5, operatorShare: 0, seedOperatorShare: 0 },
+    { label: 'Mega',  multiLevelTier: 3, multiLevelWeight: 0.1, reseedingAmount: 10000, maximumPoolAmount: 100000,  minWinAmount: 1000, maxWinAmount: 100000, averageWinAmount: 10000, poolContributionType: 'percentage', poolContributionAmount: 1, seedContributionType: 'percentage', seedContributionAmount: 0.5, operatorShare: 0, seedOperatorShare: 0 },
   ];
   const [tiers, setTiers] = useState<TierRow[]>(initial?.tiers && initial.tiers.length > 0 ? initial.tiers : defaultTiers);
 
@@ -180,7 +181,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       const nextRank = (prev.reduce((m, t) => Math.max(m, t.multiLevelTier), 0) || 0) + 1;
       return [
         ...prev,
-        { label: `Tier ${nextRank}`, multiLevelTier: nextRank, multiLevelWeight: 0.1, reseedingAmount: 500, minWinAmount: 50, maxWinAmount: 2500, averageWinAmount: 500 },
+        { label: `Tier ${nextRank}`, multiLevelTier: nextRank, multiLevelWeight: 0.1, reseedingAmount: 500, maximumPoolAmount: 5000, minWinAmount: 50, maxWinAmount: 2500, averageWinAmount: 500, poolContributionType: 'percentage', poolContributionAmount: 1, seedContributionType: 'percentage', seedContributionAmount: 0.5, operatorShare: 0, seedOperatorShare: 0 },
       ];
     });
   };
@@ -4243,6 +4244,55 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                         <div className="space-y-2">
                           <BrightLabel>Average / Target Win</BrightLabel>
                           <CurrencyInput id={`tier-avgwin-${idx}`} type="number" value={t.averageWinAmount} onChange={(e) => updateTier(idx, { averageWinAmount: parseFloat(e.target.value) || 0 })} className="bg-neutral-800 border-neutral-700" />
+                        </div>
+                        <div className="space-y-2">
+                          <BrightLabel>Max Pool Cap</BrightLabel>
+                          <CurrencyInput id={`tier-maxpool-${idx}`} type="number" value={t.maximumPoolAmount ?? 0} onChange={(e) => updateTier(idx, { maximumPoolAmount: parseFloat(e.target.value) || 0 })} className="bg-neutral-800 border-neutral-700" />
+                          <p className="text-[10px] text-neutral-500">0 = uncapped</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-4 border-t border-neutral-800">
+                        <div className="text-xs uppercase tracking-wider text-neutral-500 mb-3">Contributions &amp; Operator Share</div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="space-y-2">
+                            <BrightLabel>Pool Contribution Type</BrightLabel>
+                            <select
+                              value={t.poolContributionType ?? 'percentage'}
+                              onChange={(e) => updateTier(idx, { poolContributionType: e.target.value as 'fixed' | 'percentage' })}
+                              className="w-full h-10 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-neutral-100"
+                            >
+                              <option value="percentage">Percentage (%)</option>
+                              <option value="fixed">Fixed</option>
+                            </select>
+                          </div>
+                          <div className="space-y-2">
+                            <BrightLabel>Pool Contribution Amount</BrightLabel>
+                            <Input type="number" step="0.01" min={0} value={t.poolContributionAmount ?? 0} onChange={(e) => updateTier(idx, { poolContributionAmount: parseFloat(e.target.value) || 0 })} className="bg-neutral-800 border-neutral-700" />
+                          </div>
+                          <div className="space-y-2">
+                            <BrightLabel>Seed Contribution Type</BrightLabel>
+                            <select
+                              value={t.seedContributionType ?? 'percentage'}
+                              onChange={(e) => updateTier(idx, { seedContributionType: e.target.value as 'fixed' | 'percentage' })}
+                              className="w-full h-10 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-neutral-100"
+                            >
+                              <option value="percentage">Percentage (%)</option>
+                              <option value="fixed">Fixed</option>
+                            </select>
+                          </div>
+                          <div className="space-y-2">
+                            <BrightLabel>Seed Contribution Amount</BrightLabel>
+                            <Input type="number" step="0.01" min={0} value={t.seedContributionAmount ?? 0} onChange={(e) => updateTier(idx, { seedContributionAmount: parseFloat(e.target.value) || 0 })} className="bg-neutral-800 border-neutral-700" />
+                          </div>
+                          <div className="space-y-2">
+                            <BrightLabel>Pool Operator Share (%)</BrightLabel>
+                            <Input type="number" step="0.1" min={0} max={100} value={t.operatorShare ?? 0} onChange={(e) => updateTier(idx, { operatorShare: Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)) })} className="bg-neutral-800 border-neutral-700" />
+                          </div>
+                          <div className="space-y-2">
+                            <BrightLabel>Seed Operator Share (%)</BrightLabel>
+                            <Input type="number" step="0.1" min={0} max={100} value={t.seedOperatorShare ?? 0} onChange={(e) => updateTier(idx, { seedOperatorShare: Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)) })} className="bg-neutral-800 border-neutral-700" />
+                          </div>
                         </div>
                       </div>
                     </div>
