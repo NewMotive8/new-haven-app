@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useParams, useNavigate } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { Clock, LogOut, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,14 +21,21 @@ type JackpotType = 'classic' | 'must_drop' | 'multi_level' | 'frequency';
 type RecurrenceType = 'single' | 'daily' | 'weekly' | 'monthly';
 type DisplayFrequency = 'daily' | 'weekly' | 'monthly';
 
-export function JackpotCreationForm() {
-  const { type } = useParams<{ type: string }>();
+export interface JackpotCreationFormProps {
+  onSave: (payload: JackpotSavePayload) => void | Promise<void>;
+  submitting?: boolean;
+  onCancel?: () => void;
+}
+
+export function JackpotCreationForm({ onSave, submitting = false, onCancel }: JackpotCreationFormProps) {
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeSection, setActiveSection] = useState('basic');
   
   // Jackpot type selection
   const [selectedType, setSelectedType] = useState<JackpotType>('classic');
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   
   // Form state
   const [payoutModel, setPayoutModel] = useState<PayoutModel>('maximum');
@@ -116,7 +123,7 @@ export function JackpotCreationForm() {
   };
 
   const handleBack = () => {
-    navigate('/');
+    if (onCancel) onCancel(); else navigate({ to: '/backoffice/jackpots' });
   };
 
   // Helper component for brighter labels
@@ -140,34 +147,71 @@ export function JackpotCreationForm() {
     </div>
   );
 
+
+  type JackpotSavePayload = {
+    name: string;
+    description: string;
+    type: JackpotType;
+    payoutModel: PayoutModel;
+    contributionType: ContributionType;
+    seedContributionType: ContributionType;
+    volatility: number;
+    playerContribution: number;
+    operatorContribution: number;
+    seedPlayerContribution: number;
+    seedOperatorContribution: number;
+    poolPercentageValue: number;
+    seedPercentageValue: number;
+    recurrenceType: RecurrenceType;
+    weeklyDay: string;
+    monthlyDay: string;
+    displayFrequency: DisplayFrequency;
+    weeklyFrequencyDay: string;
+    monthlyFrequencyDay: string;
+    separateContributionFrequency: boolean;
+    payoutInterval: string;
+    isSegmented: boolean;
+    segments: string[];
+    isCommunity: boolean;
+    communitySplit: number;
+    isTemplate: boolean;
+    selectedWidget: string;
+  };
+
+  function triggerSave() {
+    onSave({
+      name: name.trim(),
+      description: description.trim(),
+      type: selectedType,
+      payoutModel,
+      contributionType,
+      seedContributionType,
+      volatility: volatility[0],
+      playerContribution: playerContribution[0],
+      operatorContribution: operatorContribution[0],
+      seedPlayerContribution: seedPlayerContribution[0],
+      seedOperatorContribution: seedOperatorContribution[0],
+      poolPercentageValue: poolPercentageValue[0],
+      seedPercentageValue: seedPercentageValue[0],
+      recurrenceType,
+      weeklyDay,
+      monthlyDay,
+      displayFrequency,
+      weeklyFrequencyDay,
+      monthlyFrequencyDay,
+      separateContributionFrequency,
+      payoutInterval,
+      isSegmented,
+      segments,
+      isCommunity,
+      communitySplit: communitySplit[0],
+      isTemplate,
+      selectedWidget,
+    });
+  }
+
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-neutral-800 bg-neutral-900/95 backdrop-blur">
-        <div className="flex items-center justify-between px-6 h-16">
-          <div className="flex items-center gap-6">
-            <button 
-              onClick={handleBack}
-              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-            >
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg" />
-              <span className="font-medium">Incentiv8</span>
-            </button>
-          </div>
-          
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2 text-sm text-neutral-400">
-              <Clock className="w-4 h-4" />
-              <span>{formatTime(currentTime)}</span>
-            </div>
-            <Button variant="outline" size="sm" className="gap-2">
-              <LogOut className="w-4 h-4" />
-              Logout
-            </Button>
-          </div>
-        </div>
-      </header>
-
       {/* Horizontal Navigation */}
       <nav className="sticky top-16 z-40 border-b border-neutral-800 bg-neutral-900/95 backdrop-blur">
         <div className="px-8 py-4">
@@ -435,11 +479,7 @@ export function JackpotCreationForm() {
                       <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <BrightLabel htmlFor="internal-name">Internal Name</BrightLabel>
-                          <Input
-                            id="internal-name"
-                            placeholder="e.g., Classic Jackpot Q1 2026"
-                            className="bg-neutral-800 border-neutral-700"
-                          />
+                          <Input id="internal-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Jackpot Q1 2026" className="bg-neutral-800 border-neutral-700" />
                         </div>
                         <div></div>
                       </div>
@@ -447,11 +487,7 @@ export function JackpotCreationForm() {
                       <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <BrightLabel htmlFor="description">Internal Description</BrightLabel>
-                          <Textarea
-                            id="description"
-                            placeholder="Describe what this jackpot does, what it's trying to achieve and any other useful information..."
-                            className="bg-neutral-800 border-neutral-700 min-h-[100px]"
-                          />
+                          <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe what this jackpot does..." className="bg-neutral-800 border-neutral-700 min-h-[100px]" />
                         </div>
                         <div></div>
                       </div>
@@ -1698,8 +1734,8 @@ export function JackpotCreationForm() {
                   Back
                 </Button>
                 <div className="flex gap-3">
-                  <Button size="lg" className="bg-blue-500 hover:bg-blue-600" onClick={() => navigate('/simulation')}>
-                    Continue
+                  <Button size="lg" className="bg-blue-500 hover:bg-blue-600" disabled={submitting} onClick={triggerSave}>
+                    {submitting ? 'Saving…' : 'Save Jackpot'}
                   </Button>
                 </div>
               </div>
@@ -1719,11 +1755,7 @@ export function JackpotCreationForm() {
                       <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <BrightLabel htmlFor="internal-name">Internal Name</BrightLabel>
-                          <Input
-                            id="internal-name"
-                            placeholder="e.g., Must Drop Jackpot Q1 2026"
-                            className="bg-neutral-800 border-neutral-700"
-                          />
+                          <Input id="internal-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Jackpot Q1 2026" className="bg-neutral-800 border-neutral-700" />
                         </div>
                         <div></div>
                       </div>
@@ -1731,11 +1763,7 @@ export function JackpotCreationForm() {
                       <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <BrightLabel htmlFor="description">Internal Description</BrightLabel>
-                          <Textarea
-                            id="description"
-                            placeholder="Describe what this jackpot does, what it's trying to achieve and any other useful information..."
-                            className="bg-neutral-800 border-neutral-700 min-h-[100px]"
-                          />
+                          <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe what this jackpot does..." className="bg-neutral-800 border-neutral-700 min-h-[100px]" />
                         </div>
                         <div></div>
                       </div>
@@ -2963,11 +2991,7 @@ export function JackpotCreationForm() {
                       <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <BrightLabel htmlFor="internal-name">Internal Name</BrightLabel>
-                          <Input
-                            id="internal-name"
-                            placeholder="e.g., Multi-Level Jackpot Q1 2026"
-                            className="bg-neutral-800 border-neutral-700"
-                          />
+                          <Input id="internal-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Jackpot Q1 2026" className="bg-neutral-800 border-neutral-700" />
                         </div>
                         <div></div>
                       </div>
@@ -2975,11 +2999,7 @@ export function JackpotCreationForm() {
                       <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <BrightLabel htmlFor="description">Internal Description</BrightLabel>
-                          <Textarea
-                            id="description"
-                            placeholder="Describe what this jackpot does, what it's trying to achieve and any other useful information..."
-                            className="bg-neutral-800 border-neutral-700 min-h-[100px]"
-                          />
+                          <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe what this jackpot does..." className="bg-neutral-800 border-neutral-700 min-h-[100px]" />
                         </div>
                         <div></div>
                       </div>
@@ -3003,11 +3023,7 @@ export function JackpotCreationForm() {
                       <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <BrightLabel htmlFor="internal-name">Internal Name</BrightLabel>
-                          <Input
-                            id="internal-name"
-                            placeholder="e.g., Frequency Jackpot Q1 2026"
-                            className="bg-neutral-800 border-neutral-700"
-                          />
+                          <Input id="internal-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Jackpot Q1 2026" className="bg-neutral-800 border-neutral-700" />
                         </div>
                         <div></div>
                       </div>
@@ -3015,11 +3031,7 @@ export function JackpotCreationForm() {
                       <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <BrightLabel htmlFor="description">Internal Description</BrightLabel>
-                          <Textarea
-                            id="description"
-                            placeholder="Describe what this jackpot does, what it's trying to achieve and any other useful information..."
-                            className="bg-neutral-800 border-neutral-700 min-h-[100px]"
-                          />
+                          <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe what this jackpot does..." className="bg-neutral-800 border-neutral-700 min-h-[100px]" />
                         </div>
                         <div></div>
                       </div>
@@ -4023,6 +4035,19 @@ export function JackpotCreationForm() {
               </section>
             </>
           )}
+        </div>
+
+        {/* Universal Save Bar */}
+        <div className="flex items-center justify-between pt-8 pb-16 border-t border-neutral-800 mt-8">
+          <Button variant="outline" size="lg" onClick={handleBack}>Cancel</Button>
+          <Button
+            size="lg"
+            className="bg-blue-500 hover:bg-blue-600"
+            disabled={submitting || !name.trim()}
+            onClick={triggerSave}
+          >
+            {submitting ? 'Saving…' : 'Save Jackpot'}
+          </Button>
         </div>
       </main>
     </div>
