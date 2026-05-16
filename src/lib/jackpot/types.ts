@@ -41,6 +41,8 @@ export interface PoolDTO {
   currentAmount: number;
   minimumAmount: number;
   maximumAmount: number;
+  contributionAmount: number;
+  contributionType: ContributionType;
 }
 
 export interface SeedDTO {
