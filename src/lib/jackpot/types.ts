@@ -35,7 +35,10 @@ export interface SimulatorDTO {
 // --- Rich engine config used by the math/simulation engine ---
 
 export type ContributionType = "PERCENTAGE" | "FIXED";
+/** Win math model — orthogonal to structural type. */
 export type JackpotWinType = "AVERAGE" | "MAXIMUM";
+/** Structural pipeline — selects engine branch (mirror of Java JackpotType). */
+export type JackpotStructuralType = "CLASSIC" | "MULTI_LEVEL" | "MUST_DROP" | "FREQUENCY";
 
 export interface PoolDTO {
   currentAmount: number;
@@ -58,15 +61,42 @@ export interface SeedDTO {
   operatorShare?: number;
 }
 
+/** One tier in a MULTI_LEVEL jackpot (mirrors Java Pool+Seed with multiLevelTier/Weight). */
+export interface TierDTO {
+  /** Tier rank — 1 (Mini) … 4 (Mega). Higher rank evaluated FIRST per Java sort. */
+  multiLevelTier: number;
+  /** 0–1. Fraction of the global per-bet contribution routed to this tier. */
+  multiLevelWeight: number;
+  /** Human-readable label (Mini / Minor / Major / Mega). */
+  label?: string;
+  pool: PoolDTO;
+  seed: SeedDTO;
+}
+
+/** MUST_DROP / FREQUENCY timed config (virtual-clock mapping). */
+export interface TimedConfigDTO {
+  /** Total minutes of simulated life. Hourly=60, Daily=1440, Weekly=10080, Monthly=43200. */
+  lifespanMinutes: number;
+  /** Mirror Java MustDropFrequencyType: 1=SINGLE 2=DAILY 3=WEEKLY 4=MONTHLY. */
+  mustDropPeriod?: 1 | 2 | 3 | 4;
+}
+
 export interface JackpotConfigDTO {
   id: number;
   name: string;
   enabled?: boolean;
   brandId?: string;
+  /** Win math model. */
   type: JackpotWinType;
+  /** Structural pipeline. Defaults to "CLASSIC" when omitted (back-compat). */
+  structuralType?: JackpotStructuralType;
   volatility: number;
   pool: PoolDTO;
   seed: SeedDTO;
+  /** Present when structuralType === "MULTI_LEVEL". 2–4 entries. */
+  tiers?: TierDTO[];
+  /** Present when structuralType === "MUST_DROP" | "FREQUENCY". */
+  timed?: TimedConfigDTO;
   fixedWinAmount?: number;
   maximumWinAmount?: number;
 }
@@ -76,6 +106,20 @@ export interface WinEventDTO {
   amount: number;
   poolBeforeWin: number;
   timestamp: string;
+  /** Multi-level only — tier rank that produced the win. */
+  winningTier?: number;
+}
+
+/** Per-tier roll-up for MULTI_LEVEL simulations. */
+export interface TierResultDTO {
+  tier: number;
+  label: string;
+  winCounter: number;
+  winAmountCounter: number;
+  maxWinAmount: number;
+  finalPool: number;
+  finalSeed: number;
+  rejectedByGate: number;
 }
 
 export interface SimulatorResponseDTO {
@@ -98,4 +142,8 @@ export interface SimulatorResponseDTO {
   winEvents: WinEventDTO[];
   maxWinAmount?: number;
   tierCounts?: Record<string, number>;
+  /** Present for MULTI_LEVEL — one entry per tier. */
+  tierResults?: TierResultDTO[];
+  /** Echo of the engine branch that ran (for dashboard labelling). */
+  structuralType?: JackpotStructuralType;
 }
