@@ -46,7 +46,13 @@ function BackofficeShell() {
 
 function BackofficeLayout() {
   return (
-    <ClientOnly fallback={null}>
+    <ClientOnly
+      fallback={
+        <div style={{ minHeight: "100vh", background: "#0b1220", color: "#e6edf3", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "system-ui, sans-serif" }}>
+          Loading Backoffice…
+        </div>
+      }
+    >
       <BackofficeApp>
         <BackofficeShell />
       </BackofficeApp>
