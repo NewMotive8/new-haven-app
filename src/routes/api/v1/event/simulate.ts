@@ -12,13 +12,13 @@ function toConfig(jp: JackpotDTO): JackpotConfigDTO {
     enabled: jp.enabled,
     brandId: jp.brandId,
     type: "AVERAGE",
-    contributionAmount: jp.contributionRate * 100, // rate -> percent
-    contributionType: "PERCENTAGE",
     volatility: 1,
     pool: {
       currentAmount: jp.poolBalance,
       minimumAmount: jp.seedAmount,
       maximumAmount: jp.triggerThreshold,
+      contributionAmount: jp.contributionRate * 100, // rate -> percent
+      contributionType: "PERCENTAGE",
     },
     seed: {
       currentAmount: jp.seedAmount,
