@@ -33,14 +33,26 @@ const GlobalContext = React.createContext<GlobalContextI>({
 export { GlobalContext };
 
 // ---------- Auth context ----------
+interface MockUser {
+  email: string;
+  role: string;
+  activeBrand: { brandId: number; name?: string };
+}
 interface AuthContextI {
   isAuthenticated: boolean;
+  user: MockUser | null;
   token?: string;
   saveNewToken: (t: string) => void;
   logout: () => void;
 }
+const MOCK_USER: MockUser = {
+  email: "mock.admin@engagd.local",
+  role: "ROOT",
+  activeBrand: { brandId: 1, name: "Default Brand" },
+};
 const AuthContext = React.createContext<AuthContextI>({
-  isAuthenticated: false,
+  isAuthenticated: true,
+  user: MOCK_USER,
   saveNewToken: () => {},
   logout: () => {},
 });
