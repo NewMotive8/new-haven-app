@@ -24,13 +24,13 @@ const ACTIVE: CardDef[] = [
   {
     title: "Jackpots",
     description: "Browse, configure and inspect jackpot definitions.",
-    to: "/backoffice/jackpots",
+    to: "/admin/jackpots",
     icon: <FaCoins size={22} />,
   },
   {
     title: "Simulator",
     description: "Run bet simulations against a jackpot.",
-    to: "/backoffice/simulator",
+    to: "/admin/simulator",
     icon: <FaPlay size={22} />,
   },
 ];
