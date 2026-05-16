@@ -14,11 +14,6 @@ function num(value: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
-/** Treat 0 / NaN / undefined as "user didn't pick a value" and fall back. */
-function numOr(value: unknown, fallback: number): number {
-  const n = num(value, fallback);
-  return n > 0 ? n : fallback;
-}
 
 /**
  * Map the rich form payload coming out of the creation flow into the lean
@@ -42,13 +37,32 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
     payload.seedContributionType === "fixed" ? "FIXED" : "PERCENTAGE";
   const seedContributionAmount = num(payload.seedPercentageValue, 0);
 
-  // --- Healthy baseline pool & seed so the math runs even when the user
-  //     hasn't typed values yet. The form doesn't yet expose dedicated
-  //     base-amount inputs, so we treat `seedPercentageValue` as the proxy
-  //     "base seed" per the latest spec.
-  const seedPct = num(payload.seedPercentageValue, 0);
-  const baseSeed = numOr(seedPct, 500);
-  const poolCurrent = numOr(seedPct * 2, 1000);
+  // --- Real, user-driven amounts. We deliberately avoid silent fallbacks
+  //     to fixed numbers like 1000/10000 (they skew the Java-ported
+  //     Normal CDF + log curves). Only fall back when EVERY relevant input
+  //     is blank, and only to a floor that keeps the math defined.
+  const reseed = num(payload.reseedingAmount, 0);
+  const minWin = num(payload.minWinAmount, 0);
+  const maxWin = num(payload.maxWinAmount, 0);
+  const maxSeed = num(payload.maximumSeedAmount, 0);
+  const baseSeedProxy = num(payload.seedPercentageValue, 0);
+
+  // Pool starts at the user's re-seed amount (where the engine resets after a win).
+  const poolCurrent =
+    reseed > 0 ? reseed : baseSeedProxy > 0 ? baseSeedProxy * 2 : 1000;
+
+  // Seed accumulates toward an operational target. Priority: explicit
+  // Maximum Seed Amount → 5× re-seed → 2× base seed proxy → last-resort floor.
+  const seedCurrent =
+    baseSeedProxy > 0 ? baseSeedProxy : reseed > 0 ? reseed : 500;
+  const seedTarget =
+    maxSeed > 0
+      ? maxSeed
+      : reseed > 0
+      ? reseed * 5
+      : baseSeedProxy > 0
+      ? baseSeedProxy * 2
+      : 1000;
 
   const volatilityRaw = num(payload.volatility, 5);
   const volatility = Math.min(10, Math.max(0, volatilityRaw));
@@ -60,23 +74,23 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
     volatility,
     pool: {
       currentAmount: poolCurrent,
-      minimumAmount: num(payload.minWinAmount, 500),
-      maximumAmount: num(payload.maxWinAmount, 10000),
+      minimumAmount: minWin, // 0 is a valid user input
+      maximumAmount: maxWin, // 0 = uncapped; engine treats <=0 as Infinity
       contributionAmount: poolContributionAmount,
       contributionType: poolContributionType,
     },
     seed: {
-      currentAmount: baseSeed,
-      targetAmount: 1000,
+      currentAmount: seedCurrent,
+      targetAmount: seedTarget,
       contributionAmount: seedContributionAmount,
       contributionType: seedContributionType,
     },
     // Engine-level overrides per win model
     ...(payload.payoutModel === "fixed"
-      ? { fixedWinAmount: num(payload.fixedWinAmount, 100) }
+      ? { fixedWinAmount: num(payload.fixedWinAmount, 0) }
       : {}),
     ...(payload.payoutModel === "maximum"
-      ? { maximumWinAmount: num(payload.maxWinAmount, 10000) }
+      ? { maximumWinAmount: maxWin }
       : {}),
   };
 }
