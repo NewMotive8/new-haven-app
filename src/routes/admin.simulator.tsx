@@ -85,6 +85,7 @@ function SimulatorPage() {
   const [wager, setWager] = React.useState(1);
   const [iterations, setIterations] = React.useState(1000000);
   const [configText, setConfigText] = React.useState(JSON.stringify(initialConfig, null, 2));
+  const activeConfigTextRef = React.useRef(JSON.stringify(initialConfig, null, 2));
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [result, setResult] = React.useState<SimulatorResponseDTO | null>(null);
@@ -125,15 +126,16 @@ function SimulatorPage() {
     setError(null);
     setLoading(true);
     try {
-      let body: JackpotConfigDTO;
+      let parsedPayload: JackpotConfigDTO;
       try {
-        body = JSON.parse(configText);
+        parsedPayload = JSON.parse(activeConfigTextRef.current);
       } catch (e) {
         throw new Error("Jackpot config is not valid JSON");
       }
+      console.log(parsedPayload);
       const res = await axios.post<SimulatorResponseDTO>(
         "/api/v1/event/simulate-bet",
-        body,
+        parsedPayload,
         {
           params: { wager, iterations },
           headers: { brandId: String(brandId ?? "") },
@@ -231,7 +233,11 @@ function SimulatorPage() {
               <textarea
                 style={{ ...input, fontFamily: "ui-monospace, monospace", fontSize: 12, height: 320, resize: "vertical" }}
                 value={configText}
-                onChange={(e) => setConfigText(e.target.value)}
+                onChange={(e) => {
+                  const nextValue = e.target.value;
+                  activeConfigTextRef.current = nextValue;
+                  setConfigText(nextValue);
+                }}
               />
             </div>
             <button
