@@ -159,6 +159,35 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   const [reseedingAmount, setReseedingAmount] = useState<number>(initial?.reseedingAmount ?? 0);
   const [maximumSeedAmount, setMaximumSeedAmount] = useState<number>(initial?.maximumSeedAmount ?? 0);
 
+  // --- MUST_DROP / FREQUENCY virtual lifespan
+  const [lifespanMinutes, setLifespanMinutes] = useState<number>(initial?.lifespanMinutes ?? 1440);
+  const [mustDropPeriod, setMustDropPeriod] = useState<1 | 2 | 3 | 4>(initial?.mustDropPeriod ?? 2);
+
+  // --- MULTI_LEVEL tiers editor state
+  type TierRow = NonNullable<JackpotSavePayload['tiers']>[number];
+  const defaultTiers: TierRow[] = [
+    { label: 'Mini',  multiLevelTier: 1, multiLevelWeight: 0.6, reseedingAmount: 100,   minWinAmount: 10,   maxWinAmount: 500,    averageWinAmount: 100 },
+    { label: 'Major', multiLevelTier: 2, multiLevelWeight: 0.3, reseedingAmount: 1000,  minWinAmount: 100,  maxWinAmount: 5000,   averageWinAmount: 1000 },
+    { label: 'Mega',  multiLevelTier: 3, multiLevelWeight: 0.1, reseedingAmount: 10000, minWinAmount: 1000, maxWinAmount: 100000, averageWinAmount: 10000 },
+  ];
+  const [tiers, setTiers] = useState<TierRow[]>(initial?.tiers && initial.tiers.length > 0 ? initial.tiers : defaultTiers);
+
+  const updateTier = (idx: number, patch: Partial<TierRow>) =>
+    setTiers((prev) => prev.map((t, i) => (i === idx ? { ...t, ...patch } : t)));
+  const addTier = () => {
+    setTiers((prev) => {
+      if (prev.length >= 4) return prev;
+      const nextRank = (prev.reduce((m, t) => Math.max(m, t.multiLevelTier), 0) || 0) + 1;
+      return [
+        ...prev,
+        { label: `Tier ${nextRank}`, multiLevelTier: nextRank, multiLevelWeight: 0.1, reseedingAmount: 500, minWinAmount: 50, maxWinAmount: 2500, averageWinAmount: 500 },
+      ];
+    });
+  };
+  const removeTier = (idx: number) =>
+    setTiers((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx)));
+  const tierWeightTotal = tiers.reduce((s, t) => s + (Number(t.multiLevelWeight) || 0), 0);
+
   // Section refs for scroll tracking
   const basicRef = useRef<HTMLDivElement>(null);
   const modelRef = useRef<HTMLDivElement>(null);
