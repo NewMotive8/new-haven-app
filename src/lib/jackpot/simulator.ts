@@ -1,8 +1,5 @@
 import {
-  AVERAGE_VOLATILITY_MULTIPLIER,
-  DEFAULT_AVERAGE_VOLATILITY_EXPONENT,
   calculateAverageWin,
-  calculateMaximumHitChance,
   calculateMaximumWin,
 } from "./math";
 import type {
@@ -465,10 +462,66 @@ function defaultTierLabel(tier: number): string {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// MUST_DROP / FREQUENCY — virtual-clock timed maximum win.
-// Mirrors JackpotEngineMaths.calculateTimedMaximumWin, with the wall clock
-// replaced by iteration-index → minute mapping per the spec.
+// MUST_DROP / FREQUENCY — real UTC-clock timed maximum win.
+// Mirrors JackpotEngineMaths.calculateTimedMaximumWin verbatim:
+//   - calculationStartPoint / calculationEndPoint truncated to UTC boundaries
+//     per MustDropFrequencyType (SINGLE / DAILY / WEEKLY / MONTHLY).
+//   - percentageIntoGame = min(currentMinute / totalMinutes, 1.0), HALF_EVEN to 2dp.
+//   - timedVolatility = volatility * 5  (default 50 when volatility missing/0).
+//   - maxVolatility   = volatility * 15 (default 75 when volatility missing/0).
+//   - JMS-244 fairness multiplier on maximumHitChance.
+//   - RNG roll in [0, maximumWinAmount-1]; result = rnd / maximumWinAmount.
 // ──────────────────────────────────────────────────────────────────────────────
+
+/** Banker's rounding (HALF_EVEN) to N decimal places — matches Java BigDecimal. */
+function roundHalfEven(value: number, decimals: number): number {
+  if (!Number.isFinite(value)) return value;
+  const factor = Math.pow(10, decimals);
+  const scaled = value * factor;
+  const floor = Math.floor(scaled);
+  const diff = scaled - floor;
+  let rounded: number;
+  if (diff > 0.5) rounded = floor + 1;
+  else if (diff < 0.5) rounded = floor;
+  else rounded = floor % 2 === 0 ? floor : floor + 1; // tie → even
+  return rounded / factor;
+}
+
+/** Resolve [start, end] UTC window per MustDropFrequencyType. */
+function resolveTimedWindow(
+  timed: { mustDropPeriod?: 1 | 2 | 3 | 4; startDate?: string; endDate?: string } | undefined,
+  now: Date,
+): { start: number; end: number } {
+  const period = timed?.mustDropPeriod ?? 2; // default DAILY
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth();
+  const d = now.getUTCDate();
+
+  if (period === 1) {
+    // SINGLE — explicit dates required; fall back to a daily window if absent.
+    const start = timed?.startDate ? Date.parse(timed.startDate) : Date.UTC(y, m, d, 0, 0, 0, 0);
+    const end = timed?.endDate ? Date.parse(timed.endDate) : Date.UTC(y, m, d, 23, 59, 59, 999);
+    return { start, end };
+  }
+  if (period === 2) {
+    // DAILY — midnight UTC → 23:59:59 UTC same day.
+    return {
+      start: Date.UTC(y, m, d, 0, 0, 0, 0),
+      end: Date.UTC(y, m, d, 23, 59, 59, 999),
+    };
+  }
+  if (period === 3) {
+    // WEEKLY — Sunday 00:00 UTC → Saturday 23:59:59 UTC.
+    const dow = now.getUTCDay(); // 0=Sun … 6=Sat
+    const sunday = Date.UTC(y, m, d - dow, 0, 0, 0, 0);
+    const saturday = Date.UTC(y, m, d + (6 - dow), 23, 59, 59, 999);
+    return { start: sunday, end: saturday };
+  }
+  // MONTHLY — 1st 00:00 UTC → last day 23:59:59 UTC.
+  const firstOfMonth = Date.UTC(y, m, 1, 0, 0, 0, 0);
+  const lastOfMonth = Date.UTC(y, m + 1, 0, 23, 59, 59, 999); // day 0 of next month = last day
+  return { start: firstOfMonth, end: lastOfMonth };
+}
 
 function simulateTimed(
   jackpot: JackpotConfigDTO,
@@ -485,11 +538,21 @@ function simulateTimed(
   const maximumWinAmount = maximumWinAmountRaw > 0 ? maximumWinAmountRaw : 0;
   const hasFixedOrMaxOverride = fixedWinAmount > 0 || maximumWinAmount > 0;
 
-  const lifespanMinutes = Math.max(1, Number(jackpot.timed?.lifespanMinutes) || 1440);
-  // Java line 357-358: volatility multiplier for timed term.
-  const timedVolatility = volatility ? volatility * AVERAGE_VOLATILITY_MULTIPLIER : DEFAULT_AVERAGE_VOLATILITY_EXPONENT;
-  // Java line 365: random / maximumWinAmount; fall back to pool current if unset.
-  const denomTarget = maximumWinAmount > 0 ? maximumWinAmount : Math.max(2, rt.poolCurrent);
+  // Java parity — defaults when volatility missing or zero.
+  const timedVolatility = volatility > 0 ? volatility * 5 : 50;
+  const maxVolatility = volatility > 0 ? volatility * 15 : 75;
+
+  // RNG denominator — Java rolls in [0, maximumWinAmount-1] and divides by maximumWinAmount.
+  const rngDenom = maximumWinAmount > 0 ? maximumWinAmount : Math.max(2, rt.poolCurrent);
+
+  // Target for the log-ratio inside maximumHitChance (Java: pool.targetAmount ?? jackpot.maximumWinAmount, min 2).
+  const rawTarget =
+    Number(rt.pool.targetAmount) > 0
+      ? Number(rt.pool.targetAmount)
+      : maximumWinAmount > 0
+        ? maximumWinAmount
+        : 0;
+  const logTarget = rawTarget < 2 ? 2 : rawTarget;
 
   let walletContributions = 0;
   let operatorContributions = 0;
@@ -514,25 +577,32 @@ function simulateTimed(
       mathContribution += rt.seedContribForCalc;
     }
 
-    // Virtual clock — iteration index → minute index, linearly across lifespan.
-    const currentMinute = iterations > 1 ? Math.floor((i / (iterations - 1)) * lifespanMinutes) : lifespanMinutes;
-    const percentageIntoGame = Math.max(0, Math.min(1, currentMinute / lifespanMinutes));
+    // ── Real UTC system-clock snapshot per spin ───────────────────────────
+    const nowMs = Date.now();
+    const { start, end } = resolveTimedWindow(jackpot.timed, new Date(nowMs));
+    const totalMinutes = (end - start) / 1000 / 60;
+    const currentMinute = (nowMs - start) / 1000 / 60;
+    const rawPct = totalMinutes > 0 ? currentMinute / totalMinutes : 1;
+    const percentageIntoGame = roundHalfEven(Math.min(Math.max(rawPct, 0), 1), 2);
 
-    // Maximum-style hit chance against the live pool, max target = denomTarget.
-    const maximumHitChance = calculateMaximumHitChance(
-      rt.poolCurrent,
-      denomTarget,
-      mathContribution,
-      volatility,
-    );
-    // Timed term per Java line 359.
+    // ── totalTimedChance (Java line 359) ──────────────────────────────────
     const totalTimedChance = Math.pow(percentageIntoGame, timedVolatility) * mathContribution;
+
+    // ── maximumHitChance with JMS-244 fairness multiplier ─────────────────
+    const currentAmount = Math.max(1, rt.poolCurrent); // log(0) guard
+    const logValue = Math.log(currentAmount) / Math.log(logTarget);
+    const baseExponent = Math.pow(logValue, maxVolatility);
+    // (baseExponent * 100 * contribution * 100) / 100  ==  baseExponent * contribution * 100
+    const maximumHitChance = baseExponent * mathContribution * 100;
+
     const hitChance = totalTimedChance + maximumHitChance;
 
-    const random = Math.random() * denomTarget;
-    const result = random / denomTarget;
-    if (result >= hitChance) continue;
+    // RNG roll: long in [0, maxWin-1], then divide by maxWin.
+    const randomValue = Math.floor(Math.random() * rngDenom);
+    const result = randomValue / rngDenom;
+    if (!(result < hitChance)) continue;
 
+    // performSafetyChecks
     if (rt.minimumWinAmount > 0 && rt.poolCurrent < rt.minimumWinAmount) {
       rejectedByGate++;
       continue;

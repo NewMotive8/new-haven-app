@@ -82,6 +82,10 @@ export interface TimedConfigDTO {
   lifespanMinutes: number;
   /** Mirror Java MustDropFrequencyType: 1=SINGLE 2=DAILY 3=WEEKLY 4=MONTHLY. */
   mustDropPeriod?: 1 | 2 | 3 | 4;
+  /** ISO-8601 UTC. Required when mustDropPeriod === 1 (SINGLE). */
+  startDate?: string;
+  /** ISO-8601 UTC. Required when mustDropPeriod === 1 (SINGLE). */
+  endDate?: string;
 }
 
 export interface JackpotConfigDTO {
