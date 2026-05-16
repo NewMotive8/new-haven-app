@@ -27,10 +27,15 @@ const ACTIVE: CardDef[] = [
     to: "/backoffice/jackpots",
     icon: <FaCoins size={22} />,
   },
+  {
+    title: "Simulator",
+    description: "Run bet simulations against a jackpot.",
+    to: "/backoffice/simulator",
+    icon: <FaPlay size={22} />,
+  },
 ];
 
 const COMING_SOON: CardDef[] = [
-  { title: "Simulator", description: "Run bet simulations against a jackpot.", icon: <FaPlay size={22} /> },
   { title: "Lucky Wheel", description: "Manage wheel campaigns and prizes.", icon: <FaCircleNotch size={22} /> },
   { title: "Raffles", description: "Schedule and draw raffle campaigns.", icon: <FaTicketAlt size={22} /> },
   { title: "Spin Sprint", description: "Time-boxed spin competitions.", icon: <FaBolt size={22} /> },
