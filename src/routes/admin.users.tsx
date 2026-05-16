@@ -7,7 +7,7 @@ import {
   inviteUser,
   setUserEnabled,
   deleteUser,
-  sendUserPasswordReset,
+  setUserPassword,
 } from "@/lib/users.functions";
 
 export const Route = createFileRoute("/admin/users")({
