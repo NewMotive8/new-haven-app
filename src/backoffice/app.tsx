@@ -8,6 +8,7 @@ import * as React from "react";
 import { QueryClient, QueryClientProvider } from "react-query";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import defaultTranslations from "./src/utils/services/translations/default.json";
 
 // ---------- Global context ----------
 type AppSize = "xsm" | "sm" | "md" | "lg" | "xl" | "xxl";
