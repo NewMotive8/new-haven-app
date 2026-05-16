@@ -14,11 +14,6 @@ function num(value: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
-/** Treat 0 / NaN / undefined as "user didn't pick a value" and fall back. */
-function numOr(value: unknown, fallback: number): number {
-  const n = num(value, fallback);
-  return n > 0 ? n : fallback;
-}
 
 /**
  * Map the rich form payload coming out of the creation flow into the lean
