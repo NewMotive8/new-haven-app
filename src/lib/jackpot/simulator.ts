@@ -6,6 +6,7 @@ import {
   calculateMaximumWin,
 } from "./math";
 import type {
+  EngineScopeAuditDTO,
   JackpotConfigDTO,
   PoolDTO,
   SeedDTO,
@@ -177,6 +178,7 @@ function simulateClassic(
   const tierCounts: Record<string, number> = {};
   const winEvents: WinEventDTO[] = [];
   const nowIso = new Date().toISOString();
+  let engineScopeAudit: EngineScopeAuditDTO | undefined;
 
   for (let i = 0; i < iterations; i++) {
     rt.poolCurrent = Math.min(rt.poolCap, rt.poolCurrent + rt.poolContribForCalc);
@@ -326,10 +328,12 @@ function simulateMultiLevel(
     // 2. Walk tiers in reverse rank; first winner wins (early-return per Java).
     for (const r of runtimes) {
       const rt = r.rt;
+      const tierInstance = r;
+      const tierRuntime = tierInstance.rt;
+      const tierPool = tierRuntime.pool;
       const weightedContribution = globalMathContribution * r.weight;
       if (weightedContribution <= 0) continue;
 
-      const tierPool = rt.pool;
       const tierTargetAmount = Number(tierPool.targetAmount) || 0;
       const tierMinimumWinAmount = Number(tierPool.minimumWinAmount) || 0;
       const target =
@@ -337,27 +341,37 @@ function simulateMultiLevel(
           ? tierTargetAmount
           : maximumWinAmount > 0
             ? maximumWinAmount
-            : rt.poolCurrent;
+            : tierRuntime.poolCurrent;
+
+      if (!engineScopeAudit && i === 0 && tierInstance.tier === 1) {
+        engineScopeAudit = {
+          spinIndex: 0,
+          tier: tierInstance.tier,
+          label: tierInstance.label,
+          runtimeTargetAmount: target,
+          runtimeMinimumWinAmount: tierMinimumWinAmount,
+        };
+      }
 
       const won = isAverage
-        ? calculateAverageWin(rt.poolCurrent, target, weightedContribution, volatility)
-        : calculateMaximumWin(rt.poolCurrent, target, weightedContribution, volatility);
+        ? calculateAverageWin(tierRuntime.poolCurrent, target, weightedContribution, volatility)
+        : calculateMaximumWin(tierRuntime.poolCurrent, target, weightedContribution, volatility);
       if (!won) continue;
 
       // performSafetyChecks per tier
-      if (tierMinimumWinAmount > 0 && rt.poolCurrent < tierMinimumWinAmount) {
+      if (tierMinimumWinAmount > 0 && tierRuntime.poolCurrent < tierMinimumWinAmount) {
         r.rejectedByGate++;
         rejectedByGate++;
         continue;
       }
-      if (rt.hasSeedConfig && rt.seedCurrent < rt.poolMin) {
+      if (tierRuntime.hasSeedConfig && tierRuntime.seedCurrent < tierRuntime.poolMin) {
         r.rejectedByGate++;
         rejectedByGate++;
         continue;
       }
 
-      const winAmount = applyPayoutOverrides(rt.poolCurrent, fixedWinAmount, maximumWinAmount);
-      const poolBeforeWin = rt.poolCurrent;
+      const winAmount = applyPayoutOverrides(tierRuntime.poolCurrent, fixedWinAmount, maximumWinAmount);
+      const poolBeforeWin = tierRuntime.poolCurrent;
 
       r.winCounter++;
       r.winAmountCounter += winAmount;
@@ -379,7 +393,7 @@ function simulateMultiLevel(
           winningTier: r.tier,
         });
       }
-      reseedAfterWin(rt, winAmount, hasFixedOrMaxOverride);
+      reseedAfterWin(tierRuntime, winAmount, hasFixedOrMaxOverride);
       break; // Java early-return: one win per bet
     }
   }
@@ -423,6 +437,7 @@ function simulateMultiLevel(
     maxWinAmount,
     tierCounts,
     tierResults,
+    engineScopeAudit,
     structuralType: "MULTI_LEVEL",
   };
 }
