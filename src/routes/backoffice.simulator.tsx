@@ -10,10 +10,14 @@ const DEFAULT_CONFIG: JackpotConfigDTO = {
   id: 1,
   name: "Demo Jackpot",
   type: "AVERAGE",
-  contributionAmount: 2,
-  contributionType: "PERCENTAGE",
   volatility: 5,
-  pool: { currentAmount: 1000, minimumAmount: 500, maximumAmount: 10000 },
+  pool: {
+    currentAmount: 1000,
+    minimumAmount: 500,
+    maximumAmount: 10000,
+    contributionAmount: 2,
+    contributionType: "PERCENTAGE",
+  },
   seed: {
     currentAmount: 500,
     targetAmount: 1000,

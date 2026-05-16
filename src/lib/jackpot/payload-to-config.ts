@@ -27,54 +27,43 @@ function numOr(value: unknown, fallback: number): number {
 export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDTO {
   // --- Win type: form payoutModel ('fixed' | 'average' | 'maximum')
   //               → engine type    ('AVERAGE' | 'MAXIMUM')
-  // 'fixed' rides on AVERAGE with a fixedWinAmount override so the engine
-  // pays out a flat number every trigger.
   const winType: JackpotWinType =
     payload.payoutModel === "maximum" ? "MAXIMUM" : "AVERAGE";
 
-  // --- Pool contribution: type + size
+  // --- Pool contribution: independent type + amount from the form.
+  //     Use values as-is (0 and 0.5 are valid user inputs); only fall back
+  //     when the field is missing/NaN.
   const poolContributionType =
     payload.contributionType === "fixed" ? "FIXED" : "PERCENTAGE";
-  const poolPct = num(payload.poolPercentageValue, 0);
-  const playerPct = num(payload.playerContribution, 0);
-  const operatorPct = num(payload.operatorContribution, 0);
-  // For fixed: poolPercentageValue is the flat per-spin amount.
-  // For percentage: sum of player + operator splits.
-  const poolContributionAmount =
-    poolContributionType === "FIXED"
-      ? numOr(poolPct, 3)
-      : numOr(playerPct + operatorPct, 3);
+  const poolContributionAmount = num(payload.poolPercentageValue, 0);
 
-  // --- Seed contribution
+  // --- Seed contribution: same treatment, independent of the pool.
   const seedContributionType =
     payload.seedContributionType === "fixed" ? "FIXED" : "PERCENTAGE";
-  const seedPct = num(payload.seedPercentageValue, 0);
-  const seedContributionAmount =
-    seedContributionType === "FIXED" ? numOr(seedPct, 1) : numOr(seedPct, 1);
+  const seedContributionAmount = num(payload.seedPercentageValue, 0);
 
   // --- Healthy baseline pool & seed so the math runs even when the user
   //     hasn't typed values yet. The form doesn't yet expose dedicated
   //     base-amount inputs, so we treat `seedPercentageValue` as the proxy
   //     "base seed" per the latest spec.
+  const seedPct = num(payload.seedPercentageValue, 0);
   const baseSeed = numOr(seedPct, 500);
   const poolCurrent = numOr(seedPct * 2, 1000);
 
   const volatilityRaw = num(payload.volatility, 5);
-  // UI exposes volatility on a 1-10 scale; engine treats it as a multiplier
-  // on payout dispersion. Clamp to a safe range.
   const volatility = Math.min(10, Math.max(0, volatilityRaw));
 
   return {
     id: 0,
     name: payload.name?.trim() || "Untitled Jackpot",
     type: winType,
-    contributionAmount: poolContributionAmount,
-    contributionType: poolContributionType,
     volatility,
     pool: {
       currentAmount: poolCurrent,
       minimumAmount: 500,
       maximumAmount: 10000,
+      contributionAmount: poolContributionAmount,
+      contributionType: poolContributionType,
     },
     seed: {
       currentAmount: baseSeed,

@@ -29,8 +29,8 @@ export function simulateEngine(
   // Hoist hot-loop config
   const volatility = Number(jackpot.volatility) || 0;
   const winType = jackpot.type ?? "AVERAGE";
-  const poolContribType = jackpot.contributionType;
-  const poolContribAmt = Number(jackpot.contributionAmount) || 0;
+  const poolContribType = jackpot.pool.contributionType;
+  const poolContribAmt = Number(jackpot.pool.contributionAmount) || 0;
   const seedContribType = jackpot.seed.contributionType;
   const seedContribAmt = Number(jackpot.seed.contributionAmount) || 0;
 

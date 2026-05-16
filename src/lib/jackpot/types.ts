@@ -41,6 +41,8 @@ export interface PoolDTO {
   currentAmount: number;
   minimumAmount: number;
   maximumAmount: number;
+  contributionAmount: number;
+  contributionType: ContributionType;
 }
 
 export interface SeedDTO {
@@ -56,8 +58,6 @@ export interface JackpotConfigDTO {
   enabled?: boolean;
   brandId?: string;
   type: JackpotWinType;
-  contributionAmount: number;
-  contributionType: ContributionType;
   volatility: number;
   pool: PoolDTO;
   seed: SeedDTO;

@@ -273,13 +273,13 @@ export async function getJackpotConfig(
     enabled: jp.enabled,
     brandId: jp.brandId,
     type: "AVERAGE",
-    contributionAmount: jp.contributionRate * 100, // stored as fraction; engine expects percent
-    contributionType: "PERCENTAGE",
     volatility: 5,
     pool: {
       currentAmount: jp.poolBalance,
       minimumAmount: jp.seedAmount,
       maximumAmount: jp.triggerThreshold,
+      contributionAmount: jp.contributionRate * 100, // stored as fraction; engine expects percent
+      contributionType: "PERCENTAGE",
     },
     seed: {
       currentAmount: jp.seedAmount,
