@@ -58,8 +58,6 @@ export interface JackpotConfigDTO {
   enabled?: boolean;
   brandId?: string;
   type: JackpotWinType;
-  contributionAmount: number;
-  contributionType: ContributionType;
   volatility: number;
   pool: PoolDTO;
   seed: SeedDTO;
