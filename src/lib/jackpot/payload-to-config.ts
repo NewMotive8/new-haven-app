@@ -70,4 +70,17 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
     },
     seed: {
       currentAmount: seedContributionAmount,  // start at one contribution tick
-      targ
+      targetAmount: avgWin,                   // CDF mean = Average Win Amount (exact)
+      contributionAmount: seedContributionAmount,
+      contributionType: seedContributionType,
+      operatorShare: seedOperatorShare,
+    },
+    // Engine-level overrides per win model
+    ...(payload.payoutModel === "fixed"
+      ? { fixedWinAmount: num(payload.fixedWinAmount, 0) }
+      : {}),
+    ...(payload.payoutModel === "maximum"
+      ? { maximumWinAmount: maxWin }
+      : {}),
+  };
+}
