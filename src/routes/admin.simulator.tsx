@@ -123,7 +123,6 @@ function SimulatorPage() {
   }
 
   async function handleSimulate() {
-    throw new Error("ACID TEST PASSED: The engine is alive!");
     setError(null);
     setLoading(true);
     try {
