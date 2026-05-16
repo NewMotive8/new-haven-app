@@ -46,6 +46,9 @@ export interface PoolDTO {
   maximumAmount: number;          // legacy slot — no longer the CDF trigger
   minimumWinAmount?: number;      // Java jackpot.minimumWinAmount (rejection gate)
   maximumWinAmount?: number;      // Java jackpot.maximumWinAmount (payout cap)
+  /** Per-tier CDF distribution center (Java pool.targetAmount). When set, the
+   *  math strategy uses this instead of the global maximumWinAmount/poolCurrent. */
+  targetAmount?: number;
   contributionAmount: number;
   contributionType: ContributionType;
   /** 0–100. Operator-funded share of each pool contribution (BrandDTO mirror). */
