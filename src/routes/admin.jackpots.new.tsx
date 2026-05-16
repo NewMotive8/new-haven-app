@@ -7,45 +7,7 @@ import {
   JackpotCreationForm,
   type JackpotSavePayload,
 } from "@/components/jackpot/JackpotCreationForm";
-
-function buildTriggerCondition(p: JackpotSavePayload): Record<string, unknown> {
-  const base = {
-    type: p.type,
-    payoutModel: p.payoutModel,
-    contributionType: p.contributionType,
-    seedContributionType: p.seedContributionType,
-    pool: {
-      playerContribution: p.playerContribution,
-      operatorContribution: p.operatorContribution,
-      poolPercentageValue: p.poolPercentageValue,
-    },
-    seed: {
-      seedPlayerContribution: p.seedPlayerContribution,
-      seedOperatorContribution: p.seedOperatorContribution,
-      seedPercentageValue: p.seedPercentageValue,
-    },
-    recurrence: {
-      recurrenceType: p.recurrenceType,
-      weeklyDay: p.weeklyDay,
-      monthlyDay: p.monthlyDay,
-      displayFrequency: p.displayFrequency,
-      weeklyFrequencyDay: p.weeklyFrequencyDay,
-      monthlyFrequencyDay: p.monthlyFrequencyDay,
-      separateContributionFrequency: p.separateContributionFrequency,
-    },
-    widget: {
-      payoutInterval: p.payoutInterval,
-      isSegmented: p.isSegmented,
-      segments: p.segments,
-      isCommunity: p.isCommunity,
-      communitySplit: p.communitySplit,
-      isTemplate: p.isTemplate,
-      selectedWidget: p.selectedWidget,
-    },
-    description: p.description,
-  };
-  return base;
-}
+import { buildCreateBody } from "@/lib/jackpot/build-create-body";
 
 function NewJackpotPage() {
   const { brandId } = React.useContext(BrandContext);
