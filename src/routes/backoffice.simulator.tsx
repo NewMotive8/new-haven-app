@@ -52,9 +52,20 @@ function StatCard({ title, value, hint }: { title: string; value: string; hint?:
 
 function SimulatorPage() {
   const { brandId } = React.useContext(BrandContext);
+  const incoming = useRouterState({
+    select: (s) => s.location.state as { jackpotConfig?: JackpotSavePayload } | undefined,
+  });
+  const initialConfig = React.useMemo<JackpotConfigDTO>(
+    () => (incoming?.jackpotConfig ? mapPayloadToConfig(incoming.jackpotConfig) : DEFAULT_CONFIG),
+    // Intentionally empty: only read incoming state on first mount so user
+    // edits in the textarea are never overwritten on re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  const cameFromCreationFlow = Boolean(incoming?.jackpotConfig);
   const [wager, setWager] = React.useState(10);
   const [iterations, setIterations] = React.useState(100000);
-  const [configText, setConfigText] = React.useState(JSON.stringify(DEFAULT_CONFIG, null, 2));
+  const [configText, setConfigText] = React.useState(JSON.stringify(initialConfig, null, 2));
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [result, setResult] = React.useState<SimulatorResponseDTO | null>(null);
