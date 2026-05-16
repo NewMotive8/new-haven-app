@@ -395,6 +395,7 @@ function simulateMultiLevel(
       finalPool: r.rt.poolCurrent,
       finalSeed: r.rt.seedCurrent,
       rejectedByGate: r.rejectedByGate,
+      totalContribution: r.totalContribution,
     }));
 
   const finalPool = tierResults.reduce((s, t) => s + t.finalPool, 0);
