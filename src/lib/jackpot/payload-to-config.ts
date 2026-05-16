@@ -47,6 +47,12 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
   const volatilityRaw = num(payload.volatility, 5);
   const volatility = Math.min(10, Math.max(0, volatilityRaw));
 
+  // --- Operator share (Java BrandDTO mirror, per-bucket).
+  //     Form sliders are 0–100 representing the operator-funded percentage.
+  //     Pass through exactly; clamp only to the legal [0, 100] range.
+  const poolOperatorShare = Math.min(100, Math.max(0, num(payload.operatorContribution, 0)));
+  const seedOperatorShare = Math.min(100, Math.max(0, num(payload.seedOperatorContribution, 0)));
+
   return {
     id: 0,
     name: payload.name?.trim() || "Untitled Jackpot",
@@ -54,25 +60,14 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
     volatility,
     pool: {
       currentAmount: reseed,                  // start at reseed floor
-      minimumAmount: reseed,                  // reseed floor
+      minimumAmount: reseed,                  // Java pool.minimumAmount (reseed + safety gate denominator)
       maximumAmount: 0,                       // legacy; engine ignores when 0
-      minimumWinAmount: minWin,               // payout floor (clamp)
-      maximumWinAmount: maxWin,               // payout ceiling (clamp; 0 = uncapped)
+      minimumWinAmount: minWin,               // Java jackpot.minimumWinAmount (rejection gate)
+      maximumWinAmount: maxWin,               // Java jackpot.maximumWinAmount (payout cap, 0 = uncapped)
       contributionAmount: poolContributionAmount,
       contributionType: poolContributionType,
+      operatorShare: poolOperatorShare,
     },
     seed: {
       currentAmount: seedContributionAmount,  // start at one contribution tick
-      targetAmount: avgWin,                   // CDF mean = Average Win Amount (exact)
-      contributionAmount: seedContributionAmount,
-      contributionType: seedContributionType,
-    },
-    // Engine-level overrides per win model
-    ...(payload.payoutModel === "fixed"
-      ? { fixedWinAmount: num(payload.fixedWinAmount, 0) }
-      : {}),
-    ...(payload.payoutModel === "maximum"
-      ? { maximumWinAmount: maxWin }
-      : {}),
-  };
-}
+      targ
