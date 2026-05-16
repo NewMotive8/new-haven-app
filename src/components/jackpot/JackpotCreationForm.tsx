@@ -174,7 +174,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   };
 
   const handleBack = () => {
-    if (onCancel) onCancel(); else navigate({ to: '/backoffice/jackpots' });
+    if (onCancel) onCancel(); else navigate({ to: '/admin/jackpots' });
   };
 
 
@@ -261,7 +261,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
     }
 
     navigate({
-      to: '/backoffice/simulator',
+      to: '/admin/simulator',
       state: { jackpotConfig: payload } as never,
     });
   }

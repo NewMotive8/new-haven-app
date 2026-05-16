@@ -6,6 +6,6 @@ import * as React from "react";
 // @ts-ignore — backoffice/** is excluded from the root typecheck on purpose
 import BackofficeLanding from "components/backofficeLanding/BackofficeLanding";
 
-export const Route = createFileRoute("/backoffice/")({
+export const Route = createFileRoute("/admin/")({
   component: BackofficeLanding,
 });

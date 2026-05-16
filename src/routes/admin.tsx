@@ -167,7 +167,7 @@ function BackofficeShell({ onLogout }: { onLogout: () => void }) {
         <strong style={{ fontSize: 18, letterSpacing: 0.4 }}>Insentiv8 Backoffice</strong>
         <nav style={{ display: "flex", gap: 18, fontSize: 14 }}>
           <Link
-            to="/backoffice"
+            to="/admin"
             activeOptions={{ exact: true }}
             activeProps={{ style: { color: "#fff", textDecoration: "underline" } }}
             style={{ color: "#9fb0c8", textDecoration: "none" }}
@@ -175,14 +175,14 @@ function BackofficeShell({ onLogout }: { onLogout: () => void }) {
             Home
           </Link>
           <Link
-            to="/backoffice/jackpots"
+            to="/admin/jackpots"
             activeProps={{ style: { color: "#fff", textDecoration: "underline" } }}
             style={{ color: "#9fb0c8", textDecoration: "none" }}
           >
             Jackpots
           </Link>
           <Link
-            to="/backoffice/simulator"
+            to="/admin/simulator"
             activeProps={{ style: { color: "#fff", textDecoration: "underline" } }}
             style={{ color: "#9fb0c8", textDecoration: "none" }}
           >
@@ -253,7 +253,7 @@ function BackofficeLayout() {
   );
 }
 
-export const Route = createFileRoute("/backoffice")({
+export const Route = createFileRoute("/admin")({
   ssr: false,
   component: BackofficeLayout,
 });
