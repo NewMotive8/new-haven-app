@@ -84,7 +84,7 @@ export function simulateEngine(
 
     totalContributions += poolContribution + seedContribution;
 
-    const target = useFixedTarget ? targetForWin : poolCurrent;
+    const target = useFixedTarget ? cdfTarget : poolCurrent;
     const won = isAverage
       ? calculateAverageWin(poolCurrent, target, poolContribution, volatility)
       : calculateMaximumWin(poolCurrent, target, poolContribution, volatility);
