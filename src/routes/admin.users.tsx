@@ -44,9 +44,10 @@ function UsersPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-users"] }),
     onError: (e: any) => setFeedback(e?.message ?? "Failed to delete user"),
   });
-  const resetM = useMutation({
-    mutationFn: (vars: { email: string }) => reset({ data: vars }),
-    onError: (e: any) => setFeedback(e?.message ?? "Failed to send reset email"),
+  const setPwdM = useMutation({
+    mutationFn: (vars: { userId: string; password: string }) => setPwd({ data: vars }),
+    onSuccess: () => setFeedback("Password updated."),
+    onError: (e: any) => setFeedback(e?.message ?? "Failed to set password"),
   });
 
   const [email, setEmail] = React.useState("");
