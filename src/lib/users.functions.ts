@@ -105,14 +105,21 @@ export const deleteUser = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const sendUserPasswordReset = createServerFn({ method: "POST" })
+export const setUserPassword = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({ email: z.string().email() }).parse(input),
+    z
+      .object({
+        userId: z.string().uuid(),
+        password: z.string().min(8).max(128),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
-    const { error } = await supabaseAdmin.auth.resetPasswordForEmail(data.email);
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
+      password: data.password,
+    });
     if (error) throw new Error(error.message);
     return { ok: true };
   });

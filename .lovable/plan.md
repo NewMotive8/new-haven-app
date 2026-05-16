@@ -1,49 +1,35 @@
-# Fix: "Database error querying schema" on login
+# Replace password reset email with admin "Set password" action
 
-## Root cause
+## Why
 
-The seed migration that created `dr.loop@gmail.com` inserted the row into `auth.users` without setting the token columns. GoTrue (Supabase Auth) reads those columns as Go `string` (not `*string`), so any NULL value crashes the request with:
+The `/recover` call works, but the project has no verified email domain, so recovery emails go through Supabase's default relay and don't reliably reach the inbox. For an invite-only admin tool this is overkill — admins can just hand a user a new temp password directly.
 
-> sql: Scan error on column index 3, name "confirmation_token": converting NULL to string is unsupported
+## Changes
 
-The user can never sign in or trigger password reset until those columns are normalized to empty strings.
+**1. New server function** `setUserPassword` in `src/lib/users.functions.ts`
+- Protected by `requireSupabaseAuth` + existing `assertAdmin` helper
+- Input: `{ userId: string, password: string }` (Zod, min 8 chars)
+- Uses `supabaseAdmin.auth.admin.updateUserById(userId, { password })` to set the password immediately — no email involved
+- Returns `{ ok: true }`
 
-Verified against the DB — for `dr.loop@gmail.com` these columns are NULL:
-`confirmation_token`, `recovery_token`, `email_change_token_new`, `email_change`, `reauthentication_token`.
+**2. Remove the email recovery action** from `src/lib/users.functions.ts`
+- Delete `sendUserPasswordReset` (no longer used)
 
-## Fix
+**3. Update Users admin page** `src/routes/admin.users.tsx`
+- Replace the "Reset password" button with a "Set password" button per row
+- Clicking it opens a small inline prompt (or simple `prompt()` dialog to keep scope tight) asking for the new temp password
+- Calls `setUserPassword` via `useServerFn` + `useMutation`
+- Shows success / error in the existing `feedback` banner
+- Drop the old `resetM` mutation and its imports
 
-One small migration that normalizes the existing row (and any future rows hit by the same bug):
+**4. Leave `/reset-password.tsx` route in place**
+- Still useful: a signed-in user can navigate there to change their own password via `supabase.auth.updateUser({ password })`. Won't be linked from the Users table anymore.
 
-```sql
-UPDATE auth.users
-SET
-  confirmation_token        = COALESCE(confirmation_token, ''),
-  recovery_token            = COALESCE(recovery_token, ''),
-  email_change_token_new    = COALESCE(email_change_token_new, ''),
-  email_change_token_current= COALESCE(email_change_token_current, ''),
-  reauthentication_token    = COALESCE(reauthentication_token, ''),
-  email_change              = COALESCE(email_change, ''),
-  phone_change              = COALESCE(phone_change, ''),
-  phone_change_token        = COALESCE(phone_change_token, '')
-WHERE
-  confirmation_token IS NULL
-  OR recovery_token IS NULL
-  OR email_change_token_new IS NULL
-  OR email_change_token_current IS NULL
-  OR reauthentication_token IS NULL
-  OR email_change IS NULL
-  OR phone_change IS NULL
-  OR phone_change_token IS NULL;
-```
+No DB migration needed. No email infra needed.
 
-After the migration runs, sign in at `/login` with:
+## Notes for the user
 
-- Email: `dr.loop@gmail.com`
-- Password: `TempPass123!`
-
-No code changes needed — the login form, server functions, and RLS are all correct. The only blocker is the NULL token columns on the seeded row.
-
-## Note for future admin seeding
-
-The previous bootstrap migration should have inserted those columns with `''` defaults. If we ever seed another admin via SQL, include the empty-string token columns explicitly (or use `supabase.auth.admin.createUser` from a one-off server function, which sets them correctly).
+After this lands, the flow is:
+1. Admin opens `/admin/users`, clicks **Set password** on the target row, types a new temp password.
+2. Hand that password to the user out-of-band (Slack, in person, etc.).
+3. User signs in at `/login`, optionally changes it themselves at `/reset-password`.

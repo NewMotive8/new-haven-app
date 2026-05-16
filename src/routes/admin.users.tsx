@@ -7,7 +7,7 @@ import {
   inviteUser,
   setUserEnabled,
   deleteUser,
-  sendUserPasswordReset,
+  setUserPassword,
 } from "@/lib/users.functions";
 
 export const Route = createFileRoute("/admin/users")({
@@ -24,7 +24,7 @@ function UsersPage() {
   const invite = useServerFn(inviteUser);
   const setEnabled = useServerFn(setUserEnabled);
   const del = useServerFn(deleteUser);
-  const reset = useServerFn(sendUserPasswordReset);
+  const setPwd = useServerFn(setUserPassword);
   const qc = useQueryClient();
 
   const usersQ = useQuery({ queryKey: ["admin-users"], queryFn: () => list() });
@@ -44,9 +44,10 @@ function UsersPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-users"] }),
     onError: (e: any) => setFeedback(e?.message ?? "Failed to delete user"),
   });
-  const resetM = useMutation({
-    mutationFn: (vars: { email: string }) => reset({ data: vars }),
-    onError: (e: any) => setFeedback(e?.message ?? "Failed to send reset email"),
+  const setPwdM = useMutation({
+    mutationFn: (vars: { userId: string; password: string }) => setPwd({ data: vars }),
+    onSuccess: () => setFeedback("Password updated."),
+    onError: (e: any) => setFeedback(e?.message ?? "Failed to set password"),
   });
 
   const [email, setEmail] = React.useState("");
@@ -129,8 +130,18 @@ function UsersPage() {
                   </td>
                   <td style={cellStyle}>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      <button style={btn} onClick={() => resetM.mutate({ email: u.email })}>
-                        {resetM.isPending ? "…" : "Reset password"}
+                      <button
+                        style={btn}
+                        onClick={() => {
+                          const pwd = prompt(`Set new password for ${u.email} (min 8 chars):`);
+                          if (pwd && pwd.length >= 8) {
+                            setPwdM.mutate({ userId: u.user_id, password: pwd });
+                          } else if (pwd !== null) {
+                            setFeedback("Password must be at least 8 characters.");
+                          }
+                        }}
+                      >
+                        {setPwdM.isPending ? "…" : "Set password"}
                       </button>
                       <button style={btn} onClick={() => enableM.mutate({ userId: u.user_id, enabled: !u.enabled })}>
                         {u.enabled ? "Disable" : "Enable"}
