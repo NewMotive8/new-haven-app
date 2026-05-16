@@ -1,4 +1,4 @@
-import { createFileRoute, useRouterState } from "@tanstack/react-router";
+import { createFileRoute, useRouterState, useNavigate } from "@tanstack/react-router";
 import * as React from "react";
 import axios from "axios";
 import { BrandContext } from "../backoffice/app";
