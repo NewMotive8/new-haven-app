@@ -72,14 +72,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "Incentiv8" },
+      { name: "description", content: "A React application for managing jackpots and simulating gameplay, featuring a Backoffice UI." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "Incentiv8" },
+      { property: "og:description", content: "A React application for managing jackpots and simulating gameplay, featuring a Backoffice UI." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Incentiv8" },
+      { name: "twitter:description", content: "A React application for managing jackpots and simulating gameplay, featuring a Backoffice UI." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/623a4666-150f-492a-8881-f1430f16f837/id-preview-b1ffeb4a--a9c97024-0dfc-4431-909f-455fbd4c43ad.lovable.app-1778930565760.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/623a4666-150f-492a-8881-f1430f16f837/id-preview-b1ffeb4a--a9c97024-0dfc-4431-909f-455fbd4c43ad.lovable.app-1778930565760.png" },
     ],
     links: [
       {
