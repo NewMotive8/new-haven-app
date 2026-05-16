@@ -81,7 +81,7 @@ function NewJackpotPage() {
         headers: { brandId: String(brandId), "Content-Type": "application/json" },
       });
       toast.success("Jackpot created");
-      navigate({ to: "/backoffice/jackpots" });
+      navigate({ to: "/admin/jackpots" });
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } }; message?: string })
@@ -98,7 +98,7 @@ function NewJackpotPage() {
     <JackpotCreationForm
       onSave={handleSave}
       submitting={submitting}
-      onCancel={() => navigate({ to: "/backoffice/jackpots" })}
+      onCancel={() => navigate({ to: "/admin/jackpots" })}
     />
   );
 }

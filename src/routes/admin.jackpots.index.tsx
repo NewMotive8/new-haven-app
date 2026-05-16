@@ -139,7 +139,7 @@ function JackpotsPage() {
             <p className="text-neutral-400 mt-1 text-sm">Manage and monitor all your jackpots</p>
           </div>
           <Button asChild size="lg" className="gap-2 bg-blue-500 hover:bg-blue-600 text-white">
-            <Link to="/backoffice/jackpots/new">
+            <Link to="/admin/jackpots/new">
               <Plus className="w-5 h-5" />
               Create New Jackpot
             </Link>
