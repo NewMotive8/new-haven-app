@@ -394,6 +394,22 @@ function SimulatorPage() {
               </div>
             )}
           </div>
+
+          {result?.engineScopeAudit && (
+            <div style={panel}>
+              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Engine Scope Audit</div>
+              <div style={{ display: "grid", gap: 6, fontSize: 12, color: "#cbd5e1" }}>
+                <Row k="Spin index" v={result.engineScopeAudit.spinIndex} />
+                <Row k="Runtime tier" v={result.engineScopeAudit.tier} />
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <span style={{ color: "#9fb0c8" }}>Runtime label</span>
+                  <span style={{ color: "#f1f5f9" }}>{result.engineScopeAudit.label}</span>
+                </div>
+                <Row k="Runtime Mini Target" v={result.engineScopeAudit.runtimeTargetAmount} />
+                <Row k="Runtime Mini Min Win" v={result.engineScopeAudit.runtimeMinimumWinAmount} />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
