@@ -138,9 +138,13 @@ function SimulatorPage() {
                 style={input}
                 type="number"
                 min={1}
-                max={1000000}
+                max={10000000}
+                step={1000}
                 value={iterations}
-                onChange={(e) => setIterations(Number(e.target.value) || 0)}
+                onChange={(e) => {
+                  const n = Number(e.target.value) || 0;
+                  setIterations(Math.max(0, Math.min(n, 10_000_000)));
+                }}
               />
             </div>
             <div>
