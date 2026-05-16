@@ -199,35 +199,6 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
 
 
-  type JackpotSavePayload = {
-    name: string;
-    description: string;
-    type: JackpotType;
-    payoutModel: PayoutModel;
-    contributionType: ContributionType;
-    seedContributionType: ContributionType;
-    volatility: number;
-    playerContribution: number;
-    operatorContribution: number;
-    seedPlayerContribution: number;
-    seedOperatorContribution: number;
-    poolPercentageValue: number;
-    seedPercentageValue: number;
-    recurrenceType: RecurrenceType;
-    weeklyDay: string;
-    monthlyDay: string;
-    displayFrequency: DisplayFrequency;
-    weeklyFrequencyDay: string;
-    monthlyFrequencyDay: string;
-    separateContributionFrequency: boolean;
-    payoutInterval: string;
-    isSegmented: boolean;
-    segments: string[];
-    isCommunity: boolean;
-    communitySplit: number;
-    isTemplate: boolean;
-    selectedWidget: string;
-  };
 
   const [continueError, setContinueError] = useState<string | null>(null);
 
