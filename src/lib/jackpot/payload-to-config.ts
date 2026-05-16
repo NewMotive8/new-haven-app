@@ -1,12 +1,11 @@
-import type { JackpotConfigDTO, JackpotWinType } from "./types";
+import type {
+  JackpotConfigDTO,
+  JackpotStructuralType,
+  JackpotWinType,
+  TierDTO,
+} from "./types";
 import type { JackpotSavePayload } from "@/components/jackpot/JackpotCreationForm";
 
-/**
- * Coerce anything coming out of slider/input state into a finite number.
- * Sliders return arrays / strings / undefined depending on the field; the
- * engine math silently treats NaN/undefined as 0 which previously made every
- * spin hit the static safety payout.
- */
 function num(value: unknown, fallback = 0): number {
   if (value == null) return fallback;
   if (Array.isArray(value)) return num(value[0], fallback);
@@ -14,31 +13,30 @@ function num(value: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function mapStructural(formType: unknown): JackpotStructuralType {
+  const t = String(formType ?? "").toLowerCase();
+  if (t === "multi_level" || t === "multilevel" || t === "multi-level") return "MULTI_LEVEL";
+  if (t === "must_drop" || t === "mustdrop" || t === "must-drop") return "MUST_DROP";
+  if (t === "frequency") return "FREQUENCY";
+  return "CLASSIC";
+}
 
 /**
  * Map the rich form payload coming out of the creation flow into the lean
  * JackpotConfigDTO shape the simulator engine expects.
  */
 export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDTO {
-  // --- Win type: form payoutModel ('fixed' | 'average' | 'maximum')
-  //               → engine type    ('AVERAGE' | 'MAXIMUM')
   const winType: JackpotWinType =
     payload.payoutModel === "maximum" ? "MAXIMUM" : "AVERAGE";
+  const structuralType = mapStructural(payload.type);
 
-  // --- Pool contribution: independent type + amount from the form.
-  //     Use values as-is (0 and 0.5 are valid user inputs); only fall back
-  //     when the field is missing/NaN.
   const poolContributionType =
     payload.contributionType === "fixed" ? "FIXED" : "PERCENTAGE";
   const poolContributionAmount = num(payload.poolPercentageValue, 0);
-
-  // --- Seed contribution: same treatment, independent of the pool.
   const seedContributionType =
     payload.seedContributionType === "fixed" ? "FIXED" : "PERCENTAGE";
   const seedContributionAmount = num(payload.seedPercentageValue, 0);
 
-  // --- Real, user-driven amounts. No blind fallbacks — every value passes
-  //     through unaltered so the simulator evaluates the exact UI parameters.
   const reseed = num(payload.reseedingAmount, 0);
   const minWin = num(payload.minWinAmount, 0);
   const maxWin = num(payload.maxWinAmount, 0);
@@ -47,40 +45,91 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
   const volatilityRaw = num(payload.volatility, 5);
   const volatility = Math.min(10, Math.max(0, volatilityRaw));
 
-  // --- Operator share (Java BrandDTO mirror, per-bucket).
-  //     Form sliders are 0–100 representing the operator-funded percentage.
-  //     Pass through exactly; clamp only to the legal [0, 100] range.
   const poolOperatorShare = Math.min(100, Math.max(0, num(payload.operatorContribution, 0)));
   const seedOperatorShare = Math.min(100, Math.max(0, num(payload.seedOperatorContribution, 0)));
+
+  const basePool = {
+    currentAmount: reseed,
+    minimumAmount: reseed,
+    maximumAmount: 0,
+    minimumWinAmount: minWin,
+    maximumWinAmount: maxWin,
+    contributionAmount: poolContributionAmount,
+    contributionType: poolContributionType,
+    operatorShare: poolOperatorShare,
+  } as const;
+
+  const baseSeed = {
+    currentAmount: seedContributionAmount,
+    targetAmount: avgWin,
+    contributionAmount: seedContributionAmount,
+    contributionType: seedContributionType,
+    operatorShare: seedOperatorShare,
+  } as const;
+
+  // ── MULTI_LEVEL — build tier array (fall back to even-weighted single tier).
+  let tiers: TierDTO[] | undefined;
+  if (structuralType === "MULTI_LEVEL" && payload.tiers && payload.tiers.length > 0) {
+    const raw = payload.tiers.slice(0, 4);
+    const evenWeight = raw.length > 0 ? 1 / raw.length : 1;
+    tiers = raw.map((t, idx) => {
+      const rank = Number(t.multiLevelTier) || idx + 1;
+      const weight = Number.isFinite(t.multiLevelWeight) && t.multiLevelWeight > 0
+        ? Math.max(0, Math.min(1, t.multiLevelWeight))
+        : evenWeight;
+      const tierReseed = num(t.reseedingAmount, reseed);
+      const tierAvgWin = num(t.averageWinAmount, avgWin);
+      return {
+        multiLevelTier: rank,
+        multiLevelWeight: weight,
+        label: t.label,
+        pool: {
+          currentAmount: tierReseed,
+          minimumAmount: tierReseed,
+          maximumAmount: 0,
+          minimumWinAmount: num(t.minWinAmount, minWin),
+          maximumWinAmount: num(t.maxWinAmount, maxWin),
+          contributionAmount: num(t.poolContributionAmount, poolContributionAmount),
+          contributionType:
+            (t.poolContributionType ?? payload.contributionType) === "fixed"
+              ? "FIXED"
+              : "PERCENTAGE",
+          operatorShare: num(t.operatorShare, poolOperatorShare),
+        },
+        seed: {
+          currentAmount: num(t.seedContributionAmount, seedContributionAmount),
+          targetAmount: tierAvgWin,
+          contributionAmount: num(t.seedContributionAmount, seedContributionAmount),
+          contributionType:
+            (t.seedContributionType ?? payload.seedContributionType) === "fixed"
+              ? "FIXED"
+              : "PERCENTAGE",
+          operatorShare: num(t.seedOperatorShare, seedOperatorShare),
+        },
+      };
+    });
+  }
+
+  // ── Timed lifespan for MUST_DROP / FREQUENCY.
+  let timed: JackpotConfigDTO["timed"];
+  if (structuralType === "MUST_DROP" || structuralType === "FREQUENCY") {
+    timed = {
+      lifespanMinutes: num(payload.lifespanMinutes, 1440), // default Daily
+      mustDropPeriod: payload.mustDropPeriod,
+    };
+  }
 
   return {
     id: 0,
     name: payload.name?.trim() || "Untitled Jackpot",
     type: winType,
+    structuralType,
     volatility,
-    pool: {
-      currentAmount: reseed,                  // start at reseed floor
-      minimumAmount: reseed,                  // Java pool.minimumAmount (reseed + safety gate denominator)
-      maximumAmount: 0,                       // legacy; engine ignores when 0
-      minimumWinAmount: minWin,               // Java jackpot.minimumWinAmount (rejection gate)
-      maximumWinAmount: maxWin,               // Java jackpot.maximumWinAmount (payout cap, 0 = uncapped)
-      contributionAmount: poolContributionAmount,
-      contributionType: poolContributionType,
-      operatorShare: poolOperatorShare,
-    },
-    seed: {
-      currentAmount: seedContributionAmount,  // start at one contribution tick
-      targetAmount: avgWin,                   // CDF mean = Average Win Amount (exact)
-      contributionAmount: seedContributionAmount,
-      contributionType: seedContributionType,
-      operatorShare: seedOperatorShare,
-    },
-    // Engine-level overrides per win model
-    ...(payload.payoutModel === "fixed"
-      ? { fixedWinAmount: num(payload.fixedWinAmount, 0) }
-      : {}),
-    ...(payload.payoutModel === "maximum"
-      ? { maximumWinAmount: maxWin }
-      : {}),
+    pool: basePool,
+    seed: baseSeed,
+    ...(tiers ? { tiers } : {}),
+    ...(timed ? { timed } : {}),
+    ...(payload.payoutModel === "fixed" ? { fixedWinAmount: num(payload.fixedWinAmount, 0) } : {}),
+    ...(payload.payoutModel === "maximum" ? { maximumWinAmount: maxWin } : {}),
   };
 }
