@@ -69,8 +69,8 @@ function SimulatorPage() {
     [],
   );
   const cameFromCreationFlow = Boolean(originalPayloadRef.current);
-  const [wager, setWager] = React.useState(10);
-  const [iterations, setIterations] = React.useState(100000);
+  const [wager, setWager] = React.useState(1);
+  const [iterations, setIterations] = React.useState(1000000);
   const [configText, setConfigText] = React.useState(JSON.stringify(initialConfig, null, 2));
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
