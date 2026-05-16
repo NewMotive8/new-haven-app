@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminSimulatorRouteImport } from './routes/admin.simulator'
 import { Route as AdminJackpotsRouteImport } from './routes/admin.jackpots'
 import { Route as AdminJackpotsIndexRouteImport } from './routes/admin.jackpots.index'
@@ -50,6 +51,11 @@ const IndexRoute = IndexRouteImport.update({
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminSimulatorRoute = AdminSimulatorRouteImport.update({
@@ -120,6 +126,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/admin/jackpots': typeof AdminJackpotsRouteWithChildren
   '/admin/simulator': typeof AdminSimulatorRoute
+  '/admin/users': typeof AdminUsersRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/jackpots/new': typeof AdminJackpotsNewRoute
   '/admin/jackpots/': typeof AdminJackpotsIndexRoute
@@ -137,6 +144,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/admin/simulator': typeof AdminSimulatorRoute
+  '/admin/users': typeof AdminUsersRoute
   '/admin': typeof AdminIndexRoute
   '/admin/jackpots/new': typeof AdminJackpotsNewRoute
   '/admin/jackpots': typeof AdminJackpotsIndexRoute
@@ -157,6 +165,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/admin/jackpots': typeof AdminJackpotsRouteWithChildren
   '/admin/simulator': typeof AdminSimulatorRoute
+  '/admin/users': typeof AdminUsersRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/jackpots/new': typeof AdminJackpotsNewRoute
   '/admin/jackpots/': typeof AdminJackpotsIndexRoute
@@ -178,6 +187,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/admin/jackpots'
     | '/admin/simulator'
+    | '/admin/users'
     | '/admin/'
     | '/admin/jackpots/new'
     | '/admin/jackpots/'
@@ -195,6 +205,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/admin/simulator'
+    | '/admin/users'
     | '/admin'
     | '/admin/jackpots/new'
     | '/admin/jackpots'
@@ -214,6 +225,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/admin/jackpots'
     | '/admin/simulator'
+    | '/admin/users'
     | '/admin/'
     | '/admin/jackpots/new'
     | '/admin/jackpots/'
@@ -277,6 +289,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/simulator': {
@@ -383,12 +402,14 @@ const AdminJackpotsRouteWithChildren = AdminJackpotsRoute._addFileChildren(
 interface AdminRouteChildren {
   AdminJackpotsRoute: typeof AdminJackpotsRouteWithChildren
   AdminSimulatorRoute: typeof AdminSimulatorRoute
+  AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminJackpotsRoute: AdminJackpotsRouteWithChildren,
   AdminSimulatorRoute: AdminSimulatorRoute,
+  AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 
