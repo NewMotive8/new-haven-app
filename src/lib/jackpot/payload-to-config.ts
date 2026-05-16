@@ -89,6 +89,9 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
           maximumAmount: num(t.maximumPoolAmount, 0),
           minimumWinAmount: num(t.minWinAmount, minWin),
           maximumWinAmount: num(t.maxWinAmount, maxWin),
+          // Per-tier CDF center — Mini=400, Major=4000, Mega=40000 in the
+          // default template. Falls back to global avgWin then maxWin.
+          targetAmount: num(t.averageWinAmount, tierAvgWin),
           contributionAmount: num(t.poolContributionAmount, poolContributionAmount),
           contributionType:
             (t.poolContributionType ?? payload.contributionType) === "fixed"
