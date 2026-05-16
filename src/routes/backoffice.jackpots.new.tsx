@@ -43,7 +43,7 @@ interface FormState {
 
 const initialState: FormState = {
   name: "",
-  type: null,
+  type: "classic",
   enabled: true,
   seedAmount: "1000",
   contributionPct: "1",
