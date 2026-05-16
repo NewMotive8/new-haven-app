@@ -700,6 +700,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="avg-target"
                                 type="number"
                                 placeholder="0"
+                                value={averageWinAmount || ''}
+                                onChange={(e) => setAverageWinAmount(parseFloat(e.target.value) || 0)}
                                 className="bg-neutral-800 border-neutral-700"
                               />
                               <p className="text-xs text-red-400">This field is required</p>
