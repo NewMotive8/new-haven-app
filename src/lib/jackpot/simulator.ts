@@ -310,11 +310,13 @@ function simulateMultiLevel(
       rt.poolCurrent = Math.min(rt.poolCap, rt.poolCurrent + poolAdd);
       walletContributions += rt.poolFromWallet * r.weight;
       operatorContributions += rt.poolNotFromWallet * r.weight;
+      r.totalContribution += poolAdd;
 
       if (rt.hasSeedConfig) {
         rt.seedCurrent = Math.min(rt.seedCap, rt.seedCurrent + seedAdd);
         walletContributions += rt.seedFromWallet * r.weight;
         operatorContributions += rt.seedNotFromWallet * r.weight;
+        r.totalContribution += seedAdd;
         anyHasSeed = true;
       }
     }
