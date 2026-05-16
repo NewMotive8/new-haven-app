@@ -3835,6 +3835,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="frequency-seed-contribution-fixed"
                                 type="number"
                                 placeholder="0"
+                                value={seedPercentageValue[0]}
+                                onChange={(e) => setSeedPercentageValue([parseFloat(e.target.value) || 0])}
                                 className="bg-neutral-800 border-neutral-700 w-full"
                               />
                             </div>
