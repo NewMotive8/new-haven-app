@@ -1,4 +1,6 @@
 // Java BigDecimal / Long -> number, Instant / ZonedDateTime -> ISO-8601 string
+export type JackpotKind = "classic" | "frequency" | "must_drop" | "multi_level";
+
 export interface JackpotDTO {
   id: number;
   name: string;
@@ -10,6 +12,10 @@ export interface JackpotDTO {
   brandId: string;
   createdAt: string;
   updatedAt: string;
+  // Optional, persisted into jackpots.volatility / jackpots.trigger_condition
+  volatility?: number;
+  jackpotType?: JackpotKind;
+  config?: Record<string, any>;
 }
 
 export interface TopupDTO {
