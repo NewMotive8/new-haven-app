@@ -24,7 +24,7 @@ const ACTIVE: CardDef[] = [
   {
     title: "Jackpots",
     description: "Browse, configure and inspect jackpot definitions.",
-    to: "/backoffice/jackpots",
+    to: "/admin/jackpots",
     icon: <FaCoins size={22} />,
   },
   {
