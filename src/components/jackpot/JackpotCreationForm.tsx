@@ -96,6 +96,8 @@ export type JackpotSavePayload = {
     poolContributionAmount?: number;
     seedContributionType?: "fixed" | "percentage";
     seedContributionAmount?: number;
+    seedInitialAmount?: number;    // seed starting balance
+    seedTargetAmount?: number;     // seed target (cap)
     operatorShare?: number;        // pool, 0..100
     seedOperatorShare?: number;    // seed, 0..100
   }>;
@@ -166,12 +168,26 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
   // --- MULTI_LEVEL tiers editor state
   type TierRow = NonNullable<JackpotSavePayload['tiers']>[number];
+  // Profit-optimized 3-tier baseline template (frontend defaults only — fully editable).
   const defaultTiers: TierRow[] = [
-    { label: 'Mini',  multiLevelTier: 1, multiLevelWeight: 0.6, reseedingAmount: 100,   maximumPoolAmount: 1000,    minWinAmount: 10,   maxWinAmount: 500,    averageWinAmount: 100,   poolContributionType: 'percentage', poolContributionAmount: 1, seedContributionType: 'percentage', seedContributionAmount: 0.5, operatorShare: 0, seedOperatorShare: 0 },
-    { label: 'Major', multiLevelTier: 2, multiLevelWeight: 0.3, reseedingAmount: 1000,  maximumPoolAmount: 10000,   minWinAmount: 100,  maxWinAmount: 5000,   averageWinAmount: 1000,  poolContributionType: 'percentage', poolContributionAmount: 1, seedContributionType: 'percentage', seedContributionAmount: 0.5, operatorShare: 0, seedOperatorShare: 0 },
-    { label: 'Mega',  multiLevelTier: 3, multiLevelWeight: 0.1, reseedingAmount: 10000, maximumPoolAmount: 100000,  minWinAmount: 1000, maxWinAmount: 100000, averageWinAmount: 10000, poolContributionType: 'percentage', poolContributionAmount: 1, seedContributionType: 'percentage', seedContributionAmount: 0.5, operatorShare: 0, seedOperatorShare: 0 },
+    { label: 'Mini',  multiLevelTier: 1, multiLevelWeight: 0.6, reseedingAmount: 100,   maximumPoolAmount: 1000,    minWinAmount: 250,   maxWinAmount: 500,    averageWinAmount: 400,    seedInitialAmount: 150,   seedTargetAmount: 500,    poolContributionType: 'fixed', poolContributionAmount: 0.7, seedContributionType: 'fixed', seedContributionAmount: 0.3, operatorShare: 0, seedOperatorShare: 0 },
+    { label: 'Major', multiLevelTier: 2, multiLevelWeight: 0.3, reseedingAmount: 1000,  maximumPoolAmount: 10000,   minWinAmount: 2500,  maxWinAmount: 5000,   averageWinAmount: 4000,   seedInitialAmount: 1500,  seedTargetAmount: 5000,   poolContributionType: 'fixed', poolContributionAmount: 0.7, seedContributionType: 'fixed', seedContributionAmount: 0.3, operatorShare: 0, seedOperatorShare: 0 },
+    { label: 'Mega',  multiLevelTier: 3, multiLevelWeight: 0.1, reseedingAmount: 10000, maximumPoolAmount: 100000,  minWinAmount: 25000, maxWinAmount: 50000,  averageWinAmount: 40000,  seedInitialAmount: 12000, seedTargetAmount: 50000,  poolContributionType: 'fixed', poolContributionAmount: 0.7, seedContributionType: 'fixed', seedContributionAmount: 0.3, operatorShare: 0, seedOperatorShare: 0 },
   ];
   const [tiers, setTiers] = useState<TierRow[]>(initial?.tiers && initial.tiers.length > 0 ? initial.tiers : defaultTiers);
+
+  // When operator switches TO Multi-Level (and we don't have an inbound config),
+  // apply the profit-optimized baseline: volatility=2, max win=50000, tier defaults.
+  const prevTypeRef = useRef<JackpotType>(selectedType);
+  useEffect(() => {
+    if (selectedType === 'multi_level' && prevTypeRef.current !== 'multi_level' && !initial?.tiers) {
+      setVolatility([2]);
+      setMaxWinAmount(50000);
+      setTiers(defaultTiers);
+    }
+    prevTypeRef.current = selectedType;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedType]);
 
   const updateTier = (idx: number, patch: Partial<TierRow>) =>
     setTiers((prev) => prev.map((t, i) => (i === idx ? { ...t, ...patch } : t)));
@@ -181,7 +197,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       const nextRank = (prev.reduce((m, t) => Math.max(m, t.multiLevelTier), 0) || 0) + 1;
       return [
         ...prev,
-        { label: `Tier ${nextRank}`, multiLevelTier: nextRank, multiLevelWeight: 0.1, reseedingAmount: 500, maximumPoolAmount: 5000, minWinAmount: 50, maxWinAmount: 2500, averageWinAmount: 500, poolContributionType: 'percentage', poolContributionAmount: 1, seedContributionType: 'percentage', seedContributionAmount: 0.5, operatorShare: 0, seedOperatorShare: 0 },
+        { label: `Tier ${nextRank}`, multiLevelTier: nextRank, multiLevelWeight: 0.1, reseedingAmount: 500, maximumPoolAmount: 5000, minWinAmount: 50, maxWinAmount: 2500, averageWinAmount: 500, seedInitialAmount: 200, seedTargetAmount: 1000, poolContributionType: 'fixed', poolContributionAmount: 0.7, seedContributionType: 'fixed', seedContributionAmount: 0.3, operatorShare: 0, seedOperatorShare: 0 },
       ];
     });
   };
@@ -4284,6 +4300,14 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                           <div className="space-y-2">
                             <BrightLabel>Seed Contribution Amount</BrightLabel>
                             <Input type="number" step="0.01" min={0} value={t.seedContributionAmount ?? 0} onChange={(e) => updateTier(idx, { seedContributionAmount: parseFloat(e.target.value) || 0 })} className="bg-neutral-800 border-neutral-700" />
+                          </div>
+                          <div className="space-y-2">
+                            <BrightLabel>Seed Initial Balance</BrightLabel>
+                            <CurrencyInput id={`tier-seedinit-${idx}`} type="number" value={t.seedInitialAmount ?? 0} onChange={(e) => updateTier(idx, { seedInitialAmount: parseFloat(e.target.value) || 0 })} className="bg-neutral-800 border-neutral-700" />
+                          </div>
+                          <div className="space-y-2">
+                            <BrightLabel>Seed Target Amount</BrightLabel>
+                            <CurrencyInput id={`tier-seedtgt-${idx}`} type="number" value={t.seedTargetAmount ?? 0} onChange={(e) => updateTier(idx, { seedTargetAmount: parseFloat(e.target.value) || 0 })} className="bg-neutral-800 border-neutral-700" />
                           </div>
                           <div className="space-y-2">
                             <BrightLabel>Pool Operator Share (%)</BrightLabel>
