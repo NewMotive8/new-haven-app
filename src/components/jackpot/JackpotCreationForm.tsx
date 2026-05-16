@@ -87,7 +87,8 @@ export type JackpotSavePayload = {
     label?: string;
     multiLevelTier: number;        // 1..4
     multiLevelWeight: number;      // 0..1
-    reseedingAmount: number;
+    reseedingAmount: number;       // pool minimum / reseed amount
+    maximumPoolAmount?: number;    // pool cap (0 = uncapped)
     minWinAmount: number;
     maxWinAmount: number;
     averageWinAmount: number;
