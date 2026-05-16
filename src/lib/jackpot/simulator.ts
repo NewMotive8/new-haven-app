@@ -257,33 +257,36 @@ function simulateMultiLevel(
   wager: number,
   iterations: number,
 ): SimulatorResponseDTO {
-  // Sort tiers in REVERSE rank order (highest first) — Java sortedPools.
-  const tiers: TierDTO[] = [...(jackpot.tiers ?? [])].sort(
-    (a, b) => b.multiLevelTier - a.multiLevelTier,
-  );
-  if (tiers.length === 0) return simulateClassic(jackpot, wager, iterations);
+  const liveTiers: TierDTO[] = [...(jackpot.tiers ?? [])]
+    .map((tier) => ({
+      ...tier,
+      pool: { ...tier.pool },
+      seed: { ...tier.seed },
+    }))
+    .sort((a, b) => b.multiLevelTier - a.multiLevelTier);
+  if (liveTiers.length === 0) return simulateClassic(jackpot, wager, iterations);
 
-  const volatility = Number(jackpot.volatility) || 0;
+  const globalVolatility = Number(jackpot.volatility) || 0;
   const winType = jackpot.type ?? "AVERAGE";
   const isAverage = winType !== "MAXIMUM";
-
   const fixedWinAmount = Number(jackpot.fixedWinAmount) || 0;
-  const maximumWinAmountRaw = Number(jackpot.maximumWinAmount) || 0;
-  const maximumWinAmount = maximumWinAmountRaw > 0 ? maximumWinAmountRaw : 0;
-  const hasFixedOrMaxOverride = fixedWinAmount > 0 || maximumWinAmount > 0;
+  const globalMaximumWinAmount = Number(jackpot.maximumWinAmount) || 0;
+  const hasFixedOrMaxOverride = fixedWinAmount > 0 || globalMaximumWinAmount > 0;
 
-  // Per-tier runtimes (in reverse-rank order to match evaluation cascade).
-  const runtimes = tiers.map((t) => ({
-    tier: t.multiLevelTier,
-    label: t.label ?? defaultTierLabel(t.multiLevelTier),
-    weight: Math.max(0, Math.min(1, Number(t.multiLevelWeight) || 0)),
-    rt: buildRuntime(t.pool, t.seed, wager),
-    winCounter: 0,
-    winAmountCounter: 0,
-    maxWinAmount: 0,
-    rejectedByGate: 0,
-    totalContribution: 0,
-  }));
+  const tierStates = liveTiers.map((tier) => {
+    const tierRuntime = buildRuntime(tier.pool, tier.seed, wager);
+    return {
+      tier,
+      label: tier.label ?? defaultTierLabel(tier.multiLevelTier),
+      weight: Math.max(0, Math.min(1, Number(tier.multiLevelWeight) || 0)),
+      runtime: tierRuntime,
+      winCounter: 0,
+      winAmountCounter: 0,
+      maxWinAmount: 0,
+      rejectedByGate: 0,
+      totalContribution: 0,
+    };
+  });
 
   let walletContributions = 0;
   let operatorContributions = 0;
@@ -297,91 +300,104 @@ function simulateMultiLevel(
   let engineScopeAudit: EngineScopeAuditDTO | undefined;
 
   for (let i = 0; i < iterations; i++) {
-    // 1. Distribute contributions to EVERY tier by weight (Java per-pool loop).
-    let globalMathContribution = 0;
-    let anyHasSeed = false;
-    let basePoolContribForCalc = 0;
-    let baseSeedContribForCalc = 0;
-    for (const r of runtimes) {
-      const rt = r.rt;
-      basePoolContribForCalc = rt.poolContribForCalc; // identical wager-derived value across tiers
-      baseSeedContribForCalc = rt.seedContribForCalc;
-      const poolAdd = rt.poolContribForCalc * r.weight;
-      const seedAdd = rt.seedContribForCalc * r.weight;
+    for (const tierState of tierStates) {
+      const tierRuntime = tierState.runtime;
+      const tierPool = tierState.tier.pool;
+      const tierSeed = tierState.tier.seed;
+      const tierWeight = tierState.weight;
 
-      rt.poolCurrent = Math.min(rt.poolCap, rt.poolCurrent + poolAdd);
-      walletContributions += rt.poolFromWallet * r.weight;
-      operatorContributions += rt.poolNotFromWallet * r.weight;
-      r.totalContribution += poolAdd;
+      const poolContributionBase =
+        tierPool.contributionType === "FIXED"
+          ? Number(tierPool.contributionAmount) || 0
+          : wager * ((Number(tierPool.contributionAmount) || 0) / 100);
+      const seedContributionBase =
+        tierSeed.contributionType === "FIXED"
+          ? Number(tierSeed.contributionAmount) || 0
+          : wager * ((Number(tierSeed.contributionAmount) || 0) / 100);
 
-      if (rt.hasSeedConfig) {
-        rt.seedCurrent = Math.min(rt.seedCap, rt.seedCurrent + seedAdd);
-        walletContributions += rt.seedFromWallet * r.weight;
-        operatorContributions += rt.seedNotFromWallet * r.weight;
-        r.totalContribution += seedAdd;
-        anyHasSeed = true;
+      const localPoolContribution = poolContributionBase * tierWeight;
+      const localSeedContribution = seedContributionBase * tierWeight;
+
+      tierRuntime.poolCurrent = Math.min(tierRuntime.poolCap, tierRuntime.poolCurrent + localPoolContribution);
+      tierState.totalContribution += localPoolContribution;
+
+      const poolOperatorShare = Math.min(100, Math.max(0, Number(tierPool.operatorShare) || 0)) / 100;
+      walletContributions += localPoolContribution * (1 - poolOperatorShare);
+      operatorContributions += localPoolContribution * poolOperatorShare;
+
+      if (tierRuntime.hasSeedConfig && localSeedContribution > 0) {
+        tierRuntime.seedCurrent = Math.min(tierRuntime.seedCap, tierRuntime.seedCurrent + localSeedContribution);
+        tierState.totalContribution += localSeedContribution;
+
+        const seedOperatorShare = Math.min(100, Math.max(0, Number(tierSeed.operatorShare) || 0)) / 100;
+        walletContributions += localSeedContribution * (1 - seedOperatorShare);
+        operatorContributions += localSeedContribution * seedOperatorShare;
       }
     }
-    // Java line 169: contributionAmount = forCalc(pool) + (hasSeed ? forCalc(seed) : 0)
-    globalMathContribution = basePoolContribForCalc + (anyHasSeed ? baseSeedContribForCalc : 0);
 
-    // 2. Walk tiers in reverse rank; first winner wins (early-return per Java).
-    for (const r of runtimes) {
-      const rt = r.rt;
-      const tierInstance = r;
-      const tierRuntime = tierInstance.rt;
-      const tierPool = tierRuntime.pool;
-      const weightedContribution = globalMathContribution * r.weight;
-      if (weightedContribution <= 0) continue;
+    for (const tierState of tierStates) {
+      const tierInstance = tierState.tier;
+      const tierRuntime = tierState.runtime;
+      const tierPool = tierInstance.pool;
+      const tierWeight = tierState.weight;
+
+      const tierContributionBase =
+        tierPool.contributionType === "FIXED"
+          ? Number(tierPool.contributionAmount) || 0
+          : wager * ((Number(tierPool.contributionAmount) || 0) / 100);
+      const localMathContribution = tierContributionBase * tierWeight;
+      if (localMathContribution <= 0) continue;
 
       const tierTargetAmount = Number(tierPool.targetAmount) || 0;
       const tierMinimumWinAmount = Number(tierPool.minimumWinAmount) || 0;
-      const target =
+      const tierVolatility = globalVolatility;
+      const cdfTarget =
         tierTargetAmount > 0
           ? tierTargetAmount
-          : maximumWinAmount > 0
-            ? maximumWinAmount
+          : globalMaximumWinAmount > 0
+            ? globalMaximumWinAmount
             : tierRuntime.poolCurrent;
 
-      if (!engineScopeAudit && i === 0 && tierInstance.tier === 1) {
+      if (!engineScopeAudit && i === 0 && tierInstance.multiLevelTier === 1) {
         engineScopeAudit = {
           spinIndex: 0,
-          tier: tierInstance.tier,
-          label: tierInstance.label,
-          runtimeTargetAmount: target,
+          tier: tierInstance.multiLevelTier,
+          label: tierState.label,
+          runtimeTargetAmount: cdfTarget,
           runtimeMinimumWinAmount: tierMinimumWinAmount,
         };
       }
 
-      const won = isAverage
-        ? calculateAverageWin(tierRuntime.poolCurrent, target, weightedContribution, volatility)
-        : calculateMaximumWin(tierRuntime.poolCurrent, target, weightedContribution, volatility);
-      if (!won) continue;
+      const didHit = isAverage
+        ? calculateAverageWin(tierRuntime.poolCurrent, cdfTarget, localMathContribution, tierVolatility)
+        : calculateMaximumWin(tierRuntime.poolCurrent, cdfTarget, localMathContribution, tierVolatility);
+      if (!didHit) continue;
 
-      // performSafetyChecks per tier
       if (tierMinimumWinAmount > 0 && tierRuntime.poolCurrent < tierMinimumWinAmount) {
-        r.rejectedByGate++;
+        tierState.rejectedByGate++;
         rejectedByGate++;
         continue;
       }
       if (tierRuntime.hasSeedConfig && tierRuntime.seedCurrent < tierRuntime.poolMin) {
-        r.rejectedByGate++;
+        tierState.rejectedByGate++;
         rejectedByGate++;
         continue;
       }
 
-      const winAmount = applyPayoutOverrides(tierRuntime.poolCurrent, fixedWinAmount, maximumWinAmount);
+      const tierMaximumWinAmount = Number(tierPool.maximumWinAmount) || 0;
+      const payoutCap = tierMaximumWinAmount > 0 ? tierMaximumWinAmount : globalMaximumWinAmount;
+      const winAmount = applyPayoutOverrides(tierRuntime.poolCurrent, fixedWinAmount, payoutCap);
       const poolBeforeWin = tierRuntime.poolCurrent;
 
-      r.winCounter++;
-      r.winAmountCounter += winAmount;
-      if (winAmount > r.maxWinAmount) r.maxWinAmount = winAmount;
+      tierState.winCounter++;
+      tierState.winAmountCounter += winAmount;
+      if (winAmount > tierState.maxWinAmount) tierState.maxWinAmount = winAmount;
 
       winCounter++;
       winAmountCounter += winAmount;
       if (winAmount > maxWinAmount) maxWinAmount = winAmount;
 
-      const tierKey = `T${r.tier}-${r.label}`;
+      const tierKey = `T${tierInstance.multiLevelTier}-${tierState.label}`;
       tierCounts[tierKey] = (tierCounts[tierKey] ?? 0) + 1;
 
       if (winEvents.length < MAX_WIN_EVENTS_RETAINED) {
@@ -390,41 +406,43 @@ function simulateMultiLevel(
           amount: winAmount,
           poolBeforeWin,
           timestamp: nowIso,
-          winningTier: r.tier,
+          winningTier: tierInstance.multiLevelTier,
         });
       }
-      reseedAfterWin(tierRuntime, winAmount, hasFixedOrMaxOverride);
-      break; // Java early-return: one win per bet
+
+      reseedAfterWin(tierRuntime, winAmount, hasFixedOrMaxOverride || payoutCap > 0);
+      break;
     }
   }
 
   const totalWagered = wager * iterations;
-  const denom = walletContributions + operatorContributions;
-  const rtp = denom > 0 ? (winAmountCounter / denom) * 100 : 0;
+  const totalContributions = walletContributions;
+  const denominator = walletContributions + operatorContributions;
+  const rtp = denominator > 0 ? (winAmountCounter / denominator) * 100 : 0;
 
-  const tierResults: TierResultDTO[] = runtimes
+  const tierResults: TierResultDTO[] = tierStates
     .slice()
-    .sort((a, b) => a.tier - b.tier)
-    .map((r) => ({
-      tier: r.tier,
-      label: r.label,
-      winCounter: r.winCounter,
-      winAmountCounter: r.winAmountCounter,
-      maxWinAmount: r.maxWinAmount,
-      finalPool: r.rt.poolCurrent,
-      finalSeed: r.rt.seedCurrent,
-      rejectedByGate: r.rejectedByGate,
-      totalContribution: r.totalContribution,
+    .sort((a, b) => a.tier.multiLevelTier - b.tier.multiLevelTier)
+    .map((tierState) => ({
+      tier: tierState.tier.multiLevelTier,
+      label: tierState.label,
+      winCounter: tierState.winCounter,
+      winAmountCounter: tierState.winAmountCounter,
+      maxWinAmount: tierState.maxWinAmount,
+      finalPool: tierState.runtime.poolCurrent,
+      finalSeed: tierState.runtime.seedCurrent,
+      rejectedByGate: tierState.rejectedByGate,
+      totalContribution: tierState.totalContribution,
     }));
 
-  const finalPool = tierResults.reduce((s, t) => s + t.finalPool, 0);
-  const finalSeed = tierResults.reduce((s, t) => s + t.finalSeed, 0);
+  const finalPool = tierResults.reduce((sum, tierResult) => sum + tierResult.finalPool, 0);
+  const finalSeed = tierResults.reduce((sum, tierResult) => sum + tierResult.finalSeed, 0);
 
   return {
     iterations,
     wager,
     totalWagered,
-    totalContributions: walletContributions,
+    totalContributions,
     walletContributions,
     operatorContributions,
     winCounter,
