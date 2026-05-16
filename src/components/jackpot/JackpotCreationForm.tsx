@@ -159,6 +159,35 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   const [reseedingAmount, setReseedingAmount] = useState<number>(initial?.reseedingAmount ?? 0);
   const [maximumSeedAmount, setMaximumSeedAmount] = useState<number>(initial?.maximumSeedAmount ?? 0);
 
+  // --- MUST_DROP / FREQUENCY virtual lifespan
+  const [lifespanMinutes, setLifespanMinutes] = useState<number>(initial?.lifespanMinutes ?? 1440);
+  const [mustDropPeriod, setMustDropPeriod] = useState<1 | 2 | 3 | 4>(initial?.mustDropPeriod ?? 2);
+
+  // --- MULTI_LEVEL tiers editor state
+  type TierRow = NonNullable<JackpotSavePayload['tiers']>[number];
+  const defaultTiers: TierRow[] = [
+    { label: 'Mini',  multiLevelTier: 1, multiLevelWeight: 0.6, reseedingAmount: 100,   minWinAmount: 10,   maxWinAmount: 500,    averageWinAmount: 100 },
+    { label: 'Major', multiLevelTier: 2, multiLevelWeight: 0.3, reseedingAmount: 1000,  minWinAmount: 100,  maxWinAmount: 5000,   averageWinAmount: 1000 },
+    { label: 'Mega',  multiLevelTier: 3, multiLevelWeight: 0.1, reseedingAmount: 10000, minWinAmount: 1000, maxWinAmount: 100000, averageWinAmount: 10000 },
+  ];
+  const [tiers, setTiers] = useState<TierRow[]>(initial?.tiers && initial.tiers.length > 0 ? initial.tiers : defaultTiers);
+
+  const updateTier = (idx: number, patch: Partial<TierRow>) =>
+    setTiers((prev) => prev.map((t, i) => (i === idx ? { ...t, ...patch } : t)));
+  const addTier = () => {
+    setTiers((prev) => {
+      if (prev.length >= 4) return prev;
+      const nextRank = (prev.reduce((m, t) => Math.max(m, t.multiLevelTier), 0) || 0) + 1;
+      return [
+        ...prev,
+        { label: `Tier ${nextRank}`, multiLevelTier: nextRank, multiLevelWeight: 0.1, reseedingAmount: 500, minWinAmount: 50, maxWinAmount: 2500, averageWinAmount: 500 },
+      ];
+    });
+  };
+  const removeTier = (idx: number) =>
+    setTiers((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx)));
+  const tierWeightTotal = tiers.reduce((s, t) => s + (Number(t.multiLevelWeight) || 0), 0);
+
   // Section refs for scroll tracking
   const basicRef = useRef<HTMLDivElement>(null);
   const modelRef = useRef<HTMLDivElement>(null);
@@ -263,6 +292,10 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       maxWagerAmount,
       reseedingAmount,
       maximumSeedAmount,
+      ...(selectedType === 'must_drop' || selectedType === 'frequency'
+        ? { lifespanMinutes, mustDropPeriod }
+        : {}),
+      ...(selectedType === 'multi_level' ? { tiers } : {}),
     };
   }
 
@@ -4144,6 +4177,134 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
             </>
           )}
         </div>
+
+        {/* ── Engine Configuration: Multi-Level tiers + Timed lifespan ─────────── */}
+        {(selectedType === 'multi_level' || selectedType === 'must_drop' || selectedType === 'frequency') && (
+          <section className="mt-10 scroll-mt-20">
+            <h2 className="text-xl font-semibold mb-2">Engine Configuration</h2>
+            <p className="text-sm text-neutral-400 mb-6">
+              These fields drive the simulator engine directly for{' '}
+              {selectedType === 'multi_level' ? 'Multi-Level tier cascading' : 'time-decayed (Must-Drop / Frequency) hit logic'}.
+            </p>
+
+            {selectedType === 'multi_level' && (
+              <Card className="p-6 bg-neutral-900/50 border-neutral-800">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <BrightLabel className="text-base">Tiers</BrightLabel>
+                    <p className="text-xs text-neutral-400 mt-1">
+                      Up to 4 tiers. Higher rank evaluated first (Mega → Mini). Weights split each bet's pool &amp; seed contribution.
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className={`text-xs ${Math.abs(tierWeightTotal - 1) < 0.005 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                      Weight total: {tierWeightTotal.toFixed(3)} {Math.abs(tierWeightTotal - 1) < 0.005 ? '✓' : '(should be 1.000)'}
+                    </div>
+                    <Button type="button" size="sm" variant="outline" className="mt-2" onClick={addTier} disabled={tiers.length >= 4}>
+                      <Plus className="w-4 h-4 mr-1" /> Add tier
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {tiers.map((t, idx) => (
+                    <div key={idx} className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs uppercase tracking-wider text-neutral-500">Tier #{idx + 1}</span>
+                        <Button type="button" size="sm" variant="ghost" className="text-red-400 hover:text-red-300" onClick={() => removeTier(idx)} disabled={tiers.length <= 1}>
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="space-y-2">
+                          <BrightLabel>Label</BrightLabel>
+                          <Input value={t.label ?? ''} onChange={(e) => updateTier(idx, { label: e.target.value })} placeholder="Mini / Major / Mega" className="bg-neutral-800 border-neutral-700" />
+                        </div>
+                        <div className="space-y-2">
+                          <BrightLabel>Rank (1–4)</BrightLabel>
+                          <Input type="number" min={1} max={4} value={t.multiLevelTier} onChange={(e) => updateTier(idx, { multiLevelTier: Math.max(1, Math.min(4, parseInt(e.target.value) || 1)) })} className="bg-neutral-800 border-neutral-700" />
+                        </div>
+                        <div className="space-y-2">
+                          <BrightLabel>Weight (0–1)</BrightLabel>
+                          <Input type="number" step="0.01" min={0} max={1} value={t.multiLevelWeight} onChange={(e) => updateTier(idx, { multiLevelWeight: Math.max(0, Math.min(1, parseFloat(e.target.value) || 0)) })} className="bg-neutral-800 border-neutral-700" />
+                        </div>
+                        <div className="space-y-2">
+                          <BrightLabel>Reseed / Min Pool</BrightLabel>
+                          <CurrencyInput id={`tier-reseed-${idx}`} type="number" value={t.reseedingAmount} onChange={(e) => updateTier(idx, { reseedingAmount: parseFloat(e.target.value) || 0 })} className="bg-neutral-800 border-neutral-700" />
+                        </div>
+                        <div className="space-y-2">
+                          <BrightLabel>Min Win</BrightLabel>
+                          <CurrencyInput id={`tier-minwin-${idx}`} type="number" value={t.minWinAmount} onChange={(e) => updateTier(idx, { minWinAmount: parseFloat(e.target.value) || 0 })} className="bg-neutral-800 border-neutral-700" />
+                        </div>
+                        <div className="space-y-2">
+                          <BrightLabel>Max Win</BrightLabel>
+                          <CurrencyInput id={`tier-maxwin-${idx}`} type="number" value={t.maxWinAmount} onChange={(e) => updateTier(idx, { maxWinAmount: parseFloat(e.target.value) || 0 })} className="bg-neutral-800 border-neutral-700" />
+                        </div>
+                        <div className="space-y-2">
+                          <BrightLabel>Average / Target Win</BrightLabel>
+                          <CurrencyInput id={`tier-avgwin-${idx}`} type="number" value={t.averageWinAmount} onChange={(e) => updateTier(idx, { averageWinAmount: parseFloat(e.target.value) || 0 })} className="bg-neutral-800 border-neutral-700" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {(selectedType === 'must_drop' || selectedType === 'frequency') && (
+              <Card className="p-6 bg-neutral-900/50 border-neutral-800">
+                <BrightLabel className="text-base">Virtual Lifespan</BrightLabel>
+                <p className="text-xs text-neutral-400 mt-1 mb-4">
+                  Total simulated minutes mapped across iterations. Drives the time-decay hit chance:{' '}
+                  <code className="text-neutral-300">pow(% into game, volatility × 5) × contribution + maximumHitChance</code>.
+                </p>
+
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {[
+                    { label: 'Hourly', minutes: 60 },
+                    { label: 'Daily', minutes: 1440 },
+                    { label: 'Weekly', minutes: 10080 },
+                    { label: 'Monthly', minutes: 43200 },
+                  ].map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => setLifespanMinutes(p.minutes)}
+                      className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                        lifespanMinutes === p.minutes ? 'bg-blue-500 text-white' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+                      }`}
+                    >
+                      {p.label} ({p.minutes.toLocaleString()}m)
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-2 gap-6 max-w-xl">
+                  <div className="space-y-2">
+                    <BrightLabel htmlFor="lifespan-minutes">Lifespan (minutes)</BrightLabel>
+                    <Input id="lifespan-minutes" type="number" min={1} value={lifespanMinutes} onChange={(e) => setLifespanMinutes(Math.max(1, parseInt(e.target.value) || 1))} className="bg-neutral-800 border-neutral-700" />
+                  </div>
+                  {selectedType === 'must_drop' && (
+                    <div className="space-y-2">
+                      <BrightLabel>Must-Drop Period</BrightLabel>
+                      <Select value={String(mustDropPeriod)} onValueChange={(v) => setMustDropPeriod(Number(v) as 1 | 2 | 3 | 4)}>
+                        <SelectTrigger className="bg-neutral-800 border-neutral-700 text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-neutral-800 border-neutral-700 text-white">
+                          <SelectItem value="1" className="text-white">Single</SelectItem>
+                          <SelectItem value="2" className="text-white">Daily</SelectItem>
+                          <SelectItem value="3" className="text-white">Weekly</SelectItem>
+                          <SelectItem value="4" className="text-white">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )}
+          </section>
+        )}
 
         {/* Continue bar — bottom-right, navigates to /backoffice/simulator */}
         <div className="flex items-center justify-between pt-8 pb-16 border-t border-neutral-800 mt-8">
