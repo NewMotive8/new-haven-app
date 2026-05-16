@@ -144,7 +144,14 @@ function SimulatorPage() {
               />
             </div>
             <div>
-              <label style={label}>Jackpot config (JSON)</label>
+              <label style={label}>
+                Jackpot config (JSON)
+                {cameFromCreationFlow && (
+                  <span style={{ marginLeft: 8, color: "#34d399", fontSize: 11 }}>
+                    · loaded from creation flow
+                  </span>
+                )}
+              </label>
               <textarea
                 style={{ ...input, fontFamily: "ui-monospace, monospace", fontSize: 12, height: 320, resize: "vertical" }}
                 value={configText}
