@@ -3029,7 +3029,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                       <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <BrightLabel htmlFor="description">Internal Description</BrightLabel>
-                          <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe what this jackpot does..." className="bg-neutral-800 border-neutral-700 min-h-[100px]" />
+                          <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe what this jackpot does..." className="bg-neutral-800 border-neutral-700 min-h-[100px] text-white" />
                         </div>
                         <div></div>
                       </div>
