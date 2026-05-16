@@ -398,7 +398,7 @@ function JackpotsPage() {
   );
 }
 
-export const Route = createFileRoute("/backoffice/jackpots/")({
+export const Route = createFileRoute("/admin/jackpots/")({
   ssr: false,
   component: JackpotsPage,
 });

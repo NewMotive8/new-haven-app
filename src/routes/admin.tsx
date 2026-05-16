@@ -253,7 +253,7 @@ function BackofficeLayout() {
   );
 }
 
-export const Route = createFileRoute("/backoffice")({
+export const Route = createFileRoute("/admin")({
   ssr: false,
   component: BackofficeLayout,
 });

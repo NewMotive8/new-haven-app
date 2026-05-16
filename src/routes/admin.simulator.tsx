@@ -255,7 +255,7 @@ function SimulatorPage() {
   );
 }
 
-export const Route = createFileRoute("/backoffice/simulator")({
+export const Route = createFileRoute("/admin/simulator")({
   ssr: false,
   component: SimulatorPage,
 });

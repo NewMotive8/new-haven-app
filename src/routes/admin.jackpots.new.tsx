@@ -103,7 +103,7 @@ function NewJackpotPage() {
   );
 }
 
-export const Route = createFileRoute("/backoffice/jackpots/new")({
+export const Route = createFileRoute("/admin/jackpots/new")({
   ssr: false,
   component: NewJackpotPage,
 });
