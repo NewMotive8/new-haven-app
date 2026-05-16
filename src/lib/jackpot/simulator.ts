@@ -329,12 +329,12 @@ function simulateMultiLevel(
       const weightedContribution = globalMathContribution * r.weight;
       if (weightedContribution <= 0) continue;
 
-      // Per-tier CDF center — Java pool.targetAmount on the tier pool.
-      // Priority: tier.pool.targetAmount → global maximumWinAmount → live pool.
-      const tierTarget = Number(rt.pool.targetAmount) || 0;
+      const tierPool = rt.pool;
+      const tierTargetAmount = Number(tierPool.targetAmount) || 0;
+      const tierMinimumWinAmount = Number(tierPool.minimumWinAmount) || 0;
       const target =
-        tierTarget > 0
-          ? tierTarget
+        tierTargetAmount > 0
+          ? tierTargetAmount
           : maximumWinAmount > 0
             ? maximumWinAmount
             : rt.poolCurrent;
@@ -345,7 +345,7 @@ function simulateMultiLevel(
       if (!won) continue;
 
       // performSafetyChecks per tier
-      if (rt.minimumWinAmount > 0 && rt.poolCurrent < rt.minimumWinAmount) {
+      if (tierMinimumWinAmount > 0 && rt.poolCurrent < tierMinimumWinAmount) {
         r.rejectedByGate++;
         rejectedByGate++;
         continue;
