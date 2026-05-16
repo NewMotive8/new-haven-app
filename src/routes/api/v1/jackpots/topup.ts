@@ -27,7 +27,7 @@ export const Route = createFileRoute("/api/v1/jackpots/topup")({
             400,
           );
         }
-        const updated = applyTopup(brand, body);
+        const updated = await applyTopup(brand, body);
         if (!updated) return errorJson(`Jackpot ${body.jackpotId} not found`, 404);
         return json(updated);
       },

@@ -42,7 +42,7 @@ export const Route = createFileRoute("/api/v1/event/simulate")({
         } catch {
           return errorJson("Invalid JSON body", 400);
         }
-        const jp = getJackpot(brand, Number(body.jackpotId));
+        const jp = await getJackpot(brand, Number(body.jackpotId));
         if (!jp) return errorJson(`Jackpot ${body.jackpotId} not found`, 404);
 
         const result = simulateEngine(
@@ -51,8 +51,8 @@ export const Route = createFileRoute("/api/v1/event/simulate")({
           Number(body.iterations) || 0,
         );
 
-        // Persist new pool balance back to the mock store.
-        updateJackpot(brand, jp.id, { poolBalance: result.finalPool });
+        // Persist new pool balance back to the database.
+        await updateJackpot(brand, jp.id, { poolBalance: result.finalPool });
 
         return json({ jackpotId: jp.id, ...result });
       },

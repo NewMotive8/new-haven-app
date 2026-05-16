@@ -11,7 +11,7 @@ export const Route = createFileRoute("/api/v1/jackpots/disable/$id")({
         if (brand instanceof Response) return brand;
         const id = Number(params.id);
         if (!Number.isFinite(id)) return errorJson("Invalid id", 400);
-        const updated = setEnabled(brand, id, false);
+        const updated = await setEnabled(brand, id, false);
         if (!updated) return errorJson(`Jackpot ${id} not found`, 404);
         return json(updated);
       },

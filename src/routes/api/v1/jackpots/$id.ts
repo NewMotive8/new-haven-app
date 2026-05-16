@@ -21,7 +21,7 @@ export const Route = createFileRoute("/api/v1/jackpots/$id")({
         if (brand instanceof Response) return brand;
         const id = parseId(params.id);
         if (id == null) return errorJson("Invalid id", 400);
-        const jp = getJackpot(brand, id);
+        const jp = await getJackpot(brand, id);
         if (!jp) return errorJson(`Jackpot ${id} not found`, 404);
         return json(jp);
       },
@@ -36,7 +36,7 @@ export const Route = createFileRoute("/api/v1/jackpots/$id")({
         } catch {
           return errorJson("Invalid JSON body", 400);
         }
-        const updated = updateJackpot(brand, id, body);
+        const updated = await updateJackpot(brand, id, body);
         if (!updated) return errorJson(`Jackpot ${id} not found`, 404);
         return json(updated);
       },
@@ -45,7 +45,7 @@ export const Route = createFileRoute("/api/v1/jackpots/$id")({
         if (brand instanceof Response) return brand;
         const id = parseId(params.id);
         if (id == null) return errorJson("Invalid id", 400);
-        const removed = deleteJackpot(brand, id);
+        const removed = await deleteJackpot(brand, id);
         if (!removed) return errorJson(`Jackpot ${id} not found`, 404);
         return json({ id, deleted: true });
       },

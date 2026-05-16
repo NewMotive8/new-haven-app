@@ -12,7 +12,7 @@ export const Route = createFileRoute("/api/v1/jackpots/")({
         if (brand instanceof Response) return brand;
         const url = new URL(request.url);
         const filterExp = url.searchParams.get("filterExp");
-        return json(listJackpots(brand, filterExp));
+        return json(await listJackpots(brand, filterExp));
       },
       POST: async ({ request }) => {
         const brand = requireBrandId(request);
@@ -23,7 +23,7 @@ export const Route = createFileRoute("/api/v1/jackpots/")({
         } catch {
           return errorJson("Invalid JSON body", 400);
         }
-        return json(createJackpot(brand, body), { status: 201 });
+        return json(await createJackpot(brand, body), { status: 201 });
       },
     },
   },
