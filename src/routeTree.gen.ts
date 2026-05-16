@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
@@ -25,6 +27,16 @@ import { Route as ApiV1EventSimulateRouteImport } from './routes/api/v1/event/si
 import { Route as ApiV1JackpotsEnableIdRouteImport } from './routes/api/v1/jackpots/enable.$id'
 import { Route as ApiV1JackpotsDisableIdRouteImport } from './routes/api/v1/jackpots/disable.$id'
 
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -104,6 +116,8 @@ const ApiV1JackpotsDisableIdRoute = ApiV1JackpotsDisableIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/admin/jackpots': typeof AdminJackpotsRouteWithChildren
   '/admin/simulator': typeof AdminSimulatorRoute
   '/admin/': typeof AdminIndexRoute
@@ -120,6 +134,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/admin/simulator': typeof AdminSimulatorRoute
   '/admin': typeof AdminIndexRoute
   '/admin/jackpots/new': typeof AdminJackpotsNewRoute
@@ -137,6 +153,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/admin/jackpots': typeof AdminJackpotsRouteWithChildren
   '/admin/simulator': typeof AdminSimulatorRoute
   '/admin/': typeof AdminIndexRoute
@@ -156,6 +174,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/login'
+    | '/reset-password'
     | '/admin/jackpots'
     | '/admin/simulator'
     | '/admin/'
@@ -172,6 +192,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/login'
+    | '/reset-password'
     | '/admin/simulator'
     | '/admin'
     | '/admin/jackpots/new'
@@ -188,6 +210,8 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
+    | '/login'
+    | '/reset-password'
     | '/admin/jackpots'
     | '/admin/simulator'
     | '/admin/'
@@ -206,6 +230,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
+  LoginRoute: typeof LoginRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   ApiV1EventSimulateRoute: typeof ApiV1EventSimulateRoute
   ApiV1EventSimulateBetRoute: typeof ApiV1EventSimulateBetRoute
   ApiV1JackpotsIdRoute: typeof ApiV1JackpotsIdRoute
@@ -218,6 +244,20 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin': {
       id: '/admin'
       path: '/admin'
@@ -357,6 +397,8 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
+  LoginRoute: LoginRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   ApiV1EventSimulateRoute: ApiV1EventSimulateRoute,
   ApiV1EventSimulateBetRoute: ApiV1EventSimulateBetRoute,
   ApiV1JackpotsIdRoute: ApiV1JackpotsIdRoute,
@@ -369,3 +411,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
