@@ -1,66 +1,77 @@
 ## Goal
 
-Replace "Save Jackpot" actions with a single bottom-right "Continue" button that validates, then navigates to `/backoffice/simulator` carrying the jackpot configuration. The simulator pre-populates its JSON config editor from that incoming state.
+Make the simulator inputs fully reactive, eliminate the crash on large iteration counts, and let it run up to 10,000,000 spins against the JSON config passed in from the creation flow.
 
-## 1. Form: swap action bars
+## Root cause of the current crash
 
-File: `src/components/jackpot/JackpotCreationForm.tsx`
+The console shows `RangeError: Maximum call stack size exceeded` inside a `useMemo` on `/backoffice/simulator`. The culprit is:
 
-a. **Remove the universal Save bar** at the bottom (lines ~4071–4082, the block starting with the `Universal Save Bar` comment that renders `<Button>Cancel</Button>` + `Save Jackpot`).
-
-b. **Update the per-type action bar** (currently the Classic-type bar at lines ~1762–1772 with Back + "Save Jackpot"). Keep the "Back" button on the left, replace "Save Jackpot" on the right with a "Continue" button that calls `handleContinue`. If other type branches (Must Drop, Multi-Level, Frequency) don't have their own action bar, add the same `Back` + `Continue` row at the end of each branch so every flow ends bottom-right with Continue.
-
-c. **Replace `triggerSave` with `handleContinue`**:
-   - Build the same payload `triggerSave` already constructs (the full `JackpotSavePayload`).
-   - Validate: `name.trim()` required; for `multi_level` ensure at least one tier; for `frequency`/`must_drop` ensure a recurrence/payout interval is set. Show inline error via existing toast or a simple `setError` state next to the Continue button.
-   - On success, call `navigate({ to: '/backoffice/simulator', state: { jackpotConfig: payload } })` (TanStack Router `useNavigate` supports `state`). No DB write here.
-   - Drop the `onSave` / `submitting` props from the call site since they're no longer used in this flow (keep the props on the component for now to avoid touching the route wrapper unless needed; just stop invoking them).
-
-## 2. Simulator: read incoming state and pre-populate JSON
-
-File: `src/routes/backoffice.simulator.tsx`
-
-a. Read incoming router state:
 ```ts
-import { useRouterState } from '@tanstack/react-router';
-const incoming = useRouterState({ select: s => s.location.state as { jackpotConfig?: JackpotSavePayload } | undefined });
+Math.max(...result.winEvents.map((w) => w.amount))
 ```
 
-b. Add a mapper `mapPayloadToConfig(payload): JackpotConfigDTO` in a new helper file `src/lib/jackpot/payload-to-config.ts`:
-   - `type`: `payoutModel === 'maximum' ? 'MAXIMUM' : 'AVERAGE'` (the engine only supports those two; `fixed` falls back to AVERAGE).
-   - `contributionAmount`: `payload.contributionType === 'fixed' ? payload.poolPercentageValue : payload.playerContribution + payload.operatorContribution`.
-   - `contributionType`: `payload.contributionType === 'fixed' ? 'FIXED' : 'PERCENTAGE'`.
-   - `volatility`: `payload.volatility`.
-   - `pool`: sensible defaults `{ currentAmount: 0, minimumAmount: 0, maximumAmount: 0 }` (extend later when the form exposes those fields).
-   - `seed`: `{ currentAmount: 0, targetAmount: 0, contributionAmount: payload.seedPercentageValue, contributionType: payload.seedContributionType === 'fixed' ? 'FIXED' : 'PERCENTAGE' }`.
-   - `name`: `payload.name`.
-   - `id`: `0` (not yet persisted).
+Spreading a large array into `Math.max(...)` blows the JS argument stack as soon as `winEvents` grows into the tens of thousands. As soon as a simulation returns more than ~10k win events, the page crashes into the error boundary — which is exactly what the user sees as "ignored my changes / stuck on old values". The inputs are actually bound correctly; they just never survive the re-render after a heavy run.
 
-c. Initialize `configText` from the mapped config when `incoming?.jackpotConfig` is present; fall back to `DEFAULT_CONFIG` otherwise:
+Secondary issues:
+
+- `src/lib/jackpot/simulator.ts` hard-caps iterations at `1_000_000` (`Math.min(..., 1_000_000)`), so 10M is silently truncated.
+- `simulateEngine` pushes every win into a single `winEvents` array. At 10M iterations this can easily be hundreds of thousands of objects — wasted memory and serialization cost, since the UI only ever shows the first 50.
+- The `<input type="number" max={1000000}>` on the iterations field caps the spinner at 1M.
+- `tierWins` and the win-events table re-render the entire result on every keystroke in the JSON textarea (cheap now, but worth memoizing on `result` only — already is, just keep it that way).
+
+## Changes
+
+### 1. `src/routes/backoffice.simulator.tsx` — fix the crash and lift the UI cap
+
+- Replace the spread-based `maxWin` memo with a plain `for` loop reduction so it scales to millions of entries:
+  ```ts
+  const maxWin = React.useMemo(() => {
+    if (!result?.winEvents?.length) return 0;
+    let m = 0;
+    for (const w of result.winEvents) if (w.amount > m) m = w.amount;
+    return m;
+  }, [result]);
+  ```
+- Raise the iterations input cap to `10_000_000` and clamp `onChange` to that range so the controlled state can't exceed it.
+- Keep `wager` and `iterations` exactly as already wired — they're already controlled state and already passed as query params; no change needed beyond confirming.
+- Add a tiny "Running N iterations…" hint while `loading` so the user sees the request is in flight on large runs.
+
+### 2. `src/lib/jackpot/simulator.ts` — support 10M and stop hoarding win events
+
+- Raise the safety clamp from `1_000_000` to `10_000_000`.
+- Cap the returned `winEvents` array at the most recent ~500 entries (the UI only renders 50, and tier bucketing only needs counts). Track `winCounter` and tier buckets in-loop so we don't have to keep every event:
+  - keep counters (`winCounter`, `winAmountCounter`, `maxWinAmount`, `tierCounts: Record<string, number>`) updated inside the existing `for` loop
+  - push to `winEvents` only if `winEvents.length < 500` (or use a ring buffer)
+- Extend `SimulatorResponseDTO` with optional `maxWinAmount` and `tierCounts` so the UI can read them directly and skip the client-side spread/reduce entirely. Update the page to prefer those when present and fall back to the existing client computation for backward compatibility.
+- Micro-optimize the hot loop: hoist `winType`, `volatility`, `poolCap`, `seedCap`, `jackpot.contributionType`, `jackpot.contributionAmount`, `seed.contributionType`, `seed.contributionAmount`, and the reseed amount into locals outside the loop. The current code re-reads them every iteration.
+- No batching/`setImmediate` is needed — this is a pure arithmetic loop, ~10M simple ops runs well under the Worker CPU budget once we stop allocating an object per win.
+
+### 3. `src/lib/jackpot/types.ts` — add the two optional response fields
+
+Add `maxWinAmount?: number` and `tierCounts?: Record<string, number>` to `SimulatorResponseDTO`.
+
+### 4. Confirm dynamic config wiring (no code change expected)
+
+The page already does:
+
 ```ts
-const initialConfig = React.useMemo(() => (
-  incoming?.jackpotConfig ? mapPayloadToConfig(incoming.jackpotConfig) : DEFAULT_CONFIG
-), []);
-const [configText, setConfigText] = React.useState(JSON.stringify(initialConfig, null, 2));
+const incoming = useRouterState({ select: (s) => s.location.state as ... });
+const initialConfig = React.useMemo(() => incoming?.jackpotConfig ? mapPayloadToConfig(incoming.jackpotConfig) : DEFAULT_CONFIG, []);
+const [configText, setConfigText] = useState(JSON.stringify(initialConfig, null, 2));
 ```
-Use empty dependency array so a later state change doesn't clobber user edits in the textarea.
 
-d. Optionally show a small "Loaded from creation flow" hint above the JSON textarea when `incoming?.jackpotConfig` exists.
-
-## 3. Export `JackpotSavePayload`
-
-It's already exported from `JackpotCreationForm.tsx` (line 24). Import it in the simulator from `@/components/jackpot/JackpotCreationForm` to type the router state.
+and posts `JSON.parse(configText)` as the body. That is already "exact fields of the custom Jackpot config" — the simulator engine reads `pool`, `seed`, `contributionType`, `contributionAmount`, `volatility`, `type` from that body, not from a hardcoded template. I'll re-verify `mapPayloadToConfig` covers all four payout models (Classic / Frequency / Must Drop / Multi-Level) and note any missing field mapping, but no rewrite is planned unless something is actually dropped.
 
 ## Out of scope
 
-- No DB write on Continue. The existing `createJackpot` server function and the parent route's `onSave` handler stay untouched; they can be wired to a future "Save" action from the simulator screen.
-- No layout/style changes beyond the bottom action bar.
-- No new validation framework; basic checks only.
+- No DB writes, no schema changes, no auth changes.
+- No visual redesign of the simulator panel.
+- No new charting — existing `StatCard` / tier grid / recent-wins table stay as-is.
 
 ## Verification
 
-1. Open `/backoffice/jackpots/new`, fill Internal Name, pick any type, set contribution sliders.
-2. Confirm only one button bar at the bottom: `Back` (left) + `Continue` (bottom-right). No "Save Jackpot" anywhere.
-3. Click Continue with empty name → inline error, no navigation.
-4. Click Continue with valid form → URL changes to `/backoffice/simulator`, JSON textarea is pre-filled with the mapped config (name, type, contributionAmount, volatility, seed.contributionType match selections).
-5. Click "Run simulation" — request fires with the mapped JSON.
+1. Open `/backoffice/jackpots/new`, fill a Classic jackpot, hit Continue.
+2. On the simulator, change wager to `1` and iterations to `10000000`.
+3. Click Run — page should not crash, RTP / win count / max win / final pool should populate, recent-wins table shows up to 50 rows.
+4. Change wager/iterations again and re-run — values update, no stale results.
+5. Check `code--read_console_logs` for absence of `Maximum call stack size exceeded`.
