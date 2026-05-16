@@ -96,6 +96,8 @@ export type JackpotSavePayload = {
     poolContributionAmount?: number;
     seedContributionType?: "fixed" | "percentage";
     seedContributionAmount?: number;
+    seedInitialAmount?: number;    // seed starting balance
+    seedTargetAmount?: number;     // seed target (cap)
     operatorShare?: number;        // pool, 0..100
     seedOperatorShare?: number;    // seed, 0..100
   }>;
