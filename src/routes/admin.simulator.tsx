@@ -77,6 +77,38 @@ function SimulatorPage() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [result, setResult] = React.useState<SimulatorResponseDTO | null>(null);
+  const [saving, setSaving] = React.useState(false);
+
+  async function handleSave() {
+    const payload = originalPayloadRef.current;
+    if (!payload) return;
+    if (!payload.name) {
+      toast.error("Jackpot name is required");
+      return;
+    }
+    if (brandId == null) {
+      toast.error("No brand selected");
+      return;
+    }
+    setSaving(true);
+    try {
+      const body = buildCreateBody(payload);
+      await axios.post("/api/v1/jackpots", body, {
+        headers: { brandId: String(brandId), "Content-Type": "application/json" },
+      });
+      toast.success("Jackpot created");
+      navigate({ to: "/admin/jackpots" });
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } }; message?: string })
+          ?.response?.data?.message ??
+        (err as { message?: string })?.message ??
+        "Failed to create jackpot";
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function handleSimulate() {
     setError(null);
