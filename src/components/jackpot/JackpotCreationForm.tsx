@@ -1405,6 +1405,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="max-seed"
                                 type="number"
                                 placeholder="0"
+                                value={maximumSeedAmount}
+                                onChange={(e) => setMaximumSeedAmount(parseFloat(e.target.value) || 0)}
                                 className="bg-neutral-800 border-neutral-700"
                               />
                             </div>
