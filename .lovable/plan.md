@@ -1,93 +1,51 @@
-## Goal
 
-Replace the current bare-bones `/backoffice/jackpots` table with the Figma "Jackpot Dashboard" — sticky header, page header + Create button, 4 stat cards, filter chips, search, and a styled table with status badges and per-row actions — wired to our real `/api/v2/jackpots` backend.
+# Wire pool & seed contributions independently end-to-end
 
-## What's in the GitHub repo
+The mapper falls back to a hardcoded `3` and stuffs the pool contribution into a top-level `contributionAmount`, so the form's actual values are dropped on the floor. Engine then reads the top-level field for pool and ignores `seed.contributionAmount`. Fix: drop the top-level field, push each input straight into `pool.contributionAmount` / `seed.contributionAmount`, and have the engine read those.
 
-Pulled the Figma `Dashboard.tsx` (518 lines) from `NewMotive8/Redesignjackpotcreationflow`. Findings:
+## Changes
 
-- **No new image assets are needed.** The dashboard uses only emoji glyphs (🎰 💰 💎 🏆) and `lucide-react` icons (Clock, LogOut, Search, Plus, Edit, Copy, Trash2). The 4 PNGs in that repo's `src/assets/` are the creation-flow widget previews we already imported into `src/assets/jackpot/` last week.
-- **All shadcn primitives already exist** in our project (`button`, `input`, `card`, etc.) — no new UI components to install.
-- **No new fonts, no new CSS variables** beyond what `src/styles.css` already provides (we'll lean on existing `bg-neutral-*` / `text-*` Tailwind utilities exactly as the Figma source does).
+### 1. `src/lib/jackpot/types.ts`
+- Add `contributionAmount: number` and `contributionType: ContributionType` to `PoolDTO`.
+- Remove `contributionAmount` and `contributionType` from `JackpotConfigDTO` (no more top-level).
+- `SeedDTO` already has both fields — leave as-is.
 
-So nothing is missing — I can build it 1:1 against what's already in our project.
+### 2. `src/lib/jackpot/payload-to-config.ts`
+- Use the form's `poolPercentageValue` (Pool Contribution input) **as-is** via `Number(parseFloat(...))` — no `numOr(..., 3)` fallback. `0` and `0.5` are valid user values; only `NaN/undefined` falls back to `0`.
+- Same for `seedPercentageValue` → `seed.contributionAmount`.
+- Build the output as:
+  ```ts
+  pool: {
+    currentAmount, minimumAmount: 500, maximumAmount: 10000,
+    contributionAmount: num(payload.poolPercentageValue, 0),
+    contributionType: payload.contributionType === "fixed" ? "FIXED" : "PERCENTAGE",
+  },
+  seed: {
+    currentAmount, targetAmount: 1000,
+    contributionAmount: num(payload.seedPercentageValue, 0),
+    contributionType: payload.seedContributionType === "fixed" ? "FIXED" : "PERCENTAGE",
+  },
+  ```
+- Drop the `contributionAmount` / `contributionType` properties from the returned object.
 
-## Real data vs. Figma mock — and what's missing on the backend
+### 3. `src/lib/jackpot/simulator.ts`
+- Replace `jackpot.contributionAmount` / `jackpot.contributionType` reads with `jackpot.pool.contributionAmount` / `jackpot.pool.contributionType`.
+- Loop math stays:
+  - PERCENTAGE → `wager * (amount / 100)` per spin
+  - FIXED → flat `amount` per spin (the previous "FIXED is cents" fix from the prior turn stays in place — divide by 100, cap at wager)
+- Volatility / win-evaluation calls already use `poolContribution`; they keep working — they just pull the per-leg value from the new location.
 
-This is the only real gap and I want to call it out before building. The Figma uses this mock shape:
+### 4. `src/routes/api/v1/event/simulate.ts` (`toConfig` adapter)
+- Move `contributionAmount` + `contributionType` from top level into `pool`.
+- Add a sane default `seed.contributionAmount` of `0` (legacy `JackpotDTO` has no seed-contribution field).
 
-```ts
-{ id, name, type: 'Classic'|'Must Drop'|'Multi-Level'|'Frequency',
-  status: 'active'|'template'|'disabled',
-  currentValue, totalWins, totalPayout, lastWin, createdDate }
-```
-
-Our backend (`JackpotDTO` from `/api/v2/jackpots`) returns:
-
-```ts
-{ id, name, enabled, poolBalance, seedAmount, contributionRate,
-  triggerThreshold, brandId, createdAt, updatedAt,
-  volatility?, jackpotType?, config? }
-```
-
-Mapping I plan to use (no schema change, no migration):
-
-| Figma column | Source |
-|---|---|
-| Name | `name` |
-| Type | `jackpotType` ("Classic" / "Must Drop" / "Multi-Level" / "Frequency"); falls back to "Classic" |
-| Status | `enabled === false` → `disabled`, otherwise `active`. **No `template` concept exists in our DB yet** — the Template chip will show count 0 and Template filter will show empty until we add a `is_template` column. I'll leave the chip in place so the UI matches Figma. |
-| Current Value | `poolBalance` |
-| Total Wins | **Not in DTO.** Will render `—` for now. |
-| Total Payout | **Not in DTO.** Will render `—` for now. |
-| Last Win | **Not in DTO.** Will render `—`. |
-| Created | `createdAt` (formatted `YYYY-MM-DD`) |
-
-Stat cards:
-- Total Jackpots = `totalElements`
-- Current Pool Value = sum of `poolBalance` across the current page (annotated "page total" so it's not misleading)
-- Total Payouts / Total Wins = `—` until we expose aggregates
-
-If you want real Total Wins / Total Payout / Last Win, that's a follow-up task — needs new columns or a join against a `jackpot_wins` table. I'll flag this in the closing message but won't block this redesign on it.
-
-## Implementation
-
-### 1. `src/routes/backoffice.jackpots.index.tsx` — rewrite
-
-- Keep the existing `useJackpotsPage` hook + `BrandContext` — only the rendering changes.
-- Increase default page size to 50 so all jackpots fit comfortably (current 20 is fine; bump only if needed for visual parity).
-- Drop the inline `style={{}}` blocks; switch to Tailwind classes from Figma (`bg-neutral-950`, `border-neutral-800`, etc.).
-- Render:
-  - Sticky header bar (Incentiv8 logo block + live UTC clock + Logout button) — Logout posts to existing supabase signOut.
-  - Page header + "Create New Jackpot" `<Link>` to `/backoffice/jackpots/new` (replaces `useNavigate('/create')`).
-  - 4 stat cards (with the mapped-or-`—` rule above).
-  - Filter chips (All / Active / Template / Disabled) — local state, filters the current page client-side.
-  - Search input — client-side filter on `name` + `jackpotType`.
-  - Table with the 9 Figma columns, status badge styling, and the action group:
-    - Active rows → "Disable" button → calls existing `POST /api/v1/jackpots/disable.$id`, invalidates the query.
-    - Template/Disabled rows → Edit / Copy / Trash icon buttons (Edit links to a future detail route, Copy/Trash wired as no-ops with a `TODO` comment — Figma shows them as decorative on templates).
-  - Pagination row kept underneath the table (Figma omits it but our data is paginated; I'll style it to match the dark theme).
-
-### 2. No backend changes, no new files
-
-- No migration. No new API route. No new asset import. No new dependency.
-- `lucide-react` is already installed (used throughout `src/components/ui/*`).
-
-### 3. Auth wrapper / shell
-
-The route already mounts inside our `/backoffice` shell (`src/routes/backoffice.tsx`), which provides brand context + auth. The Figma's own `<header>` will sit inside that shell — I'll trim the duplicated logo if our outer shell already shows one (need to peek at `backoffice.tsx` during implementation; will hide the Figma header if it duplicates).
-
-## Out of scope (call out, don't build)
-
-- Adding `is_template`, `total_wins`, `total_payout`, `last_win_at` columns to `jackpots` — needs a migration + write-path changes from the simulator/win events.
-- Real-time clock in the header — included (1s `setInterval`), matches Figma.
-- Edit / Copy / Delete row actions for templates — wired as placeholders only.
+### 5. `src/routes/backoffice.simulator.tsx`
+- The hardcoded `DEFAULT_CONFIG` needs the same shape change (move the two fields into `pool`). Pure type alignment, no behavior change.
 
 ## Verification
 
-1. Visit `/backoffice/jackpots`. Confirm sticky header, 4 stat cards, filter chips, search, and table render as in the screenshot.
-2. Click a filter chip → table filters; counts on chips stay accurate.
-3. Type in search → table filters by name/type.
-4. Click "Disable" on an active row → row flips to Disabled badge, network shows successful POST.
-5. Click "Create New Jackpot" → navigates to `/backoffice/jackpots/new`.
-6. Confirm no console errors and the page works on the current 1239×784 viewport.
+1. From the creation form: set Pool Contribution = `0.5`, Seed Contribution = `0.5`, FIXED type. Continue → Simulator.
+2. Inspect the prefilled JSON textarea: `pool.contributionAmount = 0.5`, `seed.contributionAmount = 0.5`, no top-level `contributionAmount`.
+3. Run 100,000 spins at €1 wager. Expect `totalContributions ≈ 500` (0.5/100 × 1 × 100k under cents-conversion, capped at wager), not 300,000.
+4. Switch to PERCENTAGE 0.5%: expect `totalContributions ≈ 500` (0.005 × 1 × 100k).
+5. Set Pool = `0`, Seed = `0.5` → confirm pool stops growing, seed grows. (Proves fields are independent and zero is honored.)
