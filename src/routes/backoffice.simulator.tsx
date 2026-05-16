@@ -1,8 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouterState } from "@tanstack/react-router";
 import * as React from "react";
 import axios from "axios";
 import { BrandContext } from "../backoffice/app";
 import type { JackpotConfigDTO, SimulatorResponseDTO } from "@/lib/jackpot/types";
+import type { JackpotSavePayload } from "@/components/jackpot/JackpotCreationForm";
+import { mapPayloadToConfig } from "@/lib/jackpot/payload-to-config";
 
 const DEFAULT_CONFIG: JackpotConfigDTO = {
   id: 1,
