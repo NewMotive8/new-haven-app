@@ -18,7 +18,7 @@ function BackofficeShell() {
           zIndex: 10,
         }}
       >
-        <strong style={{ fontSize: 18, letterSpacing: 0.4 }}>Engagd Backoffice</strong>
+        <strong style={{ fontSize: 18, letterSpacing: 0.4 }}>Insentiv8 Backoffice</strong>
         <nav style={{ display: "flex", gap: 18, fontSize: 14 }}>
           <Link
             to="/backoffice"
