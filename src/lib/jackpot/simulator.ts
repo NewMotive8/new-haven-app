@@ -1,8 +1,5 @@
 import {
-  AVERAGE_VOLATILITY_MULTIPLIER,
-  DEFAULT_AVERAGE_VOLATILITY_EXPONENT,
   calculateAverageWin,
-  calculateMaximumHitChance,
   calculateMaximumWin,
 } from "./math";
 import type {
