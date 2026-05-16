@@ -188,6 +188,28 @@ function SimulatorPage() {
             >
               {loading ? `Simulating ${iterations.toLocaleString()} spins…` : "Run simulation"}
             </button>
+            {cameFromCreationFlow && (
+              <button
+                onClick={() =>
+                  navigate({
+                    to: "/admin/jackpots/new",
+                    state: { jackpotConfig: originalPayloadRef.current } as never,
+                  })
+                }
+                style={{
+                  background: "transparent",
+                  color: "#9fb0c8",
+                  border: "1px solid #1f2a44",
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                ← Back to Editor
+              </button>
+            )}
             {error && <div style={{ color: "#f87171", fontSize: 13 }}>{error}</div>}
           </div>
         </div>
