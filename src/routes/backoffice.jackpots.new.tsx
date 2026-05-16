@@ -556,14 +556,6 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-function SummaryRow({ k, v }: { k: string; v: string }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #1f1f1f", fontSize: 14 }}>
-      <span style={{ color: "#a3a3a3" }}>{k}</span>
-      <span style={{ color: "#fafafa", fontWeight: 500 }}>{v}</span>
-    </div>
-  );
-}
 
 export const Route = createFileRoute("/backoffice/jackpots/new")({
   ssr: false,
