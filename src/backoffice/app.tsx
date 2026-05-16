@@ -8,6 +8,7 @@ import * as React from "react";
 import { QueryClient, QueryClientProvider } from "react-query";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import defaultTranslations from "./src/utils/services/translations/default.json";
 
 // ---------- Global context ----------
 type AppSize = "xsm" | "sm" | "md" | "lg" | "xl" | "xxl";
@@ -32,14 +33,26 @@ const GlobalContext = React.createContext<GlobalContextI>({
 export { GlobalContext };
 
 // ---------- Auth context ----------
+interface MockUser {
+  email: string;
+  role: string;
+  activeBrand: { brandId: number; name?: string };
+}
 interface AuthContextI {
   isAuthenticated: boolean;
+  user: MockUser | null;
   token?: string;
   saveNewToken: (t: string) => void;
   logout: () => void;
 }
+const MOCK_USER: MockUser = {
+  email: "mock.admin@engagd.local",
+  role: "ROOT",
+  activeBrand: { brandId: 1, name: "Default Brand" },
+};
 const AuthContext = React.createContext<AuthContextI>({
-  isAuthenticated: false,
+  isAuthenticated: true,
+  user: MOCK_USER,
   saveNewToken: () => {},
   logout: () => {},
 });
@@ -87,10 +100,10 @@ export const globalData: {
   locale: string;
   brandId: number | undefined;
 } = {
-  translations: [],
+  translations: defaultTranslations as any[],
   editTranslations: false,
   locale: "en-GB",
-  brandId: 0,
+  brandId: 1,
 };
 
 // ---------- Wrapper ----------
@@ -103,22 +116,24 @@ export function BackofficeApp({ children }: { children: React.ReactNode }) {
   });
   const [sideMenuListener, setSideMenuListener] = React.useState<any>(null);
 
-  const [isAuthenticated, setAuth] = React.useState(false);
-  const [token, setToken] = React.useState<string | undefined>(undefined);
+  // Seed a mock ROOT admin so internal permission checks pass automatically.
+  const [user, setUser] = React.useState<MockUser | null>(MOCK_USER);
+  const [token, setToken] = React.useState<string | undefined>("mock-token");
   const auth = React.useMemo<AuthContextI>(
     () => ({
-      isAuthenticated,
+      isAuthenticated: !!user,
+      user,
       token,
       saveNewToken: (t: string) => {
         setToken(t);
-        setAuth(true);
+        setUser(MOCK_USER);
       },
       logout: () => {
         setToken(undefined);
-        setAuth(false);
+        setUser(null);
       },
     }),
-    [isAuthenticated, token]
+    [user, token]
   );
 
   const [currentBrand, setCurrentBrand] = React.useState<any>({ id: 1, name: "Default Brand" });
