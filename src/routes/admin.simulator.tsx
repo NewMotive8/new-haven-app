@@ -329,11 +329,11 @@ function SimulatorPage() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
-            <StatCard title="RTP" value={result ? `${result.rtp.toFixed(2)}%` : "—"} />
-            <StatCard title="Win count" value={result ? String(result.winCounter) : "—"} />
-            <StatCard title="Rejected by gate" value={result ? String(result.rejectedByGate ?? 0) : "—"} hint="CDF hits dropped by minWin / seed gate" />
-            <StatCard title="Max win" value={result ? maxWin.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} />
-            <StatCard title="Total win amount" value={result ? result.winAmountCounter.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} />
+            <StatCard title="RTP" value={result ? `${summary.rtp.toFixed(2)}%` : "—"} />
+            <StatCard title="Win count" value={result ? summary.totalWins.toLocaleString() : "—"} />
+            <StatCard title="Rejected by gate" value={result ? summary.totalRejected.toLocaleString() : "—"} hint="CDF hits dropped by minWin / seed gate" />
+            <StatCard title="Max win" value={result ? summary.maxWin.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} />
+            <StatCard title="Total win amount" value={result ? summary.totalPaid.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} />
             <StatCard title="Total wagered" value={result ? result.totalWagered.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} />
             <StatCard title="Wallet contributions" value={result ? (result.walletContributions ?? result.totalContributions).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} hint="Java: fromWallet" />
             <StatCard title="Operator contributions" value={result ? (result.operatorContributions ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} hint="Java: notFromWallet" />
