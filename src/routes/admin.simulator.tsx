@@ -158,6 +158,23 @@ function SimulatorPage() {
 
   return (
     <div style={{ padding: 28, maxWidth: 1200, margin: "0 auto" }}>
+      <Link
+        to="/admin/jackpots"
+        style={{
+          display: "inline-block",
+          marginBottom: 12,
+          padding: "6px 12px",
+          background: "transparent",
+          color: "#9fb0c8",
+          border: "1px solid #1f2a44",
+          borderRadius: 8,
+          fontSize: 13,
+          fontWeight: 600,
+          textDecoration: "none",
+        }}
+      >
+        ← Back
+      </Link>
       <h1 style={{ margin: 0, fontSize: 26 }}>Jackpot Simulator</h1>
       <p style={{ margin: "4px 0 20px", color: "#9fb0c8", fontSize: 13 }}>
         POST <code>/api/v1/event/simulate-bet</code> · brand <code>{String(brandId ?? "—")}</code>
