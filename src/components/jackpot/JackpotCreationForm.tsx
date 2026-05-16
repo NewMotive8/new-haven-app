@@ -15,6 +15,27 @@ import widgetSuperMega from '@/assets/jackpot/244780cbffaf9d0b9bf83126f279bedf56
 import widgetGoldenHarvest from '@/assets/jackpot/f033c6caa6105be44a8d53aa1abee2e5d474a512.png';
 import widgetCyberNeon from '@/assets/jackpot/575536f44a49439391db5b61fc21c21dc03d8e65.png';
 
+// Helpers hoisted to module scope so their identity is stable across renders
+// (declaring them inside the component unmounts inputs on every keystroke and
+// steals focus, making fields un-typeable).
+const BrightLabel = ({ htmlFor, children, className = '' }: { htmlFor?: string; children: React.ReactNode; className?: string }) => (
+  <Label htmlFor={htmlFor} className={`text-neutral-100 ${className}`}>{children}</Label>
+);
+
+const CurrencyInput = ({ id, ...props }: React.ComponentProps<typeof Input> & { id: string }) => (
+  <div className="relative">
+    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">€</span>
+    <Input id={id} {...props} className={`pl-8 ${props.className || ''}`} />
+  </div>
+);
+
+const PercentageInput = ({ id, ...props }: React.ComponentProps<typeof Input> & { id: string }) => (
+  <div className="relative">
+    <Input id={id} {...props} className={props.className || ''} />
+    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">%</span>
+  </div>
+);
+
 export type PayoutModel = 'fixed' | 'average' | 'maximum';
 export type ContributionType = 'fixed' | 'percentage';
 export type JackpotType = 'classic' | 'must_drop' | 'multi_level' | 'frequency';
