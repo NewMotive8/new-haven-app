@@ -30,7 +30,7 @@ const ACTIVE: CardDef[] = [
   {
     title: "Simulator",
     description: "Run bet simulations against a jackpot.",
-    to: "/backoffice/simulator",
+    to: "/admin/simulator",
     icon: <FaPlay size={22} />,
   },
 ];
