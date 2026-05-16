@@ -630,6 +630,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="fixed-amount"
                                 type="number"
                                 placeholder="0"
+                                value={fixedWinAmount || ''}
+                                onChange={(e) => setFixedWinAmount(parseFloat(e.target.value) || 0)}
                                 className="bg-neutral-800 border-neutral-700"
                               />
                               <p className="text-xs text-red-400">This field is required</p>
