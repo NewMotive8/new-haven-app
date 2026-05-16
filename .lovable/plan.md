@@ -1,77 +1,93 @@
 ## Goal
 
-Make the simulator inputs fully reactive, eliminate the crash on large iteration counts, and let it run up to 10,000,000 spins against the JSON config passed in from the creation flow.
+Replace the current bare-bones `/backoffice/jackpots` table with the Figma "Jackpot Dashboard" — sticky header, page header + Create button, 4 stat cards, filter chips, search, and a styled table with status badges and per-row actions — wired to our real `/api/v2/jackpots` backend.
 
-## Root cause of the current crash
+## What's in the GitHub repo
 
-The console shows `RangeError: Maximum call stack size exceeded` inside a `useMemo` on `/backoffice/simulator`. The culprit is:
+Pulled the Figma `Dashboard.tsx` (518 lines) from `NewMotive8/Redesignjackpotcreationflow`. Findings:
 
-```ts
-Math.max(...result.winEvents.map((w) => w.amount))
-```
+- **No new image assets are needed.** The dashboard uses only emoji glyphs (🎰 💰 💎 🏆) and `lucide-react` icons (Clock, LogOut, Search, Plus, Edit, Copy, Trash2). The 4 PNGs in that repo's `src/assets/` are the creation-flow widget previews we already imported into `src/assets/jackpot/` last week.
+- **All shadcn primitives already exist** in our project (`button`, `input`, `card`, etc.) — no new UI components to install.
+- **No new fonts, no new CSS variables** beyond what `src/styles.css` already provides (we'll lean on existing `bg-neutral-*` / `text-*` Tailwind utilities exactly as the Figma source does).
 
-Spreading a large array into `Math.max(...)` blows the JS argument stack as soon as `winEvents` grows into the tens of thousands. As soon as a simulation returns more than ~10k win events, the page crashes into the error boundary — which is exactly what the user sees as "ignored my changes / stuck on old values". The inputs are actually bound correctly; they just never survive the re-render after a heavy run.
+So nothing is missing — I can build it 1:1 against what's already in our project.
 
-Secondary issues:
+## Real data vs. Figma mock — and what's missing on the backend
 
-- `src/lib/jackpot/simulator.ts` hard-caps iterations at `1_000_000` (`Math.min(..., 1_000_000)`), so 10M is silently truncated.
-- `simulateEngine` pushes every win into a single `winEvents` array. At 10M iterations this can easily be hundreds of thousands of objects — wasted memory and serialization cost, since the UI only ever shows the first 50.
-- The `<input type="number" max={1000000}>` on the iterations field caps the spinner at 1M.
-- `tierWins` and the win-events table re-render the entire result on every keystroke in the JSON textarea (cheap now, but worth memoizing on `result` only — already is, just keep it that way).
-
-## Changes
-
-### 1. `src/routes/backoffice.simulator.tsx` — fix the crash and lift the UI cap
-
-- Replace the spread-based `maxWin` memo with a plain `for` loop reduction so it scales to millions of entries:
-  ```ts
-  const maxWin = React.useMemo(() => {
-    if (!result?.winEvents?.length) return 0;
-    let m = 0;
-    for (const w of result.winEvents) if (w.amount > m) m = w.amount;
-    return m;
-  }, [result]);
-  ```
-- Raise the iterations input cap to `10_000_000` and clamp `onChange` to that range so the controlled state can't exceed it.
-- Keep `wager` and `iterations` exactly as already wired — they're already controlled state and already passed as query params; no change needed beyond confirming.
-- Add a tiny "Running N iterations…" hint while `loading` so the user sees the request is in flight on large runs.
-
-### 2. `src/lib/jackpot/simulator.ts` — support 10M and stop hoarding win events
-
-- Raise the safety clamp from `1_000_000` to `10_000_000`.
-- Cap the returned `winEvents` array at the most recent ~500 entries (the UI only renders 50, and tier bucketing only needs counts). Track `winCounter` and tier buckets in-loop so we don't have to keep every event:
-  - keep counters (`winCounter`, `winAmountCounter`, `maxWinAmount`, `tierCounts: Record<string, number>`) updated inside the existing `for` loop
-  - push to `winEvents` only if `winEvents.length < 500` (or use a ring buffer)
-- Extend `SimulatorResponseDTO` with optional `maxWinAmount` and `tierCounts` so the UI can read them directly and skip the client-side spread/reduce entirely. Update the page to prefer those when present and fall back to the existing client computation for backward compatibility.
-- Micro-optimize the hot loop: hoist `winType`, `volatility`, `poolCap`, `seedCap`, `jackpot.contributionType`, `jackpot.contributionAmount`, `seed.contributionType`, `seed.contributionAmount`, and the reseed amount into locals outside the loop. The current code re-reads them every iteration.
-- No batching/`setImmediate` is needed — this is a pure arithmetic loop, ~10M simple ops runs well under the Worker CPU budget once we stop allocating an object per win.
-
-### 3. `src/lib/jackpot/types.ts` — add the two optional response fields
-
-Add `maxWinAmount?: number` and `tierCounts?: Record<string, number>` to `SimulatorResponseDTO`.
-
-### 4. Confirm dynamic config wiring (no code change expected)
-
-The page already does:
+This is the only real gap and I want to call it out before building. The Figma uses this mock shape:
 
 ```ts
-const incoming = useRouterState({ select: (s) => s.location.state as ... });
-const initialConfig = React.useMemo(() => incoming?.jackpotConfig ? mapPayloadToConfig(incoming.jackpotConfig) : DEFAULT_CONFIG, []);
-const [configText, setConfigText] = useState(JSON.stringify(initialConfig, null, 2));
+{ id, name, type: 'Classic'|'Must Drop'|'Multi-Level'|'Frequency',
+  status: 'active'|'template'|'disabled',
+  currentValue, totalWins, totalPayout, lastWin, createdDate }
 ```
 
-and posts `JSON.parse(configText)` as the body. That is already "exact fields of the custom Jackpot config" — the simulator engine reads `pool`, `seed`, `contributionType`, `contributionAmount`, `volatility`, `type` from that body, not from a hardcoded template. I'll re-verify `mapPayloadToConfig` covers all four payout models (Classic / Frequency / Must Drop / Multi-Level) and note any missing field mapping, but no rewrite is planned unless something is actually dropped.
+Our backend (`JackpotDTO` from `/api/v2/jackpots`) returns:
 
-## Out of scope
+```ts
+{ id, name, enabled, poolBalance, seedAmount, contributionRate,
+  triggerThreshold, brandId, createdAt, updatedAt,
+  volatility?, jackpotType?, config? }
+```
 
-- No DB writes, no schema changes, no auth changes.
-- No visual redesign of the simulator panel.
-- No new charting — existing `StatCard` / tier grid / recent-wins table stay as-is.
+Mapping I plan to use (no schema change, no migration):
+
+| Figma column | Source |
+|---|---|
+| Name | `name` |
+| Type | `jackpotType` ("Classic" / "Must Drop" / "Multi-Level" / "Frequency"); falls back to "Classic" |
+| Status | `enabled === false` → `disabled`, otherwise `active`. **No `template` concept exists in our DB yet** — the Template chip will show count 0 and Template filter will show empty until we add a `is_template` column. I'll leave the chip in place so the UI matches Figma. |
+| Current Value | `poolBalance` |
+| Total Wins | **Not in DTO.** Will render `—` for now. |
+| Total Payout | **Not in DTO.** Will render `—` for now. |
+| Last Win | **Not in DTO.** Will render `—`. |
+| Created | `createdAt` (formatted `YYYY-MM-DD`) |
+
+Stat cards:
+- Total Jackpots = `totalElements`
+- Current Pool Value = sum of `poolBalance` across the current page (annotated "page total" so it's not misleading)
+- Total Payouts / Total Wins = `—` until we expose aggregates
+
+If you want real Total Wins / Total Payout / Last Win, that's a follow-up task — needs new columns or a join against a `jackpot_wins` table. I'll flag this in the closing message but won't block this redesign on it.
+
+## Implementation
+
+### 1. `src/routes/backoffice.jackpots.index.tsx` — rewrite
+
+- Keep the existing `useJackpotsPage` hook + `BrandContext` — only the rendering changes.
+- Increase default page size to 50 so all jackpots fit comfortably (current 20 is fine; bump only if needed for visual parity).
+- Drop the inline `style={{}}` blocks; switch to Tailwind classes from Figma (`bg-neutral-950`, `border-neutral-800`, etc.).
+- Render:
+  - Sticky header bar (Incentiv8 logo block + live UTC clock + Logout button) — Logout posts to existing supabase signOut.
+  - Page header + "Create New Jackpot" `<Link>` to `/backoffice/jackpots/new` (replaces `useNavigate('/create')`).
+  - 4 stat cards (with the mapped-or-`—` rule above).
+  - Filter chips (All / Active / Template / Disabled) — local state, filters the current page client-side.
+  - Search input — client-side filter on `name` + `jackpotType`.
+  - Table with the 9 Figma columns, status badge styling, and the action group:
+    - Active rows → "Disable" button → calls existing `POST /api/v1/jackpots/disable.$id`, invalidates the query.
+    - Template/Disabled rows → Edit / Copy / Trash icon buttons (Edit links to a future detail route, Copy/Trash wired as no-ops with a `TODO` comment — Figma shows them as decorative on templates).
+  - Pagination row kept underneath the table (Figma omits it but our data is paginated; I'll style it to match the dark theme).
+
+### 2. No backend changes, no new files
+
+- No migration. No new API route. No new asset import. No new dependency.
+- `lucide-react` is already installed (used throughout `src/components/ui/*`).
+
+### 3. Auth wrapper / shell
+
+The route already mounts inside our `/backoffice` shell (`src/routes/backoffice.tsx`), which provides brand context + auth. The Figma's own `<header>` will sit inside that shell — I'll trim the duplicated logo if our outer shell already shows one (need to peek at `backoffice.tsx` during implementation; will hide the Figma header if it duplicates).
+
+## Out of scope (call out, don't build)
+
+- Adding `is_template`, `total_wins`, `total_payout`, `last_win_at` columns to `jackpots` — needs a migration + write-path changes from the simulator/win events.
+- Real-time clock in the header — included (1s `setInterval`), matches Figma.
+- Edit / Copy / Delete row actions for templates — wired as placeholders only.
 
 ## Verification
 
-1. Open `/backoffice/jackpots/new`, fill a Classic jackpot, hit Continue.
-2. On the simulator, change wager to `1` and iterations to `10000000`.
-3. Click Run — page should not crash, RTP / win count / max win / final pool should populate, recent-wins table shows up to 50 rows.
-4. Change wager/iterations again and re-run — values update, no stale results.
-5. Check `code--read_console_logs` for absence of `Maximum call stack size exceeded`.
+1. Visit `/backoffice/jackpots`. Confirm sticky header, 4 stat cards, filter chips, search, and table render as in the screenshot.
+2. Click a filter chip → table filters; counts on chips stay accurate.
+3. Type in search → table filters by name/type.
+4. Click "Disable" on an active row → row flips to Disabled badge, network shows successful POST.
+5. Click "Create New Jackpot" → navigates to `/backoffice/jackpots/new`.
+6. Confirm no console errors and the page works on the current 1239×784 viewport.
