@@ -909,7 +909,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                   id="pool-contribution"
                                   type="number"
                                   placeholder="3"
-                                  defaultValue="3"
+                                  value={poolPercentageValue[0]}
+                                  onChange={(e) => setPoolPercentageValue([parseFloat(e.target.value) || 0])}
                                   className="bg-neutral-800 border-neutral-700"
                                 />
                               </div>
@@ -1028,7 +1029,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                   id="pool-contribution"
                                   type="number"
                                   placeholder="1"
-                                  defaultValue="1"
+                                  value={poolPercentageValue[0]}
+                                  onChange={(e) => setPoolPercentageValue([parseFloat(e.target.value) || 0])}
                                   className="bg-neutral-800 border-neutral-700"
                                 />
                               </div>
@@ -1182,7 +1184,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="seed-contribution"
                                 type="number"
                                 placeholder="0"
-                                defaultValue="0"
+                                value={seedPercentageValue[0]}
+                                onChange={(e) => setSeedPercentageValue([parseFloat(e.target.value) || 0])}
                                 className="bg-neutral-800 border-neutral-700"
                               />
                             </div>
@@ -1288,6 +1291,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="seed-contribution"
                                 type="number"
                                 placeholder="0"
+                                value={seedPercentageValue[0]}
+                                onChange={(e) => setSeedPercentageValue([parseFloat(e.target.value) || 0])}
                                 className="bg-neutral-800 border-neutral-700 w-full"
                               />
                             </div>
@@ -1958,7 +1963,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                   id="pool-contribution"
                                   type="number"
                                   placeholder="3"
-                                  defaultValue="3"
+                                  value={poolPercentageValue[0]}
+                                  onChange={(e) => setPoolPercentageValue([parseFloat(e.target.value) || 0])}
                                   className="bg-neutral-800 border-neutral-700"
                                 />
                               </div>
@@ -2077,7 +2083,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                   id="pool-contribution"
                                   type="number"
                                   placeholder="1"
-                                  defaultValue="1"
+                                  value={poolPercentageValue[0]}
+                                  onChange={(e) => setPoolPercentageValue([parseFloat(e.target.value) || 0])}
                                   className="bg-neutral-800 border-neutral-700"
                                 />
                               </div>
@@ -2231,7 +2238,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="seed-contribution"
                                 type="number"
                                 placeholder="0"
-                                defaultValue="0"
+                                value={seedPercentageValue[0]}
+                                onChange={(e) => setSeedPercentageValue([parseFloat(e.target.value) || 0])}
                                 className="bg-neutral-800 border-neutral-700"
                               />
                             </div>
@@ -2337,6 +2345,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="seed-contribution"
                                 type="number"
                                 placeholder="0"
+                                value={seedPercentageValue[0]}
+                                onChange={(e) => setSeedPercentageValue([parseFloat(e.target.value) || 0])}
                                 className="bg-neutral-800 border-neutral-700 w-full"
                               />
                             </div>
@@ -3443,7 +3453,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                   id="frequency-pool-contribution"
                                   type="number"
                                   placeholder="3"
-                                  defaultValue="3"
+                                  value={poolPercentageValue[0]}
+                                  onChange={(e) => setPoolPercentageValue([parseFloat(e.target.value) || 0])}
                                   className="bg-neutral-800 border-neutral-700"
                                 />
                               </div>
@@ -3562,7 +3573,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                   id="frequency-pool-contribution-fixed"
                                   type="number"
                                   placeholder="1"
-                                  defaultValue="1"
+                                  value={poolPercentageValue[0]}
+                                  onChange={(e) => setPoolPercentageValue([parseFloat(e.target.value) || 0])}
                                   className="bg-neutral-800 border-neutral-700"
                                 />
                               </div>
@@ -3716,7 +3728,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="frequency-seed-contribution"
                                 type="number"
                                 placeholder="0"
-                                defaultValue="0"
+                                value={seedPercentageValue[0]}
+                                onChange={(e) => setSeedPercentageValue([parseFloat(e.target.value) || 0])}
                                 className="bg-neutral-800 border-neutral-700"
                               />
                             </div>
@@ -3822,6 +3835,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="frequency-seed-contribution-fixed"
                                 type="number"
                                 placeholder="0"
+                                value={seedPercentageValue[0]}
+                                onChange={(e) => setSeedPercentageValue([parseFloat(e.target.value) || 0])}
                                 className="bg-neutral-800 border-neutral-700 w-full"
                               />
                             </div>
