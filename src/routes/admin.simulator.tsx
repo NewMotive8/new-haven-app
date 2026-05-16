@@ -56,9 +56,11 @@ function StatCard({ title, value, hint }: { title: string; value: string; hint?:
 
 function SimulatorPage() {
   const { brandId } = React.useContext(BrandContext);
+  const navigate = useNavigate();
   const incoming = useRouterState({
     select: (s) => s.location.state as { jackpotConfig?: JackpotSavePayload } | undefined,
   });
+  const originalPayloadRef = React.useRef<JackpotSavePayload | undefined>(incoming?.jackpotConfig);
   const initialConfig = React.useMemo<JackpotConfigDTO>(
     () => (incoming?.jackpotConfig ? mapPayloadToConfig(incoming.jackpotConfig) : DEFAULT_CONFIG),
     // Intentionally empty: only read incoming state on first mount so user
@@ -66,7 +68,7 @@ function SimulatorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
-  const cameFromCreationFlow = Boolean(incoming?.jackpotConfig);
+  const cameFromCreationFlow = Boolean(originalPayloadRef.current);
   const [wager, setWager] = React.useState(10);
   const [iterations, setIterations] = React.useState(100000);
   const [configText, setConfigText] = React.useState(JSON.stringify(initialConfig, null, 2));
