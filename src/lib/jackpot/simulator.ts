@@ -329,10 +329,15 @@ function simulateMultiLevel(
       const weightedContribution = globalMathContribution * r.weight;
       if (weightedContribution <= 0) continue;
 
-      const targetRaw = isAverage
-        ? Number(jackpot.seed.targetAmount) || 0
-        : 0;
-      const target = targetRaw > 0 ? targetRaw : rt.poolCurrent;
+      // Per-tier CDF center — Java pool.targetAmount on the tier pool.
+      // Priority: tier.pool.targetAmount → global maximumWinAmount → live pool.
+      const tierTarget = Number(rt.pool.targetAmount) || 0;
+      const target =
+        tierTarget > 0
+          ? tierTarget
+          : maximumWinAmount > 0
+            ? maximumWinAmount
+            : rt.poolCurrent;
 
       const won = isAverage
         ? calculateAverageWin(rt.poolCurrent, target, weightedContribution, volatility)
