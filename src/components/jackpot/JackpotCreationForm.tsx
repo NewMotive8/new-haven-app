@@ -15,11 +15,41 @@ import widgetSuperMega from '@/assets/jackpot/244780cbffaf9d0b9bf83126f279bedf56
 import widgetGoldenHarvest from '@/assets/jackpot/f033c6caa6105be44a8d53aa1abee2e5d474a512.png';
 import widgetCyberNeon from '@/assets/jackpot/575536f44a49439391db5b61fc21c21dc03d8e65.png';
 
-type PayoutModel = 'fixed' | 'average' | 'maximum';
-type ContributionType = 'fixed' | 'percentage';
-type JackpotType = 'classic' | 'must_drop' | 'multi_level' | 'frequency';
-type RecurrenceType = 'single' | 'daily' | 'weekly' | 'monthly';
-type DisplayFrequency = 'daily' | 'weekly' | 'monthly';
+export type PayoutModel = 'fixed' | 'average' | 'maximum';
+export type ContributionType = 'fixed' | 'percentage';
+export type JackpotType = 'classic' | 'must_drop' | 'multi_level' | 'frequency';
+export type RecurrenceType = 'single' | 'daily' | 'weekly' | 'monthly';
+export type DisplayFrequency = 'daily' | 'weekly' | 'monthly';
+
+export type JackpotSavePayload = {
+  name: string;
+  description: string;
+  type: JackpotType;
+  payoutModel: PayoutModel;
+  contributionType: ContributionType;
+  seedContributionType: ContributionType;
+  volatility: number;
+  playerContribution: number;
+  operatorContribution: number;
+  seedPlayerContribution: number;
+  seedOperatorContribution: number;
+  poolPercentageValue: number;
+  seedPercentageValue: number;
+  recurrenceType: RecurrenceType;
+  weeklyDay: string;
+  monthlyDay: string;
+  displayFrequency: DisplayFrequency;
+  weeklyFrequencyDay: string;
+  monthlyFrequencyDay: string;
+  separateContributionFrequency: boolean;
+  payoutInterval: string;
+  isSegmented: boolean;
+  segments: string[];
+  isCommunity: boolean;
+  communitySplit: number;
+  isTemplate: boolean;
+  selectedWidget: string;
+};
 
 export interface JackpotCreationFormProps {
   onSave: (payload: JackpotSavePayload) => void | Promise<void>;
