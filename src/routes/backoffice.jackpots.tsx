@@ -176,5 +176,6 @@ function btn(disabled: boolean): React.CSSProperties {
 }
 
 export const Route = createFileRoute("/backoffice/jackpots")({
+  ssr: false,
   component: JackpotsPage,
 });
