@@ -380,7 +380,6 @@ function NewJackpotPage() {
   const { brandId } = React.useContext(BrandContext);
   const navigate = useNavigate();
   const [form, setForm] = React.useState<FormState>(initialState);
-  const [step, setStep] = React.useState<StepKey>("type");
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [submitting, setSubmitting] = React.useState(false);
 
@@ -388,13 +387,6 @@ function NewJackpotPage() {
     setForm((f) => ({ ...f, [key]: value }));
     setErrors((e) => ({ ...e, [key]: "" }));
   }
-
-  const stepIdx = STEPS.findIndex((s) => s.key === step);
-  const canGoNext = (() => {
-    if (step === "type") return form.type !== null;
-    if (step === "basic") return form.name.trim().length > 0 && form.name.trim().length <= 100;
-    return true;
-  })();
 
   function validateAll(): boolean {
     const e: Record<string, string> = {};
@@ -411,7 +403,6 @@ function NewJackpotPage() {
     return Object.keys(e).length === 0;
   }
 
-  // Build trigger_condition config blob from type-specific fields
   function buildConfig(): Record<string, any> {
     const base: Record<string, any> = {
       type: form.type,
@@ -488,140 +479,106 @@ function NewJackpotPage() {
     }
   }
 
-  function goNext() {
-    if (step === "summary") {
-      handleSubmit();
-      return;
-    }
-    setStep(STEPS[Math.min(STEPS.length - 1, stepIdx + 1)].key);
-  }
-  function goBack() {
-    setStep(STEPS[Math.max(0, stepIdx - 1)].key);
-  }
+  const typeLabel = TYPE_CARDS.find((t) => t.id === form.type)?.name ?? "";
+  const canSave = form.type !== null && form.name.trim().length > 0 && !submitting;
 
   return (
     <div style={S.page}>
-      <div style={S.shell}>
-        {/* Sidebar stepper */}
-        <aside style={S.sidebar}>
-          <div style={S.sideTitle}>Create A Jackpot</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {STEPS.map((s, i) => {
-              const active = s.key === step;
-              const done = i < stepIdx;
-              return (
-                <button
-                  key={s.key}
-                  type="button"
-                  onClick={() => i <= stepIdx && setStep(s.key)}
-                  disabled={i > stepIdx}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 12,
-                    padding: "10px 12px", borderRadius: 6, cursor: i <= stepIdx ? "pointer" : "not-allowed",
-                    background: active ? "rgba(59,130,246,0.12)" : "transparent",
-                    border: "none", textAlign: "left", color: active ? "#fafafa" : i <= stepIdx ? "#d4d4d4" : "#525252",
-                    fontSize: 14, fontWeight: active ? 500 : 400,
-                  }}
-                >
-                  <span style={{
-                    width: 22, height: 22, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 11, fontWeight: 600,
-                    background: done ? "#3b82f6" : active ? "#1d4ed8" : "#262626",
-                    color: done || active ? "#fff" : "#737373",
-                  }}>
-                    {done ? "✓" : i + 1}
-                  </span>
-                  {s.label}
-                </button>
-              );
-            })}
-          </div>
-        </aside>
+      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "32px 48px 120px" }}>
+        <div>
+          <Link to="/backoffice/jackpots" style={{ color: "#60a5fa", fontSize: 13, textDecoration: "none" }}>← Back to Jackpots</Link>
+          <h1 style={{ ...S.h1, marginTop: 8 }}>Create New Jackpot</h1>
+          <p style={S.sub}>Configure the general setup on the left, then fine-tune the model on the right.</p>
+        </div>
 
-        {/* Main panel */}
-        <main style={S.main}>
-          <div>
-            <Link to="/backoffice/jackpots" style={{ color: "#60a5fa", fontSize: 13, textDecoration: "none" }}>← Back to Jackpots</Link>
-            <h1 style={{ ...S.h1, marginTop: 8 }}>Create New Jackpot</h1>
-            <p style={S.sub}>
-              {step === "type" && "Choose the kind of jackpot you want to configure."}
-              {step === "basic" && "Name and enable state for this jackpot."}
-              {step === "model" && `Configure the ${TYPE_CARDS.find((t) => t.id === form.type)?.name ?? ""} payout model.`}
-              {step === "pool" && "Set the initial pool and seed funding."}
-              {step === "summary" && "Review and create."}
-            </p>
-          </div>
+        <div style={{ display: "grid", gridTemplateColumns: "360px 1fr", gap: 32, marginTop: 32, alignItems: "start" }}>
+          {/* Left column — General Setup */}
+          <aside style={{ position: "sticky", top: 24, background: "#0f0f0f", border: "1px solid #262626", borderRadius: 10, padding: 24 }}>
+            <div style={{ ...S.sideTitle, marginBottom: 20 }}>General Setup</div>
 
-          <div style={S.panel}>
-            {step === "type" && (
+            <Field label="Jackpot Name" htmlFor="name" error={errors.name}>
+              <input id="name" value={form.name} onChange={(e) => set("name", e.target.value)} maxLength={100} placeholder="e.g. Mega Spin" style={S.input} />
+            </Field>
+
+            <div style={{ ...S.row, display: "flex", alignItems: "center", justifyContent: "space-between", padding: 14, border: "1px solid #262626", borderRadius: 8, background: "#171717" }}>
+              <div>
+                <div style={{ ...S.label, marginBottom: 2 }}>Enabled</div>
+                <div style={{ fontSize: 12, color: "#737373" }}>Accept contributions on save.</div>
+              </div>
+              <Toggle checked={form.enabled} onChange={(v) => set("enabled", v)} />
+            </div>
+
+            <Field label="Jackpot Type" htmlFor="jp-type" error={errors.type} help="Determines which model-specific fields appear on the right.">
+              <Select
+                id="jp-type"
+                value={form.type ?? ""}
+                onChange={(v) => set("type", (v || null) as JackpotKind | null)}
+                options={[
+                  { value: "", label: "Select a type…" },
+                  { value: "classic", label: "Classic" },
+                  { value: "frequency", label: "Frequency" },
+                  { value: "must_drop", label: "Must Drop" },
+                  { value: "multi_level", label: "Multi-Level" },
+                ]}
+              />
+            </Field>
+          </aside>
+
+          {/* Right column — Dynamic Setup */}
+          <section style={{ background: "#0f0f0f", border: "1px solid #262626", borderRadius: 10, padding: 28, minHeight: 480 }}>
+            {!form.type ? (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "80px 20px", color: "#737373" }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>⚙️</div>
+                <div style={{ fontSize: 16, color: "#d4d4d4", marginBottom: 6 }}>Pick a Jackpot Type</div>
+                <div style={{ fontSize: 13, maxWidth: 320 }}>The model, pool, and seed configuration fields will appear here.</div>
+              </div>
+            ) : (
               <>
-                <TypeCards selected={form.type} onSelect={(t) => set("type", t)} />
-                {errors.type && <div style={{ ...S.err, marginTop: 12 }}>{errors.type}</div>}
-              </>
-            )}
-
-            {step === "basic" && (
-              <>
-                <Field label="Name" htmlFor="name" error={errors.name}>
-                  <input id="name" value={form.name} onChange={(e) => set("name", e.target.value)} maxLength={100} placeholder="e.g. Mega Spin" style={S.input} />
-                </Field>
-                <div style={{ ...S.row, display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16, border: "1px solid #262626", borderRadius: 8, background: "#0f0f0f" }}>
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid #262626" }}>
                   <div>
-                    <div style={{ ...S.label, marginBottom: 2 }}>Enabled</div>
-                    <div style={{ fontSize: 12, color: "#737373" }}>Active jackpots accept contributions and can pay out.</div>
+                    <div style={{ fontSize: 18, fontWeight: 600, color: "#fafafa" }}>{typeLabel} Configuration</div>
+                    <div style={{ fontSize: 13, color: "#a3a3a3", marginTop: 4 }}>Model · Pool · Seed</div>
                   </div>
-                  <Toggle checked={form.enabled} onChange={(v) => set("enabled", v)} />
+                </div>
+
+                {/* Model section */}
+                <SectionHeading>Model</SectionHeading>
+                {form.type === "classic" && <ClassicFields form={form} set={set} />}
+                {form.type === "frequency" && <FrequencyFields form={form} set={set} />}
+                {form.type === "must_drop" && <MustDropFields form={form} set={set} />}
+                {form.type === "multi_level" && <MultiLevelFields form={form} set={set} />}
+
+                {/* Pool & Seed section */}
+                <SectionHeading>Pool &amp; Seed</SectionHeading>
+                <div style={S.grid2}>
+                  <Field label="Initial Pool Balance" htmlFor="pool" error={errors.poolBalance} help="Starting pool balance.">
+                    <MoneyInput id="pool" value={form.poolBalance} onChange={(v) => set("poolBalance", v)} />
+                  </Field>
+                  <Field label="Base Seed Amount" htmlFor="seed" error={errors.seedAmount} help="Reset amount after a win.">
+                    <MoneyInput id="seed" value={form.seedAmount} onChange={(v) => set("seedAmount", v)} />
+                  </Field>
                 </div>
               </>
             )}
-
-            {step === "model" && form.type === "classic" && <ClassicFields form={form} set={set} />}
-            {step === "model" && form.type === "frequency" && <FrequencyFields form={form} set={set} />}
-            {step === "model" && form.type === "must_drop" && <MustDropFields form={form} set={set} />}
-            {step === "model" && form.type === "multi_level" && <MultiLevelFields form={form} set={set} />}
-
-            {step === "pool" && (
-              <>
-                <Field label="Initial Pool Balance" htmlFor="pool" error={errors.poolBalance} help="Starting balance of the jackpot pool.">
-                  <MoneyInput id="pool" value={form.poolBalance} onChange={(v) => set("poolBalance", v)} />
-                </Field>
-                <Field label="Base Seed Amount" htmlFor="seed" error={errors.seedAmount} help="Amount the pool resets to after a win.">
-                  <MoneyInput id="seed" value={form.seedAmount} onChange={(v) => set("seedAmount", v)} />
-                </Field>
-              </>
-            )}
-
-            {step === "summary" && (
-              <div style={{ border: "1px solid #262626", borderRadius: 8, padding: 20, background: "#0f0f0f" }}>
-                <SummaryRow k="Type" v={TYPE_CARDS.find((t) => t.id === form.type)?.name ?? "—"} />
-                <SummaryRow k="Name" v={form.name || "—"} />
-                <SummaryRow k="Enabled" v={form.enabled ? "Yes" : "No"} />
-                <SummaryRow k="Volatility" v={String(form.volatility)} />
-                <SummaryRow k="Initial Pool" v={`$${form.poolBalance}`} />
-                <SummaryRow k="Base Seed" v={`$${form.seedAmount}`} />
-                {form.type === "classic" && <SummaryRow k="Contribution" v={`${form.contributionPct}%`} />}
-                {form.type === "multi_level" && <SummaryRow k="Tiers" v={form.tiers.map((t) => t.name).join(", ")} />}
-                <pre style={{ marginTop: 16, padding: 12, background: "#0a0a0a", border: "1px solid #262626", borderRadius: 6, fontSize: 11, color: "#a3a3a3", overflow: "auto" }}>
-                  {JSON.stringify(buildConfig(), null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
-        </main>
-      </div>
-
-      {/* Sticky footer */}
-      <div style={S.footer}>
-        <Link to="/backoffice/jackpots" style={{ ...S.btnGhost, textDecoration: "none", display: "inline-block" }}>Cancel</Link>
-        <div style={{ display: "flex", gap: 10 }}>
-          <button type="button" onClick={goBack} disabled={stepIdx === 0} style={{ ...S.btnGhost, opacity: stepIdx === 0 ? 0.4 : 1, cursor: stepIdx === 0 ? "not-allowed" : "pointer" }}>
-            Back
-          </button>
-          <button type="button" onClick={goNext} disabled={!canGoNext || submitting} style={S.btnPrimary(!canGoNext || submitting)}>
-            {step === "summary" ? (submitting ? "Creating…" : "Create Jackpot") : "Next"}
-          </button>
+          </section>
         </div>
       </div>
+
+      {/* Bottom action bar */}
+      <div style={S.footer}>
+        <Link to="/backoffice/jackpots" style={{ ...S.btnGhost, textDecoration: "none", display: "inline-block" }}>Cancel</Link>
+        <button type="button" onClick={handleSubmit} disabled={!canSave} style={S.btnPrimary(!canSave)}>
+          {submitting ? "Creating…" : "Save Jackpot"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1.5, color: "#737373", margin: "8px 0 16px", fontWeight: 600 }}>
+      {children}
     </div>
   );
 }
