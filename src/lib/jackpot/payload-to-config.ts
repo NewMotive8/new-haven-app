@@ -74,7 +74,7 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
     volatility,
     pool: {
       currentAmount: poolCurrent,
-      minimumAmount: minWin, // 0 is a valid user input
+      minimumAmount: reseed, // reseed floor — pool resets here after a win
       maximumAmount: maxWin, // 0 = uncapped; engine treats <=0 as Infinity
       contributionAmount: poolContributionAmount,
       contributionType: poolContributionType,
