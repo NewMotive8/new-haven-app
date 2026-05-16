@@ -281,6 +281,7 @@ function simulateMultiLevel(
     winAmountCounter: 0,
     maxWinAmount: 0,
     rejectedByGate: 0,
+    totalContribution: 0,
   }));
 
   let walletContributions = 0;
