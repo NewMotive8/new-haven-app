@@ -120,6 +120,7 @@ export interface TierResultDTO {
   finalPool: number;
   finalSeed: number;
   rejectedByGate: number;
+  totalContribution: number;
 }
 
 export interface SimulatorResponseDTO {

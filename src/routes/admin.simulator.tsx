@@ -328,6 +328,7 @@ function SimulatorPage() {
                       <div style={{ fontSize: 11, color: "#9fb0c8" }}>{t.winCounter} wins</div>
                     </div>
                     <div style={{ marginTop: 8, display: "grid", gap: 4, fontSize: 12, color: "#cbd5e1" }}>
+                      <Row k="Total contribution" v={t.totalContribution} />
                       <Row k="Total paid" v={t.winAmountCounter} />
                       <Row k="Max win" v={t.maxWinAmount} />
                       <Row k="Final pool" v={t.finalPool} />
