@@ -269,7 +269,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100">
       {/* Horizontal Navigation */}
-      <nav className="sticky top-16 z-40 border-b border-neutral-800 bg-neutral-900/95 backdrop-blur">
+      <nav className="sticky top-14 z-40 border-b border-neutral-800 bg-neutral-900/95 backdrop-blur">
         <div className="px-8 py-4">
           <div className="flex items-center gap-4">
             <button
