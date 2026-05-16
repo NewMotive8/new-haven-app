@@ -136,6 +136,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   const [maxWinAmount, setMaxWinAmount] = useState<number>(initial?.maxWinAmount ?? 0);
   const [minWagerAmount, setMinWagerAmount] = useState<number>(initial?.minWagerAmount ?? 0);
   const [maxWagerAmount, setMaxWagerAmount] = useState<number>(initial?.maxWagerAmount ?? 0);
+  const [reseedingAmount, setReseedingAmount] = useState<number>(initial?.reseedingAmount ?? 0);
+  const [maximumSeedAmount, setMaximumSeedAmount] = useState<number>(initial?.maximumSeedAmount ?? 0);
 
   // Section refs for scroll tracking
   const basicRef = useRef<HTMLDivElement>(null);
