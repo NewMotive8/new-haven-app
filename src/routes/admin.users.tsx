@@ -130,8 +130,18 @@ function UsersPage() {
                   </td>
                   <td style={cellStyle}>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      <button style={btn} onClick={() => resetM.mutate({ email: u.email })}>
-                        {resetM.isPending ? "…" : "Reset password"}
+                      <button
+                        style={btn}
+                        onClick={() => {
+                          const pwd = prompt(`Set new password for ${u.email} (min 8 chars):`);
+                          if (pwd && pwd.length >= 8) {
+                            setPwdM.mutate({ userId: u.user_id, password: pwd });
+                          } else if (pwd !== null) {
+                            setFeedback("Password must be at least 8 characters.");
+                          }
+                        }}
+                      >
+                        {setPwdM.isPending ? "…" : "Set password"}
                       </button>
                       <button style={btn} onClick={() => enableM.mutate({ userId: u.user_id, enabled: !u.enabled })}>
                         {u.enabled ? "Disable" : "Enable"}
