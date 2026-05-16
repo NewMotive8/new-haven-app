@@ -92,7 +92,10 @@ export function simulateEngine(
     if (won) {
       const basePayout = fixedWinOverride !== null ? fixedWinOverride : poolCurrent;
       const fromSeed = Math.min(seedCurrent, reseedAmount);
-      const winAmount = basePayout + fromSeed;
+      // Java-style payout walls: clamp to [minWinWall, maxWinWall].
+      let winAmount = basePayout + fromSeed;
+      if (winAmount < minWinWall) winAmount = minWinWall;
+      if (winAmount > maxWinWall) winAmount = maxWinWall;
       const poolBeforeWin = poolCurrent;
 
       winCounter++;
