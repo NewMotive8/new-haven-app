@@ -241,6 +241,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       maxWinAmount,
       minWagerAmount,
       maxWagerAmount,
+      reseedingAmount,
+      maximumSeedAmount,
     };
   }
 
