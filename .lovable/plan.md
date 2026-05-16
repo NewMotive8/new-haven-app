@@ -1,36 +1,66 @@
-## Problem
+## Goal
 
-In `src/components/jackpot/JackpotCreationForm.tsx`, three helper components — `BrightLabel`, `CurrencyInput`, and `PercentageInput` — are defined **inside** the `JackpotCreationForm` function body (lines 160–178).
+Replace "Save Jackpot" actions with a single bottom-right "Continue" button that validates, then navigates to `/backoffice/simulator` carrying the jackpot configuration. The simulator pre-populates its JSON config editor from that incoming state.
 
-Because they're redeclared on every render, React treats them as a new component type on each keystroke and unmounts/remounts the underlying `<Input>` / `<Label>`. The DOM input loses focus immediately, which is why typing or entering numbers in fields like Internal Name, currency amounts (Initial Jackpot, Min/Max Wager, Min/Max Win, Fixed Win Amount, Re-Seeding Amount, Maximum Seed Amount, etc.) and percentage fields (Pool Contribution %, Seed Contribution %) doesn't work.
+## 1. Form: swap action bars
 
-The same root cause also affects the Textarea (Internal Description), because re-rendering the parent recreates the wrappers around it indirectly via re-mounted siblings sharing keys in the same subtree.
+File: `src/components/jackpot/JackpotCreationForm.tsx`
 
-## Fix
+a. **Remove the universal Save bar** at the bottom (lines ~4071–4082, the block starting with the `Universal Save Bar` comment that renders `<Button>Cancel</Button>` + `Save Jackpot`).
 
-Hoist the three helper components to module scope (above the `JackpotCreationForm` component), so their identity is stable across renders.
+b. **Update the per-type action bar** (currently the Classic-type bar at lines ~1762–1772 with Back + "Save Jackpot"). Keep the "Back" button on the left, replace "Save Jackpot" on the right with a "Continue" button that calls `handleContinue`. If other type branches (Must Drop, Multi-Level, Frequency) don't have their own action bar, add the same `Back` + `Continue` row at the end of each branch so every flow ends bottom-right with Continue.
 
-```text
-src/components/jackpot/JackpotCreationForm.tsx
-├─ (top of file, after imports)
-│   ├─ BrightLabel        ← moved out
-│   ├─ CurrencyInput      ← moved out
-│   └─ PercentageInput    ← moved out
-└─ function JackpotCreationForm() {
-    └─ (delete lines 160–178)
+c. **Replace `triggerSave` with `handleContinue`**:
+   - Build the same payload `triggerSave` already constructs (the full `JackpotSavePayload`).
+   - Validate: `name.trim()` required; for `multi_level` ensure at least one tier; for `frequency`/`must_drop` ensure a recurrence/payout interval is set. Show inline error via existing toast or a simple `setError` state next to the Continue button.
+   - On success, call `navigate({ to: '/backoffice/simulator', state: { jackpotConfig: payload } })` (TanStack Router `useNavigate` supports `state`). No DB write here.
+   - Drop the `onSave` / `submitting` props from the call site since they're no longer used in this flow (keep the props on the component for now to avoid touching the route wrapper unless needed; just stop invoking them).
+
+## 2. Simulator: read incoming state and pre-populate JSON
+
+File: `src/routes/backoffice.simulator.tsx`
+
+a. Read incoming router state:
+```ts
+import { useRouterState } from '@tanstack/react-router';
+const incoming = useRouterState({ select: s => s.location.state as { jackpotConfig?: JackpotSavePayload } | undefined });
 ```
 
-No prop signatures change, no behavior changes — only the declaration location.
+b. Add a mapper `mapPayloadToConfig(payload): JackpotConfigDTO` in a new helper file `src/lib/jackpot/payload-to-config.ts`:
+   - `type`: `payoutModel === 'maximum' ? 'MAXIMUM' : 'AVERAGE'` (the engine only supports those two; `fixed` falls back to AVERAGE).
+   - `contributionAmount`: `payload.contributionType === 'fixed' ? payload.poolPercentageValue : payload.playerContribution + payload.operatorContribution`.
+   - `contributionType`: `payload.contributionType === 'fixed' ? 'FIXED' : 'PERCENTAGE'`.
+   - `volatility`: `payload.volatility`.
+   - `pool`: sensible defaults `{ currentAmount: 0, minimumAmount: 0, maximumAmount: 0 }` (extend later when the form exposes those fields).
+   - `seed`: `{ currentAmount: 0, targetAmount: 0, contributionAmount: payload.seedPercentageValue, contributionType: payload.seedContributionType === 'fixed' ? 'FIXED' : 'PERCENTAGE' }`.
+   - `name`: `payload.name`.
+   - `id`: `0` (not yet persisted).
 
-## Verification
+c. Initialize `configText` from the mapped config when `incoming?.jackpotConfig` is present; fall back to `DEFAULT_CONFIG` otherwise:
+```ts
+const initialConfig = React.useMemo(() => (
+  incoming?.jackpotConfig ? mapPayloadToConfig(incoming.jackpotConfig) : DEFAULT_CONFIG
+), []);
+const [configText, setConfigText] = React.useState(JSON.stringify(initialConfig, null, 2));
+```
+Use empty dependency array so a later state change doesn't clobber user edits in the textarea.
 
-1. Open `/backoffice/jackpots/new`.
-2. Type a multi-character name in "Internal Name" — full string should appear.
-3. Type a description in the Textarea — full text should appear and stay visible (white on dark).
-4. Enter numbers in Pool Contribution %, Initial Jackpot Amount, Min/Max Wager, etc. — values should persist as you type.
-5. Sliders (Player/Operator Contribution) should continue to work as before.
+d. Optionally show a small "Loaded from creation flow" hint above the JSON textarea when `incoming?.jackpotConfig` exists.
+
+## 3. Export `JackpotSavePayload`
+
+It's already exported from `JackpotCreationForm.tsx` (line 24). Import it in the simulator from `@/components/jackpot/JackpotCreationForm` to type the router state.
 
 ## Out of scope
 
-- No changes to form state, validation, submit logic, database mapping, or styling.
-- No new fields or layout edits.
+- No DB write on Continue. The existing `createJackpot` server function and the parent route's `onSave` handler stay untouched; they can be wired to a future "Save" action from the simulator screen.
+- No layout/style changes beyond the bottom action bar.
+- No new validation framework; basic checks only.
+
+## Verification
+
+1. Open `/backoffice/jackpots/new`, fill Internal Name, pick any type, set contribution sliders.
+2. Confirm only one button bar at the bottom: `Back` (left) + `Continue` (bottom-right). No "Save Jackpot" anywhere.
+3. Click Continue with empty name → inline error, no navigation.
+4. Click Continue with valid form → URL changes to `/backoffice/simulator`, JSON textarea is pre-filled with the mapped config (name, type, contributionAmount, volatility, seed.contributionType match selections).
+5. Click "Run simulation" — request fires with the mapped JSON.
