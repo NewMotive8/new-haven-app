@@ -76,6 +76,8 @@ export type JackpotSavePayload = {
   maxWinAmount: number;
   minWagerAmount: number;
   maxWagerAmount: number;
+  reseedingAmount: number;
+  maximumSeedAmount: number;
 };
 
 export interface JackpotCreationFormProps {
