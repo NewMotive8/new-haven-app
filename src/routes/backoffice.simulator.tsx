@@ -96,17 +96,21 @@ function SimulatorPage() {
     }
   }
 
-  const maxWin = React.useMemo(
-    () => (result?.winEvents?.length ? Math.max(...result.winEvents.map((w) => w.amount)) : 0),
-    [result],
-  );
+  const maxWin = React.useMemo(() => {
+    if (typeof result?.maxWinAmount === "number") return result.maxWinAmount;
+    if (!result?.winEvents?.length) return 0;
+    let m = 0;
+    for (const w of result.winEvents) if (w.amount > m) m = w.amount;
+    return m;
+  }, [result]);
 
   const tierWins = React.useMemo(() => {
+    if (result?.tierCounts) return result.tierCounts;
     if (!result?.winEvents?.length) return {} as Record<string, number>;
     const buckets: Record<string, number> = {};
     for (const w of result.winEvents) {
       const mag = Math.floor(Math.log10(Math.max(1, w.amount)));
-      const tier = `1e${mag}–1e${mag + 1}`;
+      const tier = `1e${mag}-1e${mag + 1}`;
       buckets[tier] = (buckets[tier] ?? 0) + 1;
     }
     return buckets;
@@ -138,9 +142,13 @@ function SimulatorPage() {
                 style={input}
                 type="number"
                 min={1}
-                max={1000000}
+                max={10000000}
+                step={1000}
                 value={iterations}
-                onChange={(e) => setIterations(Number(e.target.value) || 0)}
+                onChange={(e) => {
+                  const n = Number(e.target.value) || 0;
+                  setIterations(Math.max(0, Math.min(n, 10_000_000)));
+                }}
               />
             </div>
             <div>
@@ -172,7 +180,7 @@ function SimulatorPage() {
                 cursor: loading ? "wait" : "pointer",
               }}
             >
-              {loading ? "Simulating…" : "Run simulation"}
+              {loading ? `Simulating ${iterations.toLocaleString()} spins…` : "Run simulation"}
             </button>
             {error && <div style={{ color: "#f87171", fontSize: 13 }}>{error}</div>}
           </div>

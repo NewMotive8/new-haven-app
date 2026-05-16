@@ -83,4 +83,6 @@ export interface SimulatorResponseDTO {
   finalPool: number;
   finalSeed: number;
   winEvents: WinEventDTO[];
+  maxWinAmount?: number;
+  tierCounts?: Record<string, number>;
 }

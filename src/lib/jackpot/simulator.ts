@@ -5,103 +5,108 @@ import type {
   WinEventDTO,
 } from "./types";
 
-function resolveContribution(
-  type: "PERCENTAGE" | "FIXED" | undefined,
-  amount: number,
-  wager: number,
-): number {
-  if (type === "FIXED") return amount;
-  // default: PERCENTAGE — amount is expressed as a percent (e.g. 2 = 2%).
-  return wager * (amount / 100);
-}
+const MAX_ITERATIONS = 10_000_000;
+const MAX_WIN_EVENTS_RETAINED = 500;
 
 export function simulateEngine(
   jackpot: JackpotConfigDTO,
   wager: number,
   iterations: number,
 ): SimulatorResponseDTO {
-  const safeIterations = Math.max(0, Math.min(Number(iterations) || 0, 1_000_000));
+  const safeIterations = Math.max(0, Math.min(Number(iterations) || 0, MAX_ITERATIONS));
   const safeWager = Number(wager) || 0;
 
-  // Work on local copies — don't mutate caller's object.
-  const pool = { ...jackpot.pool };
-  const seed = { ...jackpot.seed };
+  // Local copies — don't mutate caller's object.
+  let poolCurrent = Number(jackpot.pool.currentAmount) || 0;
+  const poolMin = Number(jackpot.pool.minimumAmount) || 0;
+  const poolMaxRaw = Number(jackpot.pool.maximumAmount) || 0;
+  const poolCap = poolMaxRaw > 0 ? poolMaxRaw : Number.POSITIVE_INFINITY;
 
+  let seedCurrent = Number(jackpot.seed.currentAmount) || 0;
+  const seedTargetRaw = Number(jackpot.seed.targetAmount) || 0;
+  const seedCap = seedTargetRaw > 0 ? seedTargetRaw : Number.POSITIVE_INFINITY;
+
+  // Hoist hot-loop config
   const volatility = Number(jackpot.volatility) || 0;
   const winType = jackpot.type ?? "AVERAGE";
+  const poolContribType = jackpot.contributionType;
+  const poolContribAmt = Number(jackpot.contributionAmount) || 0;
+  const seedContribType = jackpot.seed.contributionType;
+  const seedContribAmt = Number(jackpot.seed.contributionAmount) || 0;
+
+  // Precompute contributions (constant per spin given fixed wager)
+  const poolContribution =
+    poolContribType === "FIXED" ? poolContribAmt : safeWager * (poolContribAmt / 100);
+  const seedContribution =
+    seedContribType === "FIXED" ? seedContribAmt : safeWager * (seedContribAmt / 100);
+
+  const targetForWin = poolMaxRaw > 0 ? poolMaxRaw : 0; // 0 -> falls back per-iteration below
+  const useFixedTarget = targetForWin > 0;
+
+  const fixedWinOverride =
+    winType === "MAXIMUM" && typeof jackpot.maximumWinAmount === "number"
+      ? jackpot.maximumWinAmount
+      : typeof jackpot.fixedWinAmount === "number"
+      ? jackpot.fixedWinAmount
+      : null;
+
+  const reseedAmount = Math.max(0, poolMin);
 
   let totalContributions = 0;
   let winCounter = 0;
   let winAmountCounter = 0;
+  let maxWinAmount = 0;
+  const tierCounts: Record<string, number> = {};
   const winEvents: WinEventDTO[] = [];
 
+  const isAverage = winType !== "MAXIMUM";
+  const nowIso = new Date().toISOString();
+
   for (let i = 0; i < safeIterations; i++) {
-    // Pool contribution
-    const poolContribution = resolveContribution(
-      jackpot.contributionType,
-      Number(jackpot.contributionAmount) || 0,
-      safeWager,
-    );
-
-    // Seed contribution (separate stream that refills the seed reserve)
-    const seedContribution = resolveContribution(
-      seed.contributionType,
-      Number(seed.contributionAmount) || 0,
-      safeWager,
-    );
-
-    // Apply pool contribution, respecting maximumAmount cap.
-    const poolCap =
-      typeof pool.maximumAmount === "number" && pool.maximumAmount > 0
-        ? pool.maximumAmount
-        : Number.POSITIVE_INFINITY;
-    pool.currentAmount = Math.min(pool.currentAmount + poolContribution, poolCap);
-
-    // Apply seed contribution, respecting targetAmount cap.
-    const seedCap =
-      typeof seed.targetAmount === "number" && seed.targetAmount > 0
-        ? seed.targetAmount
-        : Number.POSITIVE_INFINITY;
-    seed.currentAmount = Math.min(seed.currentAmount + seedContribution, seedCap);
+    // Apply contributions
+    if (poolCurrent + poolContribution > poolCap) {
+      poolCurrent = poolCap;
+    } else {
+      poolCurrent += poolContribution;
+    }
+    if (seedCurrent + seedContribution > seedCap) {
+      seedCurrent = seedCap;
+    } else {
+      seedCurrent += seedContribution;
+    }
 
     totalContributions += poolContribution;
 
-    // Evaluate win
-    const target =
-      typeof pool.maximumAmount === "number" && pool.maximumAmount > 0
-        ? pool.maximumAmount
-        : pool.currentAmount;
-
-    const won =
-      winType === "MAXIMUM"
-        ? calculateMaximumWin(pool.currentAmount, target, poolContribution, volatility)
-        : calculateAverageWin(pool.currentAmount, target, poolContribution, volatility);
+    const target = useFixedTarget ? targetForWin : poolCurrent;
+    const won = isAverage
+      ? calculateAverageWin(poolCurrent, target, poolContribution, volatility)
+      : calculateMaximumWin(poolCurrent, target, poolContribution, volatility);
 
     if (won) {
-      // Determine win amount — apply overrides if set.
-      let winAmount = pool.currentAmount;
-      if (winType === "MAXIMUM" && typeof jackpot.maximumWinAmount === "number") {
-        winAmount = jackpot.maximumWinAmount;
-      } else if (typeof jackpot.fixedWinAmount === "number") {
-        winAmount = jackpot.fixedWinAmount;
-      }
+      const winAmount = fixedWinOverride !== null ? fixedWinOverride : poolCurrent;
+      const poolBeforeWin = poolCurrent;
 
-      const poolBeforeWin = pool.currentAmount;
       winCounter++;
       winAmountCounter += winAmount;
+      if (winAmount > maxWinAmount) maxWinAmount = winAmount;
 
-      winEvents.push({
-        iteration: i + 1,
-        amount: winAmount,
-        poolBeforeWin,
-        timestamp: new Date().toISOString(),
-      });
+      // Tier bucket by order of magnitude
+      const mag = Math.floor(Math.log10(Math.max(1, winAmount)));
+      const tier = `1e${mag}-1e${mag + 1}`;
+      tierCounts[tier] = (tierCounts[tier] ?? 0) + 1;
 
-      // Reset pool to its minimum and drain that amount from the seed reserve.
-      const reseedAmount = Math.max(0, Number(pool.minimumAmount) || 0);
-      const fromSeed = Math.min(seed.currentAmount, reseedAmount);
-      pool.currentAmount = reseedAmount;
-      seed.currentAmount -= fromSeed;
+      if (winEvents.length < MAX_WIN_EVENTS_RETAINED) {
+        winEvents.push({
+          iteration: i + 1,
+          amount: winAmount,
+          poolBeforeWin,
+          timestamp: nowIso,
+        });
+      }
+
+      const fromSeed = seedCurrent < reseedAmount ? seedCurrent : reseedAmount;
+      poolCurrent = reseedAmount;
+      seedCurrent -= fromSeed;
     }
   }
 
@@ -116,8 +121,10 @@ export function simulateEngine(
     winCounter,
     winAmountCounter,
     rtp,
-    finalPool: pool.currentAmount,
-    finalSeed: seed.currentAmount,
+    finalPool: poolCurrent,
+    finalSeed: seedCurrent,
     winEvents,
+    maxWinAmount,
+    tierCounts,
   };
 }
