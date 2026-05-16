@@ -65,6 +65,21 @@ function JackpotsPage() {
               <option key={n} value={n}>{n}</option>
             ))}
           </select>
+          <Link
+            to="/backoffice/jackpots/new"
+            style={{
+              background: "#3b82f6",
+              color: "#fff",
+              padding: "8px 16px",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: "none",
+              boxShadow: "0 2px 8px rgba(59,130,246,0.35)",
+            }}
+          >
+            + Create New Jackpot
+          </Link>
         </div>
       </div>
 
