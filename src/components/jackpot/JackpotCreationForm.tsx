@@ -4205,6 +4205,48 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
             </p>
 
             {selectedType === 'multi_level' && (
+              <Card className="p-6 bg-neutral-900/50 border-neutral-800 mb-6">
+                <BrightLabel className="text-base">Global Parameters</BrightLabel>
+                <p className="text-xs text-neutral-400 mt-1 mb-4">
+                  Engine-wide tuning applied across all tiers.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <BrightLabel htmlFor="ml-volatility">Volatility</BrightLabel>
+                    <div className="flex items-center gap-4">
+                      <Slider
+                        id="ml-volatility"
+                        value={volatility}
+                        onValueChange={setVolatility}
+                        min={0}
+                        max={10}
+                        step={0.5}
+                        className="flex-1"
+                      />
+                      <span className="text-sm text-neutral-400 w-10 text-right">{volatility[0]}</span>
+                    </div>
+                    <p className="text-[11px] text-neutral-500">
+                      Exponent applied to each tier's hit-chance curve. Lower = looser / more frequent wins, higher = tighter / rarer wins.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <BrightLabel htmlFor="ml-maxwin">Jackpot Maximum Win Amount</BrightLabel>
+                    <CurrencyInput
+                      id="ml-maxwin"
+                      type="number"
+                      value={maxWinAmount || ''}
+                      onChange={(e) => setMaxWinAmount(parseFloat(e.target.value) || 0)}
+                      className="bg-neutral-800 border-neutral-700"
+                    />
+                    <p className="text-[11px] text-neutral-500">
+                      Global cap referenced by the highest tier (e.g. Mega).
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {selectedType === 'multi_level' && (
               <Card className="p-6 bg-neutral-900/50 border-neutral-800">
                 <div className="flex items-center justify-between mb-4">
                   <div>
