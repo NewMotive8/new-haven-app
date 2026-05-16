@@ -126,6 +126,14 @@ export interface TierResultDTO {
   totalContribution: number;
 }
 
+export interface EngineScopeAuditDTO {
+  spinIndex: number;
+  tier: number;
+  label: string;
+  runtimeTargetAmount: number;
+  runtimeMinimumWinAmount: number;
+}
+
 export interface SimulatorResponseDTO {
   iterations: number;
   wager: number;
@@ -148,6 +156,8 @@ export interface SimulatorResponseDTO {
   tierCounts?: Record<string, number>;
   /** Present for MULTI_LEVEL — one entry per tier. */
   tierResults?: TierResultDTO[];
+  /** Present when the engine exposes captured runtime scope for debugging. */
+  engineScopeAudit?: EngineScopeAuditDTO;
   /** Echo of the engine branch that ran (for dashboard labelling). */
   structuralType?: JackpotStructuralType;
 }
