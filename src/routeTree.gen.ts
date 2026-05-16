@@ -13,7 +13,7 @@ import { Route as BackofficeRouteImport } from './routes/backoffice'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BackofficeIndexRouteImport } from './routes/backoffice.index'
 import { Route as BackofficeSimulatorRouteImport } from './routes/backoffice.simulator'
-import { Route as BackofficeJackpotsRouteImport } from './routes/backoffice.jackpots'
+import { Route as BackofficeJackpotsIndexRouteImport } from './routes/backoffice.jackpots.index'
 import { Route as BackofficeJackpotsNewRouteImport } from './routes/backoffice.jackpots.new'
 import { Route as ApiV2JackpotsIndexRouteImport } from './routes/api/v2/jackpots/index'
 import { Route as ApiV1JackpotsIndexRouteImport } from './routes/api/v1/jackpots/index'
@@ -44,15 +44,15 @@ const BackofficeSimulatorRoute = BackofficeSimulatorRouteImport.update({
   path: '/simulator',
   getParentRoute: () => BackofficeRoute,
 } as any)
-const BackofficeJackpotsRoute = BackofficeJackpotsRouteImport.update({
-  id: '/jackpots',
-  path: '/jackpots',
+const BackofficeJackpotsIndexRoute = BackofficeJackpotsIndexRouteImport.update({
+  id: '/jackpots/',
+  path: '/jackpots/',
   getParentRoute: () => BackofficeRoute,
 } as any)
 const BackofficeJackpotsNewRoute = BackofficeJackpotsNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => BackofficeJackpotsRoute,
+  id: '/jackpots/new',
+  path: '/jackpots/new',
+  getParentRoute: () => BackofficeRoute,
 } as any)
 const ApiV2JackpotsIndexRoute = ApiV2JackpotsIndexRouteImport.update({
   id: '/api/v2/jackpots/',
@@ -98,10 +98,10 @@ const ApiV1JackpotsDisableIdRoute = ApiV1JackpotsDisableIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/backoffice': typeof BackofficeRouteWithChildren
-  '/backoffice/jackpots': typeof BackofficeJackpotsRouteWithChildren
   '/backoffice/simulator': typeof BackofficeSimulatorRoute
   '/backoffice/': typeof BackofficeIndexRoute
   '/backoffice/jackpots/new': typeof BackofficeJackpotsNewRoute
+  '/backoffice/jackpots/': typeof BackofficeJackpotsIndexRoute
   '/api/v1/event/simulate': typeof ApiV1EventSimulateRoute
   '/api/v1/event/simulate-bet': typeof ApiV1EventSimulateBetRoute
   '/api/v1/jackpots/$id': typeof ApiV1JackpotsIdRoute
@@ -113,10 +113,10 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/backoffice/jackpots': typeof BackofficeJackpotsRouteWithChildren
   '/backoffice/simulator': typeof BackofficeSimulatorRoute
   '/backoffice': typeof BackofficeIndexRoute
   '/backoffice/jackpots/new': typeof BackofficeJackpotsNewRoute
+  '/backoffice/jackpots': typeof BackofficeJackpotsIndexRoute
   '/api/v1/event/simulate': typeof ApiV1EventSimulateRoute
   '/api/v1/event/simulate-bet': typeof ApiV1EventSimulateBetRoute
   '/api/v1/jackpots/$id': typeof ApiV1JackpotsIdRoute
@@ -130,10 +130,10 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/backoffice': typeof BackofficeRouteWithChildren
-  '/backoffice/jackpots': typeof BackofficeJackpotsRouteWithChildren
   '/backoffice/simulator': typeof BackofficeSimulatorRoute
   '/backoffice/': typeof BackofficeIndexRoute
   '/backoffice/jackpots/new': typeof BackofficeJackpotsNewRoute
+  '/backoffice/jackpots/': typeof BackofficeJackpotsIndexRoute
   '/api/v1/event/simulate': typeof ApiV1EventSimulateRoute
   '/api/v1/event/simulate-bet': typeof ApiV1EventSimulateBetRoute
   '/api/v1/jackpots/$id': typeof ApiV1JackpotsIdRoute
@@ -148,10 +148,10 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/backoffice'
-    | '/backoffice/jackpots'
     | '/backoffice/simulator'
     | '/backoffice/'
     | '/backoffice/jackpots/new'
+    | '/backoffice/jackpots/'
     | '/api/v1/event/simulate'
     | '/api/v1/event/simulate-bet'
     | '/api/v1/jackpots/$id'
@@ -163,10 +163,10 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/backoffice/jackpots'
     | '/backoffice/simulator'
     | '/backoffice'
     | '/backoffice/jackpots/new'
+    | '/backoffice/jackpots'
     | '/api/v1/event/simulate'
     | '/api/v1/event/simulate-bet'
     | '/api/v1/jackpots/$id'
@@ -179,10 +179,10 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/backoffice'
-    | '/backoffice/jackpots'
     | '/backoffice/simulator'
     | '/backoffice/'
     | '/backoffice/jackpots/new'
+    | '/backoffice/jackpots/'
     | '/api/v1/event/simulate'
     | '/api/v1/event/simulate-bet'
     | '/api/v1/jackpots/$id'
@@ -236,19 +236,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BackofficeSimulatorRouteImport
       parentRoute: typeof BackofficeRoute
     }
-    '/backoffice/jackpots': {
-      id: '/backoffice/jackpots'
+    '/backoffice/jackpots/': {
+      id: '/backoffice/jackpots/'
       path: '/jackpots'
-      fullPath: '/backoffice/jackpots'
-      preLoaderRoute: typeof BackofficeJackpotsRouteImport
+      fullPath: '/backoffice/jackpots/'
+      preLoaderRoute: typeof BackofficeJackpotsIndexRouteImport
       parentRoute: typeof BackofficeRoute
     }
     '/backoffice/jackpots/new': {
       id: '/backoffice/jackpots/new'
-      path: '/new'
+      path: '/jackpots/new'
       fullPath: '/backoffice/jackpots/new'
       preLoaderRoute: typeof BackofficeJackpotsNewRouteImport
-      parentRoute: typeof BackofficeJackpotsRoute
+      parentRoute: typeof BackofficeRoute
     }
     '/api/v2/jackpots/': {
       id: '/api/v2/jackpots/'
@@ -309,27 +309,18 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface BackofficeJackpotsRouteChildren {
-  BackofficeJackpotsNewRoute: typeof BackofficeJackpotsNewRoute
-}
-
-const BackofficeJackpotsRouteChildren: BackofficeJackpotsRouteChildren = {
-  BackofficeJackpotsNewRoute: BackofficeJackpotsNewRoute,
-}
-
-const BackofficeJackpotsRouteWithChildren =
-  BackofficeJackpotsRoute._addFileChildren(BackofficeJackpotsRouteChildren)
-
 interface BackofficeRouteChildren {
-  BackofficeJackpotsRoute: typeof BackofficeJackpotsRouteWithChildren
   BackofficeSimulatorRoute: typeof BackofficeSimulatorRoute
   BackofficeIndexRoute: typeof BackofficeIndexRoute
+  BackofficeJackpotsNewRoute: typeof BackofficeJackpotsNewRoute
+  BackofficeJackpotsIndexRoute: typeof BackofficeJackpotsIndexRoute
 }
 
 const BackofficeRouteChildren: BackofficeRouteChildren = {
-  BackofficeJackpotsRoute: BackofficeJackpotsRouteWithChildren,
   BackofficeSimulatorRoute: BackofficeSimulatorRoute,
   BackofficeIndexRoute: BackofficeIndexRoute,
+  BackofficeJackpotsNewRoute: BackofficeJackpotsNewRoute,
+  BackofficeJackpotsIndexRoute: BackofficeJackpotsIndexRoute,
 }
 
 const BackofficeRouteWithChildren = BackofficeRoute._addFileChildren(
@@ -351,3 +342,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

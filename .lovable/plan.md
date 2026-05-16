@@ -1,41 +1,33 @@
-## Goal
+## Problem
 
-Replace the static "Engagd Backoffice" badge landing with a dashboard grid of nav cards so the user always has somewhere to click from `/backoffice`.
+Clicking "+ Create New Jackpot" navigates to `/backoffice/jackpots/new` but renders a blank page.
 
-## Cards (one per top-level area from the original backoffice)
+In TanStack Router's flat file-routing, `backoffice.jackpots.new.tsx` is treated as a **child** of `backoffice.jackpots.tsx`. A parent route must render `<Outlet />` for its children to appear — the current `backoffice.jackpots.tsx` (the list page) does not, so the child route matches the URL but renders nothing.
 
-Each card: icon + title + short description + status badge.
+## Fix
 
-| Card             | Target route                  | Status        |
-|------------------|-------------------------------|---------------|
-| Jackpots         | `/backoffice/jackpots`        | Active (link) |
-| Simulator        | `/backoffice/jackpots/simulator` | Coming soon |
-| Lucky Wheel      | `/backoffice/lucky-wheel`     | Coming soon  |
-| Raffles          | `/backoffice/raffles`         | Coming soon  |
-| Spin Sprint      | `/backoffice/spinsprint`      | Coming soon  |
-| Tournament       | `/backoffice/tournament`      | Coming soon  |
-| Admin            | `/backoffice/admin`           | Coming soon  |
-| Root / Catalog   | `/backoffice/root`            | Coming soon  |
+Split the jackpots routes into the layout-with-children pattern:
 
-Active cards render as TanStack `<Link>`s. Coming-soon cards render as a non-clickable tile with a muted "Coming soon" pill — no dead routes, no 404s.
+1. **Rename** `src/routes/backoffice.jackpots.tsx` → `src/routes/backoffice.jackpots.index.tsx`
+   - Keeps the list page at `/backoffice/jackpots` but as an explicit index child.
+   - No code changes inside, just the filename and the `createFileRoute("/backoffice/jackpots/")` path string.
 
-## Implementation
+2. **Create** `src/routes/backoffice.jackpots.route.tsx` as a thin layout:
+   ```tsx
+   export const Route = createFileRoute("/backoffice/jackpots")({
+     ssr: false,
+     component: () => <Outlet />,
+   });
+   ```
+   This gives the parent path an `<Outlet />` so both the index list and `/new` form can render.
 
-1. Replace `BackofficeLanding` (`src/backoffice/src/components/backofficeLanding/BackofficeLanding.tsx`) with a responsive grid:
-   - Header row: small "Engagd Backoffice" eyebrow + welcome line ("Pick a module to get started.") using the existing `TextTranslated`/`Typography` flow so it still routes through i18n.
-   - Grid: `grid-template-columns: repeat(auto-fill, minmax(260px, 1fr))`, gap 16px, max-width container.
-   - Each card: dark panel matching the current shell palette (`#0f172a` / `#1f2a44` border), 20px padding, 12px radius, icon (`react-icons/fa`) top-left, title, description, status pill bottom-right.
-   - Hover state on active cards: subtle lift + border highlight. Disabled cards: `opacity: 0.55`, `cursor: not-allowed`.
-2. Move the existing "No default page set" copy into a small footnote under the grid so the translation key still resolves (keeps the i18n wiring honest).
-3. No SCSS module changes required beyond what we already have; keep styles inline (matches the rest of the ported shell) to avoid pulling in more of the legacy SCSS toolchain at this step.
-4. No header/nav changes — Home and Jackpots stay as-is. We will grow the header nav as each "coming soon" card gets a real screen in later steps.
+3. **Keep** `src/routes/backoffice.jackpots.new.tsx` as-is — it will now correctly render inside the layout's Outlet.
 
-## Out of scope
+## Verify
 
-- Porting any of the "coming soon" screens (Simulator, Admin, etc.). That belongs in Step 3.
-- Restyling the global header.
-- Adding a real default-page setting per user.
+After the rename:
+- `/backoffice/jackpots` still shows the table with the "+ Create New Jackpot" button.
+- `/backoffice/jackpots/new` shows the wizard form.
+- Cancel / success redirect back to the list.
 
-## Files touched
-
-- `src/backoffice/src/components/backofficeLanding/BackofficeLanding.tsx` (rewritten)
+No DB or API changes; this is purely a route-tree fix.
