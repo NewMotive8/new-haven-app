@@ -56,6 +56,17 @@ function StatCard({ title, value, hint }: { title: string; value: string; hint?:
   );
 }
 
+function Row({ k, v }: { k: string; v: number }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between" }}>
+      <span style={{ color: "#9fb0c8" }}>{k}</span>
+      <span style={{ color: "#f1f5f9", fontVariantNumeric: "tabular-nums" }}>
+        {v.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+      </span>
+    </div>
+  );
+}
+
 function SimulatorPage() {
   const { brandId } = React.useContext(BrandContext);
   const navigate = useNavigate();
