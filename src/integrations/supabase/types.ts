@@ -14,7 +14,94 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      jackpot_pools: {
+        Row: {
+          current_balance: number
+          id: number
+          jackpot_id: number
+        }
+        Insert: {
+          current_balance?: number
+          id?: number
+          jackpot_id: number
+        }
+        Update: {
+          current_balance?: number
+          id?: number
+          jackpot_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jackpot_pools_jackpot_id_fkey"
+            columns: ["jackpot_id"]
+            isOneToOne: false
+            referencedRelation: "jackpots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jackpot_seeds: {
+        Row: {
+          base_seed_amount: number
+          id: number
+          jackpot_id: number
+        }
+        Insert: {
+          base_seed_amount?: number
+          id?: number
+          jackpot_id: number
+        }
+        Update: {
+          base_seed_amount?: number
+          id?: number
+          jackpot_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jackpot_seeds_jackpot_id_fkey"
+            columns: ["jackpot_id"]
+            isOneToOne: false
+            referencedRelation: "jackpots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jackpots: {
+        Row: {
+          brand_id: number
+          contribution_percentage: number
+          created_at: string
+          enabled: boolean
+          id: number
+          name: string
+          trigger_condition: Json
+          updated_at: string
+          volatility: number
+        }
+        Insert: {
+          brand_id: number
+          contribution_percentage?: number
+          created_at?: string
+          enabled?: boolean
+          id?: number
+          name: string
+          trigger_condition?: Json
+          updated_at?: string
+          volatility?: number
+        }
+        Update: {
+          brand_id?: number
+          contribution_percentage?: number
+          created_at?: string
+          enabled?: boolean
+          id?: number
+          name?: string
+          trigger_condition?: Json
+          updated_at?: string
+          volatility?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
