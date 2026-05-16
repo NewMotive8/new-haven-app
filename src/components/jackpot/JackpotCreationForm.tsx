@@ -4302,6 +4302,14 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                             <Input type="number" step="0.01" min={0} value={t.seedContributionAmount ?? 0} onChange={(e) => updateTier(idx, { seedContributionAmount: parseFloat(e.target.value) || 0 })} className="bg-neutral-800 border-neutral-700" />
                           </div>
                           <div className="space-y-2">
+                            <BrightLabel>Seed Initial Balance</BrightLabel>
+                            <CurrencyInput id={`tier-seedinit-${idx}`} type="number" value={t.seedInitialAmount ?? 0} onChange={(e) => updateTier(idx, { seedInitialAmount: parseFloat(e.target.value) || 0 })} className="bg-neutral-800 border-neutral-700" />
+                          </div>
+                          <div className="space-y-2">
+                            <BrightLabel>Seed Target Amount</BrightLabel>
+                            <CurrencyInput id={`tier-seedtgt-${idx}`} type="number" value={t.seedTargetAmount ?? 0} onChange={(e) => updateTier(idx, { seedTargetAmount: parseFloat(e.target.value) || 0 })} className="bg-neutral-800 border-neutral-700" />
+                          </div>
+                          <div className="space-y-2">
                             <BrightLabel>Pool Operator Share (%)</BrightLabel>
                             <Input type="number" step="0.1" min={0} max={100} value={t.operatorShare ?? 0} onChange={(e) => updateTier(idx, { operatorShare: Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)) })} className="bg-neutral-800 border-neutral-700" />
                           </div>
