@@ -681,6 +681,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                 id="max-wager-fixed"
                                 type="number"
                                 placeholder="0"
+                                value={maxWagerAmount || ''}
+                                onChange={(e) => setMaxWagerAmount(parseFloat(e.target.value) || 0)}
                                 className="bg-neutral-800 border-neutral-700"
                               />
                             </div>
