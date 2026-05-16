@@ -22,6 +22,11 @@ export function simulateEngine(
   const poolMaxRaw = Number(jackpot.pool.maximumAmount) || 0;
   const poolCap = poolMaxRaw > 0 ? poolMaxRaw : Number.POSITIVE_INFINITY;
 
+  // Payout walls (Java-style clamp around the computed win amount).
+  const minWinWall = Number(jackpot.pool.minimumWinAmount) || 0;
+  const maxWinWallRaw = Number(jackpot.pool.maximumWinAmount) || 0;
+  const maxWinWall = maxWinWallRaw > 0 ? maxWinWallRaw : Number.POSITIVE_INFINITY;
+
   let seedCurrent = Number(jackpot.seed.currentAmount) || 0;
   const seedTargetRaw = Number(jackpot.seed.targetAmount) || 0;
   const seedCap = seedTargetRaw > 0 ? seedTargetRaw : Number.POSITIVE_INFINITY;
@@ -40,8 +45,10 @@ export function simulateEngine(
   const seedContribution =
     seedContribType === "FIXED" ? seedContribAmt : safeWager * (seedContribAmt / 100);
 
-  const targetForWin = poolMaxRaw > 0 ? poolMaxRaw : 0; // 0 -> falls back per-iteration below
-  const useFixedTarget = targetForWin > 0;
+  // CDF mean / target: seed.targetAmount (Average Win Amount from the form).
+  // pool.maximumAmount is legacy and no longer the trigger.
+  const cdfTarget = seedTargetRaw > 0 ? seedTargetRaw : 0;
+  const useFixedTarget = cdfTarget > 0;
 
   const fixedWinOverride =
     winType === "MAXIMUM" && typeof jackpot.maximumWinAmount === "number"
