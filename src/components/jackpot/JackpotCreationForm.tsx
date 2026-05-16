@@ -292,6 +292,10 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       maxWagerAmount,
       reseedingAmount,
       maximumSeedAmount,
+      ...(selectedType === 'must_drop' || selectedType === 'frequency'
+        ? { lifespanMinutes, mustDropPeriod }
+        : {}),
+      ...(selectedType === 'multi_level' ? { tiers } : {}),
     };
   }
 
