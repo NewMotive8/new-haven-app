@@ -35,6 +35,13 @@ function BackofficeShell() {
           >
             Jackpots
           </Link>
+          <Link
+            to="/backoffice/simulator"
+            activeProps={{ style: { color: "#fff", textDecoration: "underline" } }}
+            style={{ color: "#9fb0c8", textDecoration: "none" }}
+          >
+            Simulator
+          </Link>
         </nav>
       </header>
       <main>
