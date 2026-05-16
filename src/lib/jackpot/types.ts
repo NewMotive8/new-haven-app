@@ -39,8 +39,10 @@ export type JackpotWinType = "AVERAGE" | "MAXIMUM";
 
 export interface PoolDTO {
   currentAmount: number;
-  minimumAmount: number;
-  maximumAmount: number;
+  minimumAmount: number;          // reseed floor
+  maximumAmount: number;          // legacy slot — no longer the CDF trigger
+  minimumWinAmount?: number;      // payout floor (clamp)
+  maximumWinAmount?: number;      // payout ceiling (clamp)
   contributionAmount: number;
   contributionType: ContributionType;
 }
