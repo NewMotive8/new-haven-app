@@ -39,12 +39,14 @@ export type JackpotWinType = "AVERAGE" | "MAXIMUM";
 
 export interface PoolDTO {
   currentAmount: number;
-  minimumAmount: number;          // reseed floor
+  minimumAmount: number;          // reseed floor / Java pool.minimumAmount
   maximumAmount: number;          // legacy slot — no longer the CDF trigger
-  minimumWinAmount?: number;      // payout floor (clamp)
-  maximumWinAmount?: number;      // payout ceiling (clamp)
+  minimumWinAmount?: number;      // Java jackpot.minimumWinAmount (rejection gate)
+  maximumWinAmount?: number;      // Java jackpot.maximumWinAmount (payout cap)
   contributionAmount: number;
   contributionType: ContributionType;
+  /** 0–100. Operator-funded share of each pool contribution (BrandDTO mirror). */
+  operatorShare?: number;
 }
 
 export interface SeedDTO {
@@ -52,6 +54,8 @@ export interface SeedDTO {
   targetAmount: number;
   contributionAmount: number;
   contributionType: ContributionType;
+  /** 0–100. Operator-funded share of each seed contribution. */
+  operatorShare?: number;
 }
 
 export interface JackpotConfigDTO {
@@ -78,8 +82,15 @@ export interface SimulatorResponseDTO {
   iterations: number;
   wager: number;
   totalWagered: number;
+  /** Java: poolContributionCounter + seedContributionCounter (fromWallet only). */
   totalContributions: number;
+  /** Java: poolContributionCounter + seedContributionCounter (fromWallet only). */
+  walletContributions: number;
+  /** Java: operatorContributionCounter (notFromWallet). */
+  operatorContributions: number;
   winCounter: number;
+  /** Wins that triggered the RNG but were rejected by performSafetyChecks. */
+  rejectedByGate: number;
   winAmountCounter: number;
   rtp: number;
   finalPool: number;

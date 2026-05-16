@@ -272,10 +272,12 @@ function SimulatorPage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
             <StatCard title="RTP" value={result ? `${result.rtp.toFixed(2)}%` : "—"} />
             <StatCard title="Win count" value={result ? String(result.winCounter) : "—"} />
+            <StatCard title="Rejected by gate" value={result ? String(result.rejectedByGate ?? 0) : "—"} hint="CDF hits dropped by minWin / seed gate" />
             <StatCard title="Max win" value={result ? maxWin.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} />
             <StatCard title="Total win amount" value={result ? result.winAmountCounter.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} />
             <StatCard title="Total wagered" value={result ? result.totalWagered.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} />
-            <StatCard title="Total contributions" value={result ? result.totalContributions.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} />
+            <StatCard title="Wallet contributions" value={result ? (result.walletContributions ?? result.totalContributions).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} hint="Java: fromWallet" />
+            <StatCard title="Operator contributions" value={result ? (result.operatorContributions ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} hint="Java: notFromWallet" />
             <StatCard title="Final pool" value={result ? result.finalPool.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} />
             <StatCard title="Final seed" value={result ? result.finalSeed.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} />
           </div>
