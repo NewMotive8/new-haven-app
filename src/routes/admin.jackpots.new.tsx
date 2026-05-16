@@ -25,20 +25,7 @@ function NewJackpotPage() {
     }
     setSubmitting(true);
     try {
-      // Seed amount derived from contribution model (fallback 1000 if not yet entered in the visual fields)
-      const seedAmount = 1000;
-      const contributionRate = payload.poolPercentageValue / 100;
-      const body = {
-        name: payload.name,
-        enabled: true,
-        contributionRate,
-        seedAmount,
-        poolBalance: seedAmount,
-        triggerThreshold: seedAmount * 2,
-        volatility: payload.volatility,
-        jackpotType: payload.type,
-        config: buildTriggerCondition(payload),
-      };
+      const body = buildCreateBody(payload);
       await axios.post("/api/v1/jackpots", body, {
         headers: { brandId: String(brandId), "Content-Type": "application/json" },
       });
