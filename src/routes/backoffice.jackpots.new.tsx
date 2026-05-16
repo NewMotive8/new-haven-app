@@ -206,33 +206,6 @@ const TYPE_CARDS: { id: JackpotKind; name: string; desc: string; icon: string }[
   { id: "multi_level", name: "Multi-Level", desc: "Tiered wins (Bronze/Silver/Gold)", icon: "♛" },
 ];
 
-function TypeCards({ selected, onSelect }: { selected: JackpotKind | null; onSelect: (t: JackpotKind) => void }) {
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginTop: 8 }}>
-      {TYPE_CARDS.map((t) => {
-        const active = selected === t.id;
-        return (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => onSelect(t.id)}
-            style={{
-              display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 10,
-              padding: 24, borderRadius: 12, cursor: "pointer", textAlign: "left",
-              border: `2px solid ${active ? "#3b82f6" : "#262626"}`,
-              background: active ? "rgba(59,130,246,0.08)" : "#0f0f0f",
-              transition: "all 120ms",
-            }}
-          >
-            <div style={{ fontSize: 32 }}>{t.icon}</div>
-            <div style={{ fontSize: 17, fontWeight: 600, color: "#fafafa" }}>{t.name}</div>
-            <div style={{ fontSize: 13, color: "#a3a3a3" }}>{t.desc}</div>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 // ─── Type-specific dynamic fields (Step 3: Model) ─────────────────────────
 function ClassicFields({ form, set }: { form: FormState; set: <K extends keyof FormState>(k: K, v: FormState[K]) => void }) {
