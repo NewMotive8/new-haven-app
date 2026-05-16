@@ -1784,17 +1784,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                 </div>
               </section>
 
-              {/* Action Buttons */}
-              <div className="flex items-center justify-between pt-8 pb-16 border-t border-neutral-800">
-                <Button variant="outline" size="lg" className="gap-2" onClick={handleBack}>
-                  Back
-                </Button>
-                <div className="flex gap-3">
-                  <Button size="lg" className="bg-blue-500 hover:bg-blue-600" disabled={submitting} onClick={triggerSave}>
-                    {submitting ? 'Saving…' : 'Save Jackpot'}
-                  </Button>
-                </div>
-              </div>
+              {/* Per-type action bar removed — global Continue bar handles navigation. */}
             </>
           )}
 
