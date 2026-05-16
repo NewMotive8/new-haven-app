@@ -1,3 +1,11 @@
+// LEGACY ENDPOINT — id-based simulator that loads a stored JackpotDTO from
+// the mock store and adapts it into a JackpotConfigDTO.
+//
+// The admin simulator UI (src/routes/admin.simulator.tsx) does NOT call this
+// route. It posts a full live JackpotConfigDTO to `/api/v1/event/simulate-bet`
+// instead, so any edits to the textarea flow straight into simulateEngine
+// without touching this legacy path. Keep this file only for the older
+// `{ jackpotId }` callers.
 import { createFileRoute } from "@tanstack/react-router";
 import { errorJson, json, preflight, requireBrandId } from "@/lib/jackpot/http";
 import { getJackpot, updateJackpot } from "@/lib/jackpot/store.server";

@@ -1,9 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { errorJson, json, preflight, requireBrandId } from "@/lib/jackpot/http";
 import { simulateEngine } from "@/lib/jackpot/simulator";
-import { getJackpotConfig } from "@/lib/jackpot/store.server";
 import type { JackpotConfigDTO } from "@/lib/jackpot/types";
 
+/**
+ * Live simulator endpoint.
+ *
+ * Strict contract:
+ *   - Body MUST be a full JackpotConfigDTO (pool + seed required).
+ *   - `wager` and `iterations` come from query string.
+ *   - No caching, no mocks, no DB fallback — every request runs a fresh
+ *     simulateEngine() pass and returns the raw engine output.
+ *
+ * For the legacy id-based flow see `/api/v1/event/simulate` (simulate.ts).
+ */
 export const Route = createFileRoute("/api/v1/event/simulate-bet")({
   server: {
     handlers: {
@@ -16,31 +26,38 @@ export const Route = createFileRoute("/api/v1/event/simulate-bet")({
         const iterations = Number(url.searchParams.get("iterations") ?? "0") || 0;
         const wager = Number(url.searchParams.get("wager") ?? "0") || 0;
 
-        let body: any;
+        let body: unknown;
         try {
           body = await request.json();
         } catch {
           return errorJson("Invalid JSON body", 400);
         }
 
-        let jp: JackpotConfigDTO | undefined;
-
-        // If the body only carries an id, pull the live config from the database.
-        // Otherwise treat the body as a full JackpotConfigDTO override.
-        if (body?.pool && body?.seed) {
-          jp = body as JackpotConfigDTO;
-        } else if (body?.id != null) {
-          jp = await getJackpotConfig(brand, Number(body.id));
-          if (!jp) return errorJson(`Jackpot ${body.id} not found`, 404);
-        } else {
+        if (!body || typeof body !== "object") {
+          return errorJson("Body must be a JackpotConfigDTO object", 400);
+        }
+        const candidate = body as Partial<JackpotConfigDTO>;
+        if (!candidate.pool || !candidate.seed) {
           return errorJson(
-            "Body must be a JackpotConfigDTO (pool + seed) or { id: number }",
+            "Body must be a full JackpotConfigDTO (pool + seed required). " +
+              "The id-only shortcut is not supported on /simulate-bet — use /simulate.",
             400,
           );
         }
 
+        const jp = candidate as JackpotConfigDTO;
+
+        // Fresh, uncached engine pass — no memoization, no stored result reuse.
         const result = simulateEngine(jp, wager, iterations);
-        return json({ brandId: brand, jackpotId: jp.id, ...result });
+
+        return json({
+          brandId: brand,
+          jackpotId: jp.id,
+          receivedAt: new Date().toISOString(),
+          requestedIterations: iterations,
+          requestedWager: wager,
+          ...result,
+        });
       },
     },
   },
