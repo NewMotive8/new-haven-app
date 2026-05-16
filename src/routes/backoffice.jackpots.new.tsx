@@ -6,96 +6,72 @@ import { BrandContext } from "../backoffice/app";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 type JackpotKind = "classic" | "frequency" | "must_drop" | "multi_level";
+type FairnessCurve = "linear" | "exponential" | "smooth";
+type ThresholdMode = "value" | "time";
 
-interface Tier {
+interface Level {
   name: string;
-  minWin: string;
-  maxWin: string;
-  contributionPct: string;
+  allocationPct: string;
+  triggerWeight: string;
 }
 
 interface FormState {
   // shared
   name: string;
   type: JackpotKind | null;
-  contributionPct: string;
-  volatility: number;
-  minWager: string;
-  maxWager: string;
-  poolBalance: string;
-  seedAmount: string;
   enabled: boolean;
-  // classic — uses shared only
+  seedAmount: string;          // Base Seed Amount (per-type, but stored once)
+  contributionPct: string;     // 0–100
+
+  // classic
+  classicVolatility: number;          // 1–10
+  classicCapEnabled: boolean;
+  classicCapAmount: string;
 
   // frequency
-  freqMode: "fixed" | "range";
-  freqFixedWin: string;
-  freqAvgWin: string;
-  freqMinWin: string;
-  freqMaxWin: string;
-  freqCadence: "daily" | "weekly" | "monthly";
+  freqTargetIntervalSpins: string;
+  freqFairnessCurve: FairnessCurve;
 
   // must_drop
-  mdMinWin: string;
-  mdMaxWin: string;
-  mdFrequency: "daily" | "weekly" | "monthly";
-  mdStartAt: string;
-  mdEndAt: string;
-  mdCommunitySplit: boolean;
+  mdThresholdMode: ThresholdMode;
+  mdAmount: string;            // when value-bound
+  mdAt: string;                // when time-bound (datetime-local string)
 
   // multi_level
-  tiers: Tier[];
+  levels: Level[];
 }
 
 const initialState: FormState = {
   name: "",
   type: null,
-  contributionPct: "1",
-  volatility: 5,
-  minWager: "0.10",
-  maxWager: "100",
-  poolBalance: "1000",
-  seedAmount: "1000",
   enabled: true,
+  seedAmount: "1000",
+  contributionPct: "1",
 
-  freqMode: "fixed",
-  freqFixedWin: "500",
-  freqAvgWin: "500",
-  freqMinWin: "100",
-  freqMaxWin: "1000",
-  freqCadence: "daily",
+  classicVolatility: 5,
+  classicCapEnabled: false,
+  classicCapAmount: "10000",
 
-  mdMinWin: "100",
-  mdMaxWin: "5000",
-  mdFrequency: "daily",
-  mdStartAt: "",
-  mdEndAt: "",
-  mdCommunitySplit: false,
+  freqTargetIntervalSpins: "50000",
+  freqFairnessCurve: "linear",
 
-  tiers: [
-    { name: "Bronze", minWin: "10", maxWin: "50", contributionPct: "0.5" },
-    { name: "Silver", minWin: "50", maxWin: "500", contributionPct: "1" },
-    { name: "Gold", minWin: "500", maxWin: "5000", contributionPct: "2" },
+  mdThresholdMode: "value",
+  mdAmount: "5000",
+  mdAt: "",
+
+  levels: [
+    { name: "Bronze", allocationPct: "20", triggerWeight: "60" },
+    { name: "Silver", allocationPct: "30", triggerWeight: "30" },
+    { name: "Gold", allocationPct: "50", triggerWeight: "10" },
   ],
 };
-
 
 // ─── Styles ───────────────────────────────────────────────────────────────
 const S = {
   page: { minHeight: "calc(100vh - 56px)", background: "#0a0a0a", color: "#f5f5f5" } as React.CSSProperties,
-  shell: { display: "flex", maxWidth: 1400, margin: "0 auto" } as React.CSSProperties,
-  sidebar: {
-    width: 260,
-    borderRight: "1px solid #262626",
-    padding: "32px 20px",
-    background: "#0f0f0f",
-    minHeight: "calc(100vh - 56px)",
-  } as React.CSSProperties,
-  sideTitle: { fontSize: 11, textTransform: "uppercase", letterSpacing: 1.5, color: "#737373", marginBottom: 16 } as React.CSSProperties,
-  main: { flex: 1, padding: "32px 48px 120px", minWidth: 0 } as React.CSSProperties,
+  sideTitle: { fontSize: 11, textTransform: "uppercase", letterSpacing: 1.5, color: "#737373" } as React.CSSProperties,
   h1: { margin: 0, fontSize: 24, fontWeight: 600 } as React.CSSProperties,
   sub: { margin: "6px 0 0", color: "#a3a3a3", fontSize: 14 } as React.CSSProperties,
-  panel: { background: "transparent", marginTop: 32 } as React.CSSProperties,
   label: { display: "block", fontSize: 13, fontWeight: 500, color: "#e5e5e5", marginBottom: 8 } as React.CSSProperties,
   input: {
     width: "100%",
@@ -166,6 +142,29 @@ function MoneyInput({ id, value, onChange }: { id: string; value: string; onChan
   );
 }
 
+function PercentInput({ id, value, onChange }: { id: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div style={{ position: "relative" }}>
+      <input id={id} type="number" min={0} max={100} step="0.01" value={value} onChange={(e) => onChange(e.target.value)} style={{ ...S.input, paddingRight: 28 }} />
+      <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: "#737373", fontSize: 13 }}>%</span>
+    </div>
+  );
+}
+
+function PercentSliderInput({ id, value, onChange }: { id: string; value: string; onChange: (v: string) => void }) {
+  const num = Math.max(0, Math.min(100, Number(value) || 0));
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 130px", gap: 12, alignItems: "center" }}>
+      <input
+        type="range" min={0} max={100} step={0.1} value={num}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ accentColor: "#3b82f6", width: "100%" }}
+      />
+      <PercentInput id={id} value={value} onChange={onChange} />
+    </div>
+  );
+}
+
 function Select({ id, value, onChange, options }: { id: string; value: string | number; onChange: (v: string) => void; options: { value: string | number; label: string }[] }) {
   return (
     <select id={id} value={value} onChange={(e) => onChange(e.target.value)} style={S.input}>
@@ -190,165 +189,207 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   );
 }
 
-const VOLATILITY_OPTS = [
-  { value: 1, label: "1 — Very Low" },
-  { value: 3, label: "3 — Low" },
-  { value: 5, label: "5 — Medium" },
-  { value: 7, label: "7 — High" },
-  { value: 10, label: "10 — Very High" },
-];
+function VolatilitySlider({ id, value, onChange }: { id: string; value: number; onChange: (v: number) => void }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 56px", gap: 12, alignItems: "center" }}>
+      <input
+        type="range" min={1} max={10} step={1} value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        style={{ accentColor: "#3b82f6", width: "100%" }}
+      />
+      <div style={{ ...S.input, textAlign: "center", padding: "10px 0", fontWeight: 600 }}>{value}</div>
+      <input id={id} type="hidden" value={value} readOnly />
+    </div>
+  );
+}
 
-// ─── Type cards (Step 1) ──────────────────────────────────────────────────
-const TYPE_CARDS: { id: JackpotKind; name: string; desc: string; icon: string }[] = [
-  { id: "classic", name: "Classic", desc: "Standard wager-contribution jackpot", icon: "$" },
-  { id: "frequency", name: "Frequency", desc: "Time-based win cadence", icon: "⏱" },
-  { id: "must_drop", name: "Must Drop", desc: "Guaranteed payout by deadline", icon: "📈" },
-  { id: "multi_level", name: "Multi-Level", desc: "Tiered wins (Bronze/Silver/Gold)", icon: "♛" },
-];
+function Segmented<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: { value: T; label: string }[] }) {
+  return (
+    <div style={{ display: "flex", gap: 0, background: "#171717", border: "1px solid #262626", borderRadius: 6, padding: 4 }}>
+      {options.map((o) => {
+        const active = value === o.value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => onChange(o.value)}
+            style={{
+              flex: 1, padding: "8px 12px", borderRadius: 4, border: "none", cursor: "pointer",
+              background: active ? "#3b82f6" : "transparent",
+              color: active ? "#fff" : "#d4d4d4",
+              fontSize: 13, fontWeight: active ? 600 : 400,
+              transition: "all 120ms",
+            }}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
+// ─── Type-specific dynamic fields ─────────────────────────────────────────
+type Setter = <K extends keyof FormState>(k: K, v: FormState[K]) => void;
 
-// ─── Type-specific dynamic fields (Step 3: Model) ─────────────────────────
-function ClassicFields({ form, set }: { form: FormState; set: <K extends keyof FormState>(k: K, v: FormState[K]) => void }) {
+function ClassicFields({ form, set, errors }: { form: FormState; set: Setter; errors: Record<string, string> }) {
   return (
     <>
-      <Field label="Contribution Percentage" htmlFor="contrib" help="Percentage of each wager that funds the jackpot pool.">
+      <Field label="Base Seed Amount" htmlFor="seed" error={errors.seedAmount} help="Pool resets to this amount after a win.">
+        <MoneyInput id="seed" value={form.seedAmount} onChange={(v) => set("seedAmount", v)} />
+      </Field>
+      <Field label="Contribution Percentage" htmlFor="contrib" error={errors.contributionPct} help="Share of each wager that funds the jackpot pool.">
+        <PercentSliderInput id="contrib" value={form.contributionPct} onChange={(v) => set("contributionPct", v)} />
+      </Field>
+      <Field label="Volatility Score" htmlFor="vol" help="1 = very low (frequent small wins) · 10 = very high (rare large wins).">
+        <VolatilitySlider id="vol" value={form.classicVolatility} onChange={(v) => set("classicVolatility", v)} />
+      </Field>
+      <div style={{ ...S.row, padding: 16, border: "1px solid #262626", borderRadius: 8, background: "#0f0f0f" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: form.classicCapEnabled ? 14 : 0 }}>
+          <div>
+            <div style={{ ...S.label, marginBottom: 2 }}>Maximum Cap Limit</div>
+            <div style={{ fontSize: 12, color: "#737373" }}>Cap the pool to a hard ceiling. Excess contributions overflow.</div>
+          </div>
+          <Toggle checked={form.classicCapEnabled} onChange={(v) => set("classicCapEnabled", v)} />
+        </div>
+        {form.classicCapEnabled && (
+          <Field label="Cap Amount" htmlFor="cap" error={errors.classicCapAmount}>
+            <MoneyInput id="cap" value={form.classicCapAmount} onChange={(v) => set("classicCapAmount", v)} />
+          </Field>
+        )}
+      </div>
+    </>
+  );
+}
+
+function FrequencyFields({ form, set, errors }: { form: FormState; set: Setter; errors: Record<string, string> }) {
+  return (
+    <>
+      <Field label="Base Seed Amount" htmlFor="freq-seed" error={errors.seedAmount}>
+        <MoneyInput id="freq-seed" value={form.seedAmount} onChange={(v) => set("seedAmount", v)} />
+      </Field>
+      <Field label="Contribution Percentage" htmlFor="freq-contrib" error={errors.contributionPct}>
+        <PercentInput id="freq-contrib" value={form.contributionPct} onChange={(v) => set("contributionPct", v)} />
+      </Field>
+      <Field label="Target Hit Interval" htmlFor="freq-interval" error={errors.freqTargetIntervalSpins} help="Average number of spins between drops.">
         <div style={{ position: "relative" }}>
-          <input id="contrib" type="number" min={0} max={100} step="0.01" value={form.contributionPct} onChange={(e) => set("contributionPct", e.target.value)} style={{ ...S.input, paddingRight: 28 }} />
-          <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: "#737373", fontSize: 13 }}>%</span>
+          <input
+            id="freq-interval" type="number" min={1} step={1}
+            value={form.freqTargetIntervalSpins}
+            onChange={(e) => set("freqTargetIntervalSpins", e.target.value)}
+            style={{ ...S.input, paddingRight: 56 }}
+          />
+          <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: "#737373", fontSize: 13 }}>spins</span>
         </div>
       </Field>
-      <Field label="Volatility" htmlFor="vol" help="Higher volatility means rarer but larger wins.">
-        <Select id="vol" value={form.volatility} onChange={(v) => set("volatility", Number(v))} options={VOLATILITY_OPTS} />
+      <Field label="Fairness Multiplier Curve" htmlFor="freq-curve" help="Controls how trigger probability ramps as the interval is approached.">
+        <Select
+          id="freq-curve" value={form.freqFairnessCurve}
+          onChange={(v) => set("freqFairnessCurve", v as FairnessCurve)}
+          options={[
+            { value: "linear", label: "Linear" },
+            { value: "exponential", label: "Exponential" },
+            { value: "smooth", label: "Smooth" },
+          ]}
+        />
       </Field>
-      <div style={S.grid2}>
-        <Field label="Minimum Wager" htmlFor="min-wager"><MoneyInput id="min-wager" value={form.minWager} onChange={(v) => set("minWager", v)} /></Field>
-        <Field label="Maximum Wager" htmlFor="max-wager"><MoneyInput id="max-wager" value={form.maxWager} onChange={(v) => set("maxWager", v)} /></Field>
-      </div>
     </>
   );
 }
 
-function FrequencyFields({ form, set }: { form: FormState; set: <K extends keyof FormState>(k: K, v: FormState[K]) => void }) {
+function MustDropFields({ form, set, errors }: { form: FormState; set: Setter; errors: Record<string, string> }) {
   return (
     <>
-      <Field label="Win Mode">
-        <div style={{ display: "flex", gap: 12 }}>
-          {(["fixed", "range"] as const).map((m) => (
-            <button key={m} type="button" onClick={() => set("freqMode", m)}
-              style={{
-                flex: 1, padding: 12, borderRadius: 6, cursor: "pointer",
-                border: `1px solid ${form.freqMode === m ? "#3b82f6" : "#262626"}`,
-                background: form.freqMode === m ? "rgba(59,130,246,0.08)" : "#171717",
-                color: "#fafafa", fontSize: 14, textTransform: "capitalize",
-              }}>
-              {m === "fixed" ? "Fixed Win Amount" : "Win Range"}
-            </button>
-          ))}
-        </div>
+      <Field label="Base Seed Amount" htmlFor="md-seed" error={errors.seedAmount}>
+        <MoneyInput id="md-seed" value={form.seedAmount} onChange={(v) => set("seedAmount", v)} />
       </Field>
-      {form.freqMode === "fixed" ? (
-        <Field label="Fixed Win Amount" htmlFor="freq-fixed"><MoneyInput id="freq-fixed" value={form.freqFixedWin} onChange={(v) => set("freqFixedWin", v)} /></Field>
+      <Field label="Contribution Percentage" htmlFor="md-contrib" error={errors.contributionPct}>
+        <PercentInput id="md-contrib" value={form.contributionPct} onChange={(v) => set("contributionPct", v)} />
+      </Field>
+      <Field label="Threshold Type" help="Choose whether the jackpot must drop by a pool size or a deadline.">
+        <Segmented<ThresholdMode>
+          value={form.mdThresholdMode}
+          onChange={(v) => set("mdThresholdMode", v)}
+          options={[
+            { value: "value", label: "Value-Bound" },
+            { value: "time", label: "Time-Bound" },
+          ]}
+        />
+      </Field>
+      {form.mdThresholdMode === "value" ? (
+        <Field label="Must Drop By Amount" htmlFor="md-amount" error={errors.mdAmount} help="Jackpot is forced to drop once the pool reaches this amount.">
+          <MoneyInput id="md-amount" value={form.mdAmount} onChange={(v) => set("mdAmount", v)} />
+        </Field>
       ) : (
-        <>
-          <Field label="Average Win Amount" htmlFor="freq-avg"><MoneyInput id="freq-avg" value={form.freqAvgWin} onChange={(v) => set("freqAvgWin", v)} /></Field>
-          <div style={S.grid2}>
-            <Field label="Minimum Win" htmlFor="freq-min"><MoneyInput id="freq-min" value={form.freqMinWin} onChange={(v) => set("freqMinWin", v)} /></Field>
-            <Field label="Maximum Win" htmlFor="freq-max"><MoneyInput id="freq-max" value={form.freqMaxWin} onChange={(v) => set("freqMaxWin", v)} /></Field>
-          </div>
-        </>
+        <Field label="Must Drop By Date / Time" htmlFor="md-at" error={errors.mdAt} help="Jackpot is forced to drop by this moment.">
+          <input
+            id="md-at" type="datetime-local"
+            value={form.mdAt} onChange={(e) => set("mdAt", e.target.value)}
+            style={{ ...S.input, colorScheme: "dark" }}
+          />
+        </Field>
       )}
-      <Field label="Volatility" htmlFor="freq-vol">
-        <Select id="freq-vol" value={form.volatility} onChange={(v) => set("volatility", Number(v))} options={VOLATILITY_OPTS} />
-      </Field>
-      <div style={S.grid2}>
-        <Field label="Minimum Wager" htmlFor="freq-min-wager"><MoneyInput id="freq-min-wager" value={form.minWager} onChange={(v) => set("minWager", v)} /></Field>
-        <Field label="Maximum Wager" htmlFor="freq-max-wager"><MoneyInput id="freq-max-wager" value={form.maxWager} onChange={(v) => set("maxWager", v)} /></Field>
-      </div>
-      <Field label="Cadence" htmlFor="freq-cadence">
-        <Select id="freq-cadence" value={form.freqCadence} onChange={(v) => set("freqCadence", v as FormState["freqCadence"])}
-          options={[{ value: "daily", label: "Daily" }, { value: "weekly", label: "Weekly" }, { value: "monthly", label: "Monthly" }]} />
-      </Field>
     </>
   );
 }
 
-function MustDropFields({ form, set }: { form: FormState; set: <K extends keyof FormState>(k: K, v: FormState[K]) => void }) {
+function MultiLevelFields({ form, set, errors }: { form: FormState; set: Setter; errors: Record<string, string> }) {
+  function updateLevel(i: number, patch: Partial<Level>) {
+    set("levels", form.levels.map((l, idx) => idx === i ? { ...l, ...patch } : l));
+  }
+  function addLevel() {
+    set("levels", [...form.levels, { name: `Tier ${form.levels.length + 1}`, allocationPct: "0", triggerWeight: "0" }]);
+  }
+  function removeLevel(i: number) {
+    if (form.levels.length <= 1) return;
+    set("levels", form.levels.filter((_, idx) => idx !== i));
+  }
+  const sum = form.levels.reduce((acc, l) => acc + (Number(l.allocationPct) || 0), 0);
+  const sumOk = Math.abs(sum - 100) < 0.01;
   return (
     <>
-      <div style={S.grid2}>
-        <Field label="Minimum Win Amount" htmlFor="md-min"><MoneyInput id="md-min" value={form.mdMinWin} onChange={(v) => set("mdMinWin", v)} /></Field>
-        <Field label="Maximum Win Amount" htmlFor="md-max"><MoneyInput id="md-max" value={form.mdMaxWin} onChange={(v) => set("mdMaxWin", v)} /></Field>
-      </div>
-      <Field label="Volatility" htmlFor="md-vol">
-        <Select id="md-vol" value={form.volatility} onChange={(v) => set("volatility", Number(v))} options={VOLATILITY_OPTS} />
+      <Field label="Global Base Seed Amount" htmlFor="ml-seed" error={errors.seedAmount}>
+        <MoneyInput id="ml-seed" value={form.seedAmount} onChange={(v) => set("seedAmount", v)} />
       </Field>
-      <div style={S.grid2}>
-        <Field label="Minimum Wager" htmlFor="md-min-wager"><MoneyInput id="md-min-wager" value={form.minWager} onChange={(v) => set("minWager", v)} /></Field>
-        <Field label="Maximum Wager" htmlFor="md-max-wager"><MoneyInput id="md-max-wager" value={form.maxWager} onChange={(v) => set("maxWager", v)} /></Field>
-      </div>
-      <Field label="Drop Frequency" htmlFor="md-freq">
-        <Select id="md-freq" value={form.mdFrequency} onChange={(v) => set("mdFrequency", v as FormState["mdFrequency"])}
-          options={[{ value: "daily", label: "Daily" }, { value: "weekly", label: "Weekly" }, { value: "monthly", label: "Monthly" }]} />
+      <Field label="Global Contribution Percentage" htmlFor="ml-contrib" error={errors.contributionPct}>
+        <PercentInput id="ml-contrib" value={form.contributionPct} onChange={(v) => set("contributionPct", v)} />
       </Field>
-      <div style={S.grid2}>
-        <Field label="Start Date & Time" htmlFor="md-start">
-          <input id="md-start" type="datetime-local" value={form.mdStartAt} onChange={(e) => set("mdStartAt", e.target.value)} style={S.input} />
-        </Field>
-        <Field label="End Date & Time" htmlFor="md-end">
-          <input id="md-end" type="datetime-local" value={form.mdEndAt} onChange={(e) => set("mdEndAt", e.target.value)} style={S.input} />
-        </Field>
-      </div>
-      <div style={{ ...S.row, display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16, border: "1px solid #262626", borderRadius: 8, background: "#0f0f0f" }}>
-        <div>
-          <div style={{ ...S.label, marginBottom: 2 }}>Community Split</div>
-          <div style={{ fontSize: 12, color: "#737373" }}>Split the prize across multiple eligible players.</div>
-        </div>
-        <Toggle checked={form.mdCommunitySplit} onChange={(v) => set("mdCommunitySplit", v)} />
-      </div>
-    </>
-  );
-}
-
-function MultiLevelFields({ form, set }: { form: FormState; set: <K extends keyof FormState>(k: K, v: FormState[K]) => void }) {
-  function updateTier(i: number, patch: Partial<Tier>) {
-    set("tiers", form.tiers.map((t, idx) => idx === i ? { ...t, ...patch } : t));
-  }
-  function addTier() {
-    set("tiers", [...form.tiers, { name: `Tier ${form.tiers.length + 1}`, minWin: "0", maxWin: "0", contributionPct: "0.5" }]);
-  }
-  function removeTier(i: number) {
-    set("tiers", form.tiers.filter((_, idx) => idx !== i));
-  }
-  return (
-    <>
-      <Field label="Volatility" htmlFor="ml-vol" help="Applies to all tiers.">
-        <Select id="ml-vol" value={form.volatility} onChange={(v) => set("volatility", Number(v))} options={VOLATILITY_OPTS} />
-      </Field>
-      <Field label="Tiers" help="Each tier defines a win-amount band and its share of the contribution.">
+      <Field label="Level Tiers" error={errors.levels} help="Split the contribution across named tiers. Allocation Share % should sum to 100.">
         <div style={{ border: "1px solid #262626", borderRadius: 8, overflow: "hidden" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 1fr 40px", gap: 8, padding: "10px 12px", background: "#171717", fontSize: 12, color: "#a3a3a3", fontWeight: 600 }}>
-            <div>Name</div><div>Min Win</div><div>Max Win</div><div>Contribution %</div><div></div>
+          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 40px", gap: 8, padding: "10px 12px", background: "#171717", fontSize: 12, color: "#a3a3a3", fontWeight: 600 }}>
+            <div>Level Name</div><div>Allocation Share %</div><div>Trigger Odds / Weight</div><div></div>
           </div>
-          {form.tiers.map((t, i) => (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 1fr 40px", gap: 8, padding: "10px 12px", borderTop: "1px solid #262626", alignItems: "center" }}>
-              <input value={t.name} onChange={(e) => updateTier(i, { name: e.target.value })} style={S.input} />
-              <input type="number" min={0} step="0.01" value={t.minWin} onChange={(e) => updateTier(i, { minWin: e.target.value })} style={S.input} />
-              <input type="number" min={0} step="0.01" value={t.maxWin} onChange={(e) => updateTier(i, { maxWin: e.target.value })} style={S.input} />
-              <input type="number" min={0} step="0.01" value={t.contributionPct} onChange={(e) => updateTier(i, { contributionPct: e.target.value })} style={S.input} />
-              <button type="button" onClick={() => removeTier(i)} disabled={form.tiers.length <= 1}
-                style={{ background: "transparent", border: "1px solid #404040", color: "#a3a3a3", borderRadius: 6, cursor: form.tiers.length <= 1 ? "not-allowed" : "pointer", height: 36 }}>
+          {form.levels.map((l, i) => (
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 40px", gap: 8, padding: "10px 12px", borderTop: "1px solid #262626", alignItems: "center" }}>
+              <input value={l.name} onChange={(e) => updateLevel(i, { name: e.target.value })} style={S.input} placeholder="Tier name" />
+              <input type="number" min={0} max={100} step="0.01" value={l.allocationPct} onChange={(e) => updateLevel(i, { allocationPct: e.target.value })} style={S.input} />
+              <input type="number" min={0} step="0.01" value={l.triggerWeight} onChange={(e) => updateLevel(i, { triggerWeight: e.target.value })} style={S.input} />
+              <button type="button" onClick={() => removeLevel(i)} disabled={form.levels.length <= 1}
+                style={{ background: "transparent", border: "1px solid #404040", color: "#a3a3a3", borderRadius: 6, cursor: form.levels.length <= 1 ? "not-allowed" : "pointer", height: 36 }}>
                 ×
               </button>
             </div>
           ))}
         </div>
-        <button type="button" onClick={addTier} style={{ ...S.btnGhost, marginTop: 10, padding: "8px 16px" }}>+ Add Tier</button>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
+          <button type="button" onClick={addLevel} style={{ ...S.btnGhost, padding: "8px 16px" }}>+ Add Level Tier</button>
+          <div style={{ fontSize: 12, color: sumOk ? "#22c55e" : "#fbbf24" }}>
+            Allocation total: {sum.toFixed(2)}% {sumOk ? "✓" : "(should be 100%)"}
+          </div>
+        </div>
       </Field>
     </>
   );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────
+const TYPE_LABELS: Record<JackpotKind, string> = {
+  classic: "Classic",
+  frequency: "Frequency",
+  must_drop: "Must Drop",
+  multi_level: "Multi-Level",
+};
+
 function NewJackpotPage() {
   const { brandId } = React.useContext(BrandContext);
   const navigate = useNavigate();
@@ -366,55 +407,78 @@ function NewJackpotPage() {
     if (!form.type) e.type = "Select a jackpot type";
     if (!form.name.trim()) e.name = "Name is required";
     else if (form.name.trim().length > 100) e.name = "Max 100 characters";
+
     const pct = Number(form.contributionPct);
-    if (!Number.isFinite(pct) || pct < 0 || pct > 100) e.contributionPct = "0–100";
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) e.contributionPct = "Must be between 0 and 100";
+
     const seed = Number(form.seedAmount);
     if (!Number.isFinite(seed) || seed < 0) e.seedAmount = "Must be ≥ 0";
-    const pool = Number(form.poolBalance);
-    if (!Number.isFinite(pool) || pool < 0) e.poolBalance = "Must be ≥ 0";
+
+    if (form.type === "classic" && form.classicCapEnabled) {
+      const cap = Number(form.classicCapAmount);
+      if (!Number.isFinite(cap) || cap <= seed) e.classicCapAmount = "Cap must be greater than seed";
+    }
+    if (form.type === "frequency") {
+      const n = Number(form.freqTargetIntervalSpins);
+      if (!Number.isFinite(n) || n < 1) e.freqTargetIntervalSpins = "Must be ≥ 1";
+    }
+    if (form.type === "must_drop") {
+      if (form.mdThresholdMode === "value") {
+        const a = Number(form.mdAmount);
+        if (!Number.isFinite(a) || a <= 0) e.mdAmount = "Must be greater than 0";
+      } else {
+        if (!form.mdAt) e.mdAt = "Pick a date and time";
+        else if (new Date(form.mdAt).getTime() <= Date.now()) e.mdAt = "Must be in the future";
+      }
+    }
+    if (form.type === "multi_level") {
+      if (form.levels.length === 0) e.levels = "Add at least one tier";
+      else if (form.levels.some((l) => !l.name.trim())) e.levels = "All tiers need a name";
+    }
+
     setErrors(e);
     return Object.keys(e).length === 0;
   }
 
   function buildConfig(): Record<string, any> {
-    const base: Record<string, any> = {
-      type: form.type,
-      minWager: Number(form.minWager) || 0,
-      maxWager: Number(form.maxWager) || 0,
-    };
+    const contributionPct = Number(form.contributionPct) || 0;
     switch (form.type) {
+      case "classic":
+        return {
+          type: "classic",
+          contributionPct,
+          volatility: form.classicVolatility,
+          capEnabled: form.classicCapEnabled,
+          ...(form.classicCapEnabled ? { capAmount: Number(form.classicCapAmount) } : {}),
+        };
       case "frequency":
         return {
-          ...base,
-          mode: form.freqMode,
-          fixedWin: form.freqMode === "fixed" ? Number(form.freqFixedWin) : undefined,
-          avgWin: form.freqMode === "range" ? Number(form.freqAvgWin) : undefined,
-          minWin: form.freqMode === "range" ? Number(form.freqMinWin) : undefined,
-          maxWin: form.freqMode === "range" ? Number(form.freqMaxWin) : undefined,
-          cadence: form.freqCadence,
+          type: "frequency",
+          contributionPct,
+          targetIntervalSpins: Number(form.freqTargetIntervalSpins),
+          fairnessCurve: form.freqFairnessCurve,
         };
       case "must_drop":
         return {
-          ...base,
-          minWin: Number(form.mdMinWin),
-          maxWin: Number(form.mdMaxWin),
-          frequency: form.mdFrequency,
-          startAt: form.mdStartAt || null,
-          endAt: form.mdEndAt || null,
-          communitySplit: form.mdCommunitySplit,
+          type: "must_drop",
+          contributionPct,
+          thresholdMode: form.mdThresholdMode,
+          ...(form.mdThresholdMode === "value"
+            ? { mustDropByAmount: Number(form.mdAmount) }
+            : { mustDropByAt: form.mdAt ? new Date(form.mdAt).toISOString() : null }),
         };
       case "multi_level":
         return {
-          ...base,
-          tiers: form.tiers.map((t) => ({
-            name: t.name,
-            minWin: Number(t.minWin),
-            maxWin: Number(t.maxWin),
-            contributionPct: Number(t.contributionPct),
+          type: "multi_level",
+          contributionPct,
+          tiers: form.levels.map((l) => ({
+            name: l.name,
+            allocationPct: Number(l.allocationPct) || 0,
+            triggerWeight: Number(l.triggerWeight) || 0,
           })),
         };
       default:
-        return base;
+        return {};
     }
   }
 
@@ -429,14 +493,16 @@ function NewJackpotPage() {
     }
     setSubmitting(true);
     try {
+      const seedAmount = Number(form.seedAmount);
+      const volatility = form.type === "classic" ? form.classicVolatility : 5;
       const body = {
         name: form.name.trim(),
         enabled: form.enabled,
         contributionRate: Number(form.contributionPct) / 100,
-        seedAmount: Number(form.seedAmount),
-        poolBalance: Number(form.poolBalance),
-        triggerThreshold: Number(form.poolBalance) * 2,
-        volatility: form.volatility,
+        seedAmount,
+        poolBalance: seedAmount,
+        triggerThreshold: seedAmount * 2,
+        volatility,
         jackpotType: form.type,
         config: buildConfig(),
       };
@@ -452,7 +518,7 @@ function NewJackpotPage() {
     }
   }
 
-  const typeLabel = TYPE_CARDS.find((t) => t.id === form.type)?.name ?? "";
+  const typeLabel = form.type ? TYPE_LABELS[form.type] : "";
   const canSave = form.type !== null && form.name.trim().length > 0 && !submitting;
 
   return (
@@ -503,34 +569,21 @@ function NewJackpotPage() {
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "80px 20px", color: "#737373" }}>
                 <div style={{ fontSize: 40, marginBottom: 12 }}>⚙️</div>
                 <div style={{ fontSize: 16, color: "#d4d4d4", marginBottom: 6 }}>Pick a Jackpot Type</div>
-                <div style={{ fontSize: 13, maxWidth: 320 }}>The model, pool, and seed configuration fields will appear here.</div>
+                <div style={{ fontSize: 13, maxWidth: 320 }}>The model-specific configuration fields will appear here.</div>
               </div>
             ) : (
               <>
-                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid #262626" }}>
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24, paddingBottom: 16, borderBottom: "1px solid #262626" }}>
                   <div>
                     <div style={{ fontSize: 18, fontWeight: 600, color: "#fafafa" }}>{typeLabel} Configuration</div>
-                    <div style={{ fontSize: 13, color: "#a3a3a3", marginTop: 4 }}>Model · Pool · Seed</div>
+                    <div style={{ fontSize: 13, color: "#a3a3a3", marginTop: 4 }}>All fields persist to the jackpot's trigger configuration.</div>
                   </div>
                 </div>
 
-                {/* Model section */}
-                <SectionHeading>Model</SectionHeading>
-                {form.type === "classic" && <ClassicFields form={form} set={set} />}
-                {form.type === "frequency" && <FrequencyFields form={form} set={set} />}
-                {form.type === "must_drop" && <MustDropFields form={form} set={set} />}
-                {form.type === "multi_level" && <MultiLevelFields form={form} set={set} />}
-
-                {/* Pool & Seed section */}
-                <SectionHeading>Pool &amp; Seed</SectionHeading>
-                <div style={S.grid2}>
-                  <Field label="Initial Pool Balance" htmlFor="pool" error={errors.poolBalance} help="Starting pool balance.">
-                    <MoneyInput id="pool" value={form.poolBalance} onChange={(v) => set("poolBalance", v)} />
-                  </Field>
-                  <Field label="Base Seed Amount" htmlFor="seed" error={errors.seedAmount} help="Reset amount after a win.">
-                    <MoneyInput id="seed" value={form.seedAmount} onChange={(v) => set("seedAmount", v)} />
-                  </Field>
-                </div>
+                {form.type === "classic" && <ClassicFields form={form} set={set} errors={errors} />}
+                {form.type === "frequency" && <FrequencyFields form={form} set={set} errors={errors} />}
+                {form.type === "must_drop" && <MustDropFields form={form} set={set} errors={errors} />}
+                {form.type === "multi_level" && <MultiLevelFields form={form} set={set} errors={errors} />}
               </>
             )}
           </section>
@@ -547,15 +600,6 @@ function NewJackpotPage() {
     </div>
   );
 }
-
-function SectionHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1.5, color: "#737373", margin: "8px 0 16px", fontWeight: 600 }}>
-      {children}
-    </div>
-  );
-}
-
 
 export const Route = createFileRoute("/backoffice/jackpots/new")({
   ssr: false,
