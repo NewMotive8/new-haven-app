@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { Clock, LogOut, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -80,40 +80,46 @@ export interface JackpotCreationFormProps {
 
 export function JackpotCreationForm({ onSave, submitting = false, onCancel }: JackpotCreationFormProps) {
   const navigate = useNavigate();
+  const incoming = useRouterState({
+    select: (s) => s.location.state as { jackpotConfig?: JackpotSavePayload } | undefined,
+  });
+  // Capture once on mount so re-renders don't clobber user edits.
+  const initial = useRef<JackpotSavePayload | undefined>(incoming?.jackpotConfig).current;
+
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeSection, setActiveSection] = useState('basic');
-  
+
   // Jackpot type selection
-  const [selectedType, setSelectedType] = useState<JackpotType>('classic');
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  
+  const [selectedType, setSelectedType] = useState<JackpotType>(initial?.type ?? 'classic');
+  const [name, setName] = useState(initial?.name ?? '');
+  const [description, setDescription] = useState(initial?.description ?? '');
+
   // Form state
-  const [payoutModel, setPayoutModel] = useState<PayoutModel>('maximum');
-  const [contributionType, setContributionType] = useState<ContributionType>('fixed');
-  const [seedContributionType, setSeedContributionType] = useState<ContributionType>('fixed');
-  const [volatility, setVolatility] = useState([5]);
-  const [playerContribution, setPlayerContribution] = useState([0]);
-  const [operatorContribution, setOperatorContribution] = useState([100]);
-  const [seedPlayerContribution, setSeedPlayerContribution] = useState([100]);
-  const [seedOperatorContribution, setSeedOperatorContribution] = useState([0]);
-  const [poolPercentageValue, setPoolPercentageValue] = useState([3]);
-  const [seedPercentageValue, setSeedPercentageValue] = useState([0]);
+  const [payoutModel, setPayoutModel] = useState<PayoutModel>(initial?.payoutModel ?? 'maximum');
+  const [contributionType, setContributionType] = useState<ContributionType>(initial?.contributionType ?? 'fixed');
+  const [seedContributionType, setSeedContributionType] = useState<ContributionType>(initial?.seedContributionType ?? 'fixed');
+  const [volatility, setVolatility] = useState([initial?.volatility ?? 5]);
+  const [playerContribution, setPlayerContribution] = useState([initial?.playerContribution ?? 0]);
+  const [operatorContribution, setOperatorContribution] = useState([initial?.operatorContribution ?? 100]);
+  const [seedPlayerContribution, setSeedPlayerContribution] = useState([initial?.seedPlayerContribution ?? 100]);
+  const [seedOperatorContribution, setSeedOperatorContribution] = useState([initial?.seedOperatorContribution ?? 0]);
+  const [poolPercentageValue, setPoolPercentageValue] = useState([initial?.poolPercentageValue ?? 3]);
+  const [seedPercentageValue, setSeedPercentageValue] = useState([initial?.seedPercentageValue ?? 0]);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [isTemplate, setIsTemplate] = useState(false);
-  const [selectedWidget, setSelectedWidget] = useState<string>('jewels');
-  const [isSegmented, setIsSegmented] = useState(false);
-  const [segments, setSegments] = useState<string[]>(['Segment 1']);
-  const [isCommunity, setIsCommunity] = useState(false);
-  const [communitySplit, setCommunitySplit] = useState([50]);
-  const [payoutInterval, setPayoutInterval] = useState<string>('logged_in');
-  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>('single');
-  const [weeklyDay, setWeeklyDay] = useState<string>('');
-  const [monthlyDay, setMonthlyDay] = useState<string>('');
-  const [displayFrequency, setDisplayFrequency] = useState<DisplayFrequency>('daily');
-  const [weeklyFrequencyDay, setWeeklyFrequencyDay] = useState<string>('');
-  const [monthlyFrequencyDay, setMonthlyFrequencyDay] = useState<string>('');
-  const [separateContributionFrequency, setSeparateContributionFrequency] = useState(false);
+  const [isTemplate, setIsTemplate] = useState(initial?.isTemplate ?? false);
+  const [selectedWidget, setSelectedWidget] = useState<string>(initial?.selectedWidget ?? 'jewels');
+  const [isSegmented, setIsSegmented] = useState(initial?.isSegmented ?? false);
+  const [segments, setSegments] = useState<string[]>(initial?.segments ?? ['Segment 1']);
+  const [isCommunity, setIsCommunity] = useState(initial?.isCommunity ?? false);
+  const [communitySplit, setCommunitySplit] = useState([initial?.communitySplit ?? 50]);
+  const [payoutInterval, setPayoutInterval] = useState<string>(initial?.payoutInterval ?? 'logged_in');
+  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>(initial?.recurrenceType ?? 'single');
+  const [weeklyDay, setWeeklyDay] = useState<string>(initial?.weeklyDay ?? '');
+  const [monthlyDay, setMonthlyDay] = useState<string>(initial?.monthlyDay ?? '');
+  const [displayFrequency, setDisplayFrequency] = useState<DisplayFrequency>(initial?.displayFrequency ?? 'daily');
+  const [weeklyFrequencyDay, setWeeklyFrequencyDay] = useState<string>(initial?.weeklyFrequencyDay ?? '');
+  const [monthlyFrequencyDay, setMonthlyFrequencyDay] = useState<string>(initial?.monthlyFrequencyDay ?? '');
+  const [separateContributionFrequency, setSeparateContributionFrequency] = useState(initial?.separateContributionFrequency ?? false);
 
   // Section refs for scroll tracking
   const basicRef = useRef<HTMLDivElement>(null);

@@ -1,4 +1,4 @@
-import { createFileRoute, useRouterState } from "@tanstack/react-router";
+import { createFileRoute, useRouterState, useNavigate } from "@tanstack/react-router";
 import * as React from "react";
 import axios from "axios";
 import { BrandContext } from "../backoffice/app";
@@ -56,9 +56,11 @@ function StatCard({ title, value, hint }: { title: string; value: string; hint?:
 
 function SimulatorPage() {
   const { brandId } = React.useContext(BrandContext);
+  const navigate = useNavigate();
   const incoming = useRouterState({
     select: (s) => s.location.state as { jackpotConfig?: JackpotSavePayload } | undefined,
   });
+  const originalPayloadRef = React.useRef<JackpotSavePayload | undefined>(incoming?.jackpotConfig);
   const initialConfig = React.useMemo<JackpotConfigDTO>(
     () => (incoming?.jackpotConfig ? mapPayloadToConfig(incoming.jackpotConfig) : DEFAULT_CONFIG),
     // Intentionally empty: only read incoming state on first mount so user
@@ -66,7 +68,7 @@ function SimulatorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
-  const cameFromCreationFlow = Boolean(incoming?.jackpotConfig);
+  const cameFromCreationFlow = Boolean(originalPayloadRef.current);
   const [wager, setWager] = React.useState(10);
   const [iterations, setIterations] = React.useState(100000);
   const [configText, setConfigText] = React.useState(JSON.stringify(initialConfig, null, 2));
@@ -186,6 +188,28 @@ function SimulatorPage() {
             >
               {loading ? `Simulating ${iterations.toLocaleString()} spins…` : "Run simulation"}
             </button>
+            {cameFromCreationFlow && (
+              <button
+                onClick={() =>
+                  navigate({
+                    to: "/admin/jackpots/new",
+                    state: { jackpotConfig: originalPayloadRef.current } as never,
+                  })
+                }
+                style={{
+                  background: "transparent",
+                  color: "#9fb0c8",
+                  border: "1px solid #1f2a44",
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                ← Back to Editor
+              </button>
+            )}
             {error && <div style={{ color: "#f87171", fontSize: 13 }}>{error}</div>}
           </div>
         </div>
