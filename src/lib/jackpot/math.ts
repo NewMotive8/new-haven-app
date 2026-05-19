@@ -8,6 +8,51 @@ export const DEFAULT_AVERAGE_VOLATILITY_EXPONENT = 50;
 export const AVERAGE_VOLATILITY_MULTIPLIER = 5;
 
 /**
+ * Uniform pseudo-random source returning a value in [0, 1).
+ * The simulator and math engine accept this so callers can inject an
+ * external RNG (deterministic seed, pre-rolled value from a third-party
+ * platform, etc.) instead of relying on Math.random().
+ */
+export type RngSource = () => number;
+
+/**
+ * Pure threshold for AVERAGE math model.
+ * Returns the hit chance — caller compares against a uniform [0, 1) roll.
+ */
+export function calculateAverageHitChance(
+  currentAmount: number,
+  targetAmount: number,
+  contributionAmount: number,
+  rawVolatility: number,
+): number {
+  const safeTarget = Math.max(targetAmount, 2.0);
+  const volatility = rawVolatility
+    ? rawVolatility * AVERAGE_VOLATILITY_MULTIPLIER
+    : DEFAULT_AVERAGE_VOLATILITY_EXPONENT;
+  const stdDev = Math.max(1, Math.round(safeTarget / volatility));
+  const probability = normalCdf(safeTarget, stdDev, currentAmount);
+  return (probability * FAIRNESS_MULTIPLIER * (contributionAmount * FAIRNESS_MULTIPLIER)) / FAIRNESS_MULTIPLIER;
+}
+
+/**
+ * Fixed-odds trigger probability helper.
+ * Uses the same FAIRNESS_MULTIPLIER shape as calculateMaximumHitChance so
+ * contribution scaling stays consistent with the rest of the pipeline.
+ *
+ *   p_per_spin (baseline) = 1 / triggerOdds
+ *   hitChance = p_per_spin * contributionAmount * FAIRNESS_MULTIPLIER
+ *
+ * Compared against a uniform [0, 1) RNG roll, exactly like the curve helpers.
+ */
+export function fixedOddsHitChance(
+  triggerOdds: number,
+  contributionAmount: number,
+): number {
+  if (!Number.isFinite(triggerOdds) || triggerOdds <= 0) return 0;
+  return (1 / triggerOdds) * contributionAmount * FAIRNESS_MULTIPLIER;
+}
+
+/**
  * Java parity: JackpotEngineMaths.calculateMaximumHitChance.
  * Returns the deterministic threshold (NOT a boolean) so callers like the
  * timed branch can add it to other chance terms before the RNG compare.
