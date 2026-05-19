@@ -361,6 +361,15 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
         ? { lifespanMinutes, mustDropPeriod }
         : {}),
       ...(selectedType === 'multi_level' ? { tiers } : {}),
+      // ── v2: contribution split + trigger odds + preview wager
+      contributionMode,
+      totalContributionAmount,
+      totalContributionType,
+      poolWeight,
+      seedWeight,
+      houseWeight,
+      triggerOdds,
+      previewWager,
     };
   }
 
