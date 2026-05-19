@@ -4665,14 +4665,20 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <BrightLabel>Trigger Probability Denominator (N)</BrightLabel>
-                            <Input type="number" min={0} step={1} value={t.triggerOdds ?? 0}
-                              onChange={(e) => updateTier(idx, { triggerOdds: Math.max(0, parseInt(e.target.value) || 0) })}
+                            <Input type="number" min={0} max={10_000_000} step={1} value={t.triggerOdds ?? 0}
+                              onChange={(e) => updateTier(idx, { triggerOdds: Math.max(0, Math.min(10_000_000, parseInt(e.target.value) || 0)) })}
                               placeholder="0 = disabled"
-                              className="bg-neutral-800 border-neutral-700" />
+                              aria-invalid={Number(t.triggerOdds) > 10_000_000}
+                              className={`bg-neutral-800 border-neutral-700 ${Number(t.triggerOdds) > 10_000_000 ? 'border-red-500 ring-1 ring-red-500' : ''}`} />
+                            {Number(t.triggerOdds) > 10_000_000 && (
+                              <p className="text-[11px] text-red-400">
+                                Exceeds certified RNG ceiling of 10,000,000.
+                              </p>
+                            )}
                             <p className="text-[11px] text-neutral-500">
                               {Number(t.triggerOdds) > 0
                                 ? `1 in ${Number(t.triggerOdds).toLocaleString()} (p = ${(1 / Number(t.triggerOdds)).toExponential(3)} / spin)`
-                                : 'Empty/0 → uses curve-based hit chance.'}
+                                : 'Empty/0 → uses curve-based hit chance. Max: 10,000,000.'}
                             </p>
                           </div>
                         </div>
