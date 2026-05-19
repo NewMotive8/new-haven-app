@@ -72,7 +72,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Incentiv8" },
+      { title: "Incentiv8 Sandbox" },
       { name: "description", content: "Incentiv8 Admin Login Page" },
       { name: "author", content: "Lovable" },
       { property: "og:title", content: "Incentiv8" },
