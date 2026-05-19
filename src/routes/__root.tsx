@@ -112,11 +112,45 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function SandboxBanner() {
+  return (
+    <div
+      role="banner"
+      aria-label="Test sandbox environment"
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 100,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 10,
+        padding: "8px 16px",
+        background:
+          "repeating-linear-gradient(45deg, #b45309 0 12px, #f59e0b 12px 24px)",
+        color: "#1a1100",
+        fontWeight: 800,
+        fontSize: 13,
+        letterSpacing: 1.5,
+        textTransform: "uppercase",
+        borderBottom: "2px solid #78350f",
+        boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
+        fontFamily: "system-ui, -apple-system, Segoe UI, sans-serif",
+      }}
+    >
+      <span aria-hidden>⚠</span>
+      TEST SANDBOX — Non-production environment. Data here does not affect live operations.
+      <span aria-hidden>⚠</span>
+    </div>
+  );
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
+      <SandboxBanner />
       <Outlet />
     </QueryClientProvider>
   );
