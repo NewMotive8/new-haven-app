@@ -148,6 +148,9 @@ export async function createJackpot(
   brandId: string,
   dto: Partial<JackpotDTO>,
 ): Promise<JackpotDTO> {
+  // Pack v2 fields (contributionMode, weights, triggerOdds, tiers) into JSONB
+  // alongside the existing config blob. Older records that lack these keys
+  // continue to read back as legacy defaults via getJackpotConfig().
   const triggerCondition: Record<string, any> = {
     threshold: Number(dto.triggerThreshold ?? 1000),
     ...(dto.jackpotType ? { type: dto.jackpotType } : {}),
