@@ -195,4 +195,8 @@ export interface SimulatorResponseDTO {
   engineScopeAudit?: EngineScopeAuditDTO;
   /** Echo of the engine branch that ran (for dashboard labelling). */
   structuralType?: JackpotStructuralType;
+  /** Total House cut accumulated across the simulation (split mode only). */
+  houseContributions?: number;
+  /** houseContributions / totalWagered. */
+  houseRatio?: number;
 }
