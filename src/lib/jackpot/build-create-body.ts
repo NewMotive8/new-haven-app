@@ -1,34 +1,56 @@
 import type { JackpotSavePayload } from "@/components/jackpot/JackpotCreationForm";
 
-/** Validate v2 split-mode payload — throws if weights don't sum to exactly 100. */
+/** Certified RNG denominator ceiling (10M). Mirrors the upstream RNG keyspace. */
+export const TRIGGER_ODDS_MAX = 10_000_000;
+
+/** Validate v2 split-mode payload — throws if weights don't sum to EXACTLY 100.00.
+ *  Zero-tolerance gate: any micro-decimal deviation rejects the write. */
 function validateSplitWeights(p: JackpotSavePayload): void {
+  const exact100 = (a: number, b: number, c: number): boolean => {
+    // Quantize to 2 decimals (UI precision) then require the integer sum to be exactly 10_000.
+    const q = (n: number) => Math.round((Number(n) || 0) * 100);
+    return q(a) + q(b) + q(c) === 10_000;
+  };
+
   if (p.contributionMode === "split") {
-    const sum = (Number(p.poolWeight) || 0) + (Number(p.seedWeight) || 0) + (Number(p.houseWeight) || 0);
-    if (Math.abs(sum - 100) > 0.05) {
+    if (!exact100(p.poolWeight ?? 0, p.seedWeight ?? 0, p.houseWeight ?? 0)) {
+      const sum = (Number(p.poolWeight) || 0) + (Number(p.seedWeight) || 0) + (Number(p.houseWeight) || 0);
       throw new Error(
-        `Split-mode contribution weights must sum to 100 (got ${sum.toFixed(2)}). ` +
-          `Adjust Pool / Seed / House before saving.`,
+        `Split-mode contribution weights must sum to EXACTLY 100.00% (got ${sum.toFixed(4)}%). ` +
+          `Adjust Pool / Seed / House before saving — zero-tolerance compliance gate.`,
       );
     }
   }
   if (p.type === "multi_level" && Array.isArray(p.tiers)) {
     p.tiers.forEach((t, idx) => {
       if (t.contributionMode === "split") {
-        const sum = (Number(t.poolWeight) || 0) + (Number(t.seedWeight) || 0) + (Number(t.houseWeight) || 0);
-        if (Math.abs(sum - 100) > 0.05) {
+        if (!exact100(t.poolWeight ?? 0, t.seedWeight ?? 0, t.houseWeight ?? 0)) {
+          const sum = (Number(t.poolWeight) || 0) + (Number(t.seedWeight) || 0) + (Number(t.houseWeight) || 0);
           throw new Error(
-            `Tier #${idx + 1} (${t.label ?? `T${t.multiLevelTier}`}) split weights must sum to 100 ` +
-              `(got ${sum.toFixed(2)}).`,
+            `Tier #${idx + 1} (${t.label ?? `T${t.multiLevelTier}`}) split weights must sum to EXACTLY 100.00% ` +
+              `(got ${sum.toFixed(4)}%).`,
           );
         }
       }
       if (t.triggerOdds != null && t.triggerOdds < 0) {
         throw new Error(`Tier #${idx + 1} triggerOdds must be a positive integer.`);
       }
+      if (t.triggerOdds != null && t.triggerOdds > TRIGGER_ODDS_MAX) {
+        throw new Error(
+          `Tier #${idx + 1} triggerOdds (${t.triggerOdds.toLocaleString()}) exceeds the certified ` +
+            `RNG ceiling of ${TRIGGER_ODDS_MAX.toLocaleString()}.`,
+        );
+      }
     });
   }
   if (p.triggerOdds != null && p.triggerOdds < 0) {
     throw new Error("triggerOdds must be a positive integer (or 0/empty to disable).");
+  }
+  if (p.triggerOdds != null && p.triggerOdds > TRIGGER_ODDS_MAX) {
+    throw new Error(
+      `triggerOdds (${p.triggerOdds.toLocaleString()}) exceeds the certified RNG ceiling of ` +
+        `${TRIGGER_ODDS_MAX.toLocaleString()}.`,
+    );
   }
 }
 
