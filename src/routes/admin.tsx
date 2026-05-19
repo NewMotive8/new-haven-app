@@ -7,32 +7,6 @@ import logoUrl from "@/assets/incentiv8-logo.png";
 function BackofficeShell({ onLogout, email }: { onLogout: () => void; email: string | null }) {
   return (
     <div style={{ minHeight: "100vh", background: "#0b1220", color: "#e6edf3", fontFamily: "system-ui, -apple-system, Segoe UI, sans-serif" }}>
-      <div
-        role="banner"
-        aria-label="Test sandbox environment"
-        style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 20,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 10,
-          padding: "8px 16px",
-          background: "repeating-linear-gradient(45deg, #b45309 0 12px, #f59e0b 12px 24px)",
-          color: "#1a1100",
-          fontWeight: 800,
-          fontSize: 13,
-          letterSpacing: 1.5,
-          textTransform: "uppercase",
-          borderBottom: "2px solid #78350f",
-          boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
-        }}
-      >
-        <span aria-hidden>⚠</span>
-        TEST SANDBOX — Non-production environment. Data here does not affect live operations.
-        <span aria-hidden>⚠</span>
-      </div>
       <header
         style={{
           display: "flex",
@@ -42,7 +16,7 @@ function BackofficeShell({ onLogout, email }: { onLogout: () => void; email: str
           borderBottom: "1px solid #1f2a44",
           background: "#0f172a",
           position: "sticky",
-          top: 36,
+          top: 0,
           zIndex: 10,
         }}
       >
