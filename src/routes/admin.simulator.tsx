@@ -367,6 +367,7 @@ function SimulatorPage() {
                       <Row k="Final pool" v={t.finalPool} />
                       <Row k="Final seed" v={t.finalSeed} />
                       <Row k="Rejected" v={t.rejectedByGate} />
+                      <Row k="House margin" v={t.houseContributions ?? 0} />
                     </div>
                   </div>
                 ))}
