@@ -10,6 +10,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { errorJson, json, preflight, requireBrandId } from "@/lib/jackpot/http";
 import { getJackpot, updateJackpot } from "@/lib/jackpot/store.server";
 import { simulateEngine } from "@/lib/jackpot/simulator";
+import { mulberry32 } from "@/lib/jackpot/rng";
 import type { JackpotConfigDTO, JackpotDTO, SimulatorDTO } from "@/lib/jackpot/types";
 
 // Adapt the legacy flat JackpotDTO stored in the mock to the engine's rich config.
