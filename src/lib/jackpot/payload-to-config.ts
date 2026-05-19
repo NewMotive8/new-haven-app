@@ -122,6 +122,51 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
     };
   }
 
+  // ── v2: jackpot-level contribution split + trigger odds.
+  const contributionMode = payload.contributionMode === "split" ? "split" : "legacy";
+  const contribution =
+    contributionMode === "split"
+      ? {
+          mode: "split" as const,
+          totalContributionAmount: num(payload.totalContributionAmount, 0),
+          totalContributionType:
+            (payload.totalContributionType ?? "fixed") === "fixed"
+              ? ("FIXED" as const)
+              : ("PERCENTAGE" as const),
+          poolWeight: num(payload.poolWeight, 60),
+          seedWeight: num(payload.seedWeight, 30),
+          houseWeight: num(payload.houseWeight, 10),
+        }
+      : undefined;
+  const triggerOdds = num(payload.triggerOdds, 0);
+
+  // Apply per-tier split / trigger odds onto the already-built tiers array.
+  if (tiers && payload.tiers) {
+    tiers = tiers.map((t, idx) => {
+      const src = payload.tiers![idx];
+      if (!src) return t;
+      const tSplit =
+        src.contributionMode === "split"
+          ? {
+              mode: "split" as const,
+              totalContributionAmount: num(src.totalContributionAmount, 0),
+              totalContributionType:
+                (src.totalContributionType ?? "fixed") === "fixed"
+                  ? ("FIXED" as const)
+                  : ("PERCENTAGE" as const),
+              poolWeight: num(src.poolWeight, 60),
+              seedWeight: num(src.seedWeight, 30),
+              houseWeight: num(src.houseWeight, 10),
+            }
+          : undefined;
+      return {
+        ...t,
+        ...(tSplit ? { contribution: tSplit } : {}),
+        ...(num(src.triggerOdds, 0) > 0 ? { triggerOdds: num(src.triggerOdds, 0) } : {}),
+      };
+    });
+  }
+
   return {
     id: 0,
     name: payload.name?.trim() || "Untitled Jackpot",
@@ -134,5 +179,7 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
     ...(timed ? { timed } : {}),
     ...(payload.payoutModel === "fixed" ? { fixedWinAmount: num(payload.fixedWinAmount, 0) } : {}),
     ...(payload.payoutModel === "maximum" ? { maximumWinAmount: maxWin } : {}),
+    ...(contribution ? { contribution } : {}),
+    ...(triggerOdds > 0 ? { triggerOdds } : {}),
   };
 }
