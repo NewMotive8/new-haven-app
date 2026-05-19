@@ -54,11 +54,11 @@ export const Route = createFileRoute("/api/v1/event/simulate")({
         const jp = await getJackpot(brand, Number(body.jackpotId));
         if (!jp) return errorJson(`Jackpot ${body.jackpotId} not found`, 404);
 
-        const result = simulateEngine(
-          toConfig(jp),
-          Number(body.wager) || 0,
-          Number(body.iterations) || 0,
-        );
+        const seed = Number((body as SimulatorDTO).rngSeed);
+        const rng = Number.isFinite(seed) ? mulberry32(seed) : undefined;
+        const result = rng
+          ? simulateEngine(toConfig(jp), Number(body.wager) || 0, Number(body.iterations) || 0, rng)
+          : simulateEngine(toConfig(jp), Number(body.wager) || 0, Number(body.iterations) || 0);
 
         // Persist new pool balance back to the database.
         await updateJackpot(brand, jp.id, { poolBalance: result.finalPool });
