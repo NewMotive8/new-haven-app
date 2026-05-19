@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { errorJson, json, preflight, requireBrandId } from "@/lib/jackpot/http";
 import { simulateEngine } from "@/lib/jackpot/simulator";
+import { constantRng, mulberry32 } from "@/lib/jackpot/rng";
+import type { RngSource } from "@/lib/jackpot/math";
 import type { JackpotConfigDTO } from "@/lib/jackpot/types";
 
 /**
