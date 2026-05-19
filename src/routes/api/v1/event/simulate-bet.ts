@@ -38,7 +38,11 @@ export const Route = createFileRoute("/api/v1/event/simulate-bet")({
         if (!body || typeof body !== "object") {
           return errorJson("Body must be a JackpotConfigDTO object", 400);
         }
-        const candidate = body as Partial<JackpotConfigDTO>;
+        const candidate = body as Partial<JackpotConfigDTO> & {
+          externalRoll?: number;
+          externalRollMax?: number;
+          rngSeed?: number;
+        };
         if (!candidate.pool || !candidate.seed) {
           return errorJson(
             "Body must be a full JackpotConfigDTO (pool + seed required). " +
@@ -49,8 +53,27 @@ export const Route = createFileRoute("/api/v1/event/simulate-bet")({
 
         const jp = candidate as JackpotConfigDTO;
 
-        // Fresh, uncached engine pass — no memoization, no stored result reuse.
-        const result = simulateEngine(jp, wager, iterations);
+        // ── Deterministic RNG injection (query or body).
+        //    externalRoll + externalRollMax → constantRng (single-shot pre-rolled value).
+        //    rngSeed (fallback) → mulberry32 seeded stream.
+        const qRoll = url.searchParams.get("externalRoll");
+        const qRollMax = url.searchParams.get("externalRollMax");
+        const qSeed = url.searchParams.get("rngSeed");
+        const externalRoll = qRoll != null ? Number(qRoll) : candidate.externalRoll;
+        const externalRollMax = qRollMax != null ? Number(qRollMax) : candidate.externalRollMax;
+        const rngSeed = qSeed != null ? Number(qSeed) : candidate.rngSeed;
+
+        let rng: RngSource | undefined;
+        if (Number.isFinite(externalRoll) && Number.isFinite(externalRollMax) && Number(externalRollMax) > 0) {
+          const unit = Number(externalRoll) / Number(externalRollMax);
+          rng = constantRng(unit);
+        } else if (Number.isFinite(rngSeed)) {
+          rng = mulberry32(Number(rngSeed));
+        }
+
+        const result = rng
+          ? simulateEngine(jp, wager, iterations, rng)
+          : simulateEngine(jp, wager, iterations);
 
         return json({
           brandId: brand,
