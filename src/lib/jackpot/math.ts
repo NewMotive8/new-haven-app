@@ -106,23 +106,17 @@ export function calculateMaximumWin(
   targetAmount: number,
   contributionAmount: number,
   rawVolatility: number,
+  rng: RngSource = Math.random,
 ): boolean {
   const safeTarget = Math.max(targetAmount, 2.0);
-  const volatility = rawVolatility
-    ? rawVolatility * MAXIMUM_VOLATILITY_MULTIPLIER
-    : DEFAULT_MAXIMUM_VOLATILITY_EXPONENT;
-
-  const logValue = customLog(currentAmount, safeTarget);
-  const exponent = Math.pow(logValue, volatility);
-
-  // JMS-244 Fairness Logic
-  const hitChance =
-    (exponent * FAIRNESS_MULTIPLIER * (contributionAmount * FAIRNESS_MULTIPLIER)) /
-    FAIRNESS_MULTIPLIER;
-
-  const random = Math.random() * safeTarget;
+  const hitChance = calculateMaximumHitChance(
+    currentAmount,
+    targetAmount,
+    contributionAmount,
+    rawVolatility,
+  );
+  const random = rng() * safeTarget;
   const result = random / safeTarget;
-
   return result < hitChance;
 }
 
@@ -131,22 +125,16 @@ export function calculateAverageWin(
   targetAmount: number,
   contributionAmount: number,
   rawVolatility: number,
+  rng: RngSource = Math.random,
 ): boolean {
   const safeTarget = Math.max(targetAmount, 2.0);
-  const volatility = rawVolatility
-    ? rawVolatility * AVERAGE_VOLATILITY_MULTIPLIER
-    : DEFAULT_AVERAGE_VOLATILITY_EXPONENT;
-
-  const stdDev = Math.max(1, Math.round(safeTarget / volatility));
-  const probability = normalCdf(safeTarget, stdDev, currentAmount);
-
-  // JMS-244 Fairness Logic
-  const hitChance =
-    (probability * FAIRNESS_MULTIPLIER * (contributionAmount * FAIRNESS_MULTIPLIER)) /
-    FAIRNESS_MULTIPLIER;
-
-  const random = Math.random() * safeTarget;
+  const hitChance = calculateAverageHitChance(
+    currentAmount,
+    targetAmount,
+    contributionAmount,
+    rawVolatility,
+  );
+  const random = rng() * safeTarget;
   const result = random / safeTarget;
-
   return result < hitChance;
 }
