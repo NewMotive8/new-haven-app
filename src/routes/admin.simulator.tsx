@@ -337,6 +337,8 @@ function SimulatorPage() {
             <StatCard title="Total wagered" value={result ? result.totalWagered.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} />
             <StatCard title="Wallet contributions" value={result ? (result.walletContributions ?? result.totalContributions).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} hint="Java: fromWallet" />
             <StatCard title="Operator contributions" value={result ? (result.operatorContributions ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} hint="Java: notFromWallet" />
+            <StatCard title="House margin" value={result ? (result.houseContributions ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} hint="Split-mode operator rake" />
+            <StatCard title="House %" value={result ? `${((result.houseRatio ?? 0) * 100).toFixed(2)}%` : "—"} hint="of total wagered" />
             <StatCard title="Final pool" value={result ? result.finalPool.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} />
             <StatCard title="Final seed" value={result ? result.finalSeed.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"} />
           </div>

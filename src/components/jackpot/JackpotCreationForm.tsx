@@ -100,7 +100,24 @@ export type JackpotSavePayload = {
     seedTargetAmount?: number;     // seed target (cap)
     operatorShare?: number;        // pool, 0..100
     seedOperatorShare?: number;    // seed, 0..100
+    // ── v2: per-tier 3-way contribution split + fixed-odds trigger.
+    contributionMode?: 'legacy' | 'split';
+    totalContributionAmount?: number;
+    totalContributionType?: 'fixed' | 'percentage';
+    poolWeight?: number;           // 0..100
+    seedWeight?: number;           // 0..100
+    houseWeight?: number;          // 0..100, sum===100
+    triggerOdds?: number;          // denominator N (0/undef = disabled)
   }>;
+  // ── v2: jackpot-level 3-way contribution split + fixed-odds trigger.
+  contributionMode?: 'legacy' | 'split';
+  totalContributionAmount?: number;
+  totalContributionType?: 'fixed' | 'percentage';
+  poolWeight?: number;
+  seedWeight?: number;
+  houseWeight?: number;
+  triggerOdds?: number;
+  previewWager?: number;
 };
 
 export interface JackpotCreationFormProps {

@@ -64,6 +64,27 @@ export interface SeedDTO {
   operatorShare?: number;
 }
 
+/**
+ * Opt-in 3-way contribution split (Pool / Seed / House).
+ * When `contributionMode === "split"`, the engine derives per-target
+ * contributions from `totalContributionAmount` × weights and accumulates
+ * the House cut independently of the prize pools.
+ *
+ * When omitted or set to "legacy" the engine uses pool.contributionAmount
+ * and seed.contributionAmount exactly as before.
+ */
+export type ContributionMode = "legacy" | "split";
+
+export interface ContributionSplitDTO {
+  mode: ContributionMode;
+  totalContributionAmount?: number;
+  totalContributionType?: ContributionType;
+  /** 0..100. Sum of pool + seed + house must equal 100. */
+  poolWeight?: number;
+  seedWeight?: number;
+  houseWeight?: number;
+}
+
 /** One tier in a MULTI_LEVEL jackpot (mirrors Java Pool+Seed with multiLevelTier/Weight). */
 export interface TierDTO {
   /** Tier rank — 1 (Mini) … 4 (Mega). Higher rank evaluated FIRST per Java sort. */
@@ -74,6 +95,10 @@ export interface TierDTO {
   label?: string;
   pool: PoolDTO;
   seed: SeedDTO;
+  /** Per-tier 3-way contribution split. */
+  contribution?: ContributionSplitDTO;
+  /** Per-tier fixed-odds trigger override. N where p = 1/N per spin. */
+  triggerOdds?: number;
 }
 
 /** MUST_DROP / FREQUENCY timed config (virtual-clock mapping). */
@@ -106,6 +131,10 @@ export interface JackpotConfigDTO {
   timed?: TimedConfigDTO;
   fixedWinAmount?: number;
   maximumWinAmount?: number;
+  /** Jackpot-level 3-way contribution split (Pool / Seed / House). */
+  contribution?: ContributionSplitDTO;
+  /** Fixed-odds trigger override. N where p = 1/N per spin. */
+  triggerOdds?: number;
 }
 
 export interface WinEventDTO {
@@ -128,6 +157,8 @@ export interface TierResultDTO {
   finalSeed: number;
   rejectedByGate: number;
   totalContribution: number;
+  /** House margin accumulated for this tier (split mode only). */
+  houseContributions?: number;
 }
 
 export interface EngineScopeAuditDTO {
@@ -164,4 +195,8 @@ export interface SimulatorResponseDTO {
   engineScopeAudit?: EngineScopeAuditDTO;
   /** Echo of the engine branch that ran (for dashboard labelling). */
   structuralType?: JackpotStructuralType;
+  /** Total House cut accumulated across the simulation (split mode only). */
+  houseContributions?: number;
+  /** houseContributions / totalWagered. */
+  houseRatio?: number;
 }
