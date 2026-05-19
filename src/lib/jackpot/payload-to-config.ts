@@ -69,7 +69,6 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
 
   // ── MULTI_LEVEL — build tier array (fall back to even-weighted single tier).
   let tiers: TierDTO[] | undefined;
-  let tiers: TierDTO[] | undefined;
   if (structuralType === "MULTI_LEVEL" && payload.tiers && payload.tiers.length > 0) {
     const raw = payload.tiers.slice(0, 4);
     const evenWeight = raw.length > 0 ? 1 / raw.length : 1;
