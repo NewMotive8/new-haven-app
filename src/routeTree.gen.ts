@@ -25,6 +25,7 @@ import { Route as ApiV1JackpotsTopupRouteImport } from './routes/api/v1/jackpots
 import { Route as ApiV1JackpotsIdRouteImport } from './routes/api/v1/jackpots/$id'
 import { Route as ApiV1EventSimulateBetRouteImport } from './routes/api/v1/event/simulate-bet'
 import { Route as ApiV1EventSimulateRouteImport } from './routes/api/v1/event/simulate'
+import { Route as ApiV1EventBetRouteImport } from './routes/api/v1/event/bet'
 import { Route as ApiV1JackpotsEnableIdRouteImport } from './routes/api/v1/jackpots/enable.$id'
 import { Route as ApiV1JackpotsDisableIdRouteImport } from './routes/api/v1/jackpots/disable.$id'
 
@@ -108,6 +109,11 @@ const ApiV1EventSimulateRoute = ApiV1EventSimulateRouteImport.update({
   path: '/api/v1/event/simulate',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1EventBetRoute = ApiV1EventBetRouteImport.update({
+  id: '/api/v1/event/bet',
+  path: '/api/v1/event/bet',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiV1JackpotsEnableIdRoute = ApiV1JackpotsEnableIdRouteImport.update({
   id: '/api/v1/jackpots/enable/$id',
   path: '/api/v1/jackpots/enable/$id',
@@ -130,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/admin/jackpots/new': typeof AdminJackpotsNewRoute
   '/admin/jackpots/': typeof AdminJackpotsIndexRoute
+  '/api/v1/event/bet': typeof ApiV1EventBetRoute
   '/api/v1/event/simulate': typeof ApiV1EventSimulateRoute
   '/api/v1/event/simulate-bet': typeof ApiV1EventSimulateBetRoute
   '/api/v1/jackpots/$id': typeof ApiV1JackpotsIdRoute
@@ -148,6 +155,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/admin/jackpots/new': typeof AdminJackpotsNewRoute
   '/admin/jackpots': typeof AdminJackpotsIndexRoute
+  '/api/v1/event/bet': typeof ApiV1EventBetRoute
   '/api/v1/event/simulate': typeof ApiV1EventSimulateRoute
   '/api/v1/event/simulate-bet': typeof ApiV1EventSimulateBetRoute
   '/api/v1/jackpots/$id': typeof ApiV1JackpotsIdRoute
@@ -169,6 +177,7 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/admin/jackpots/new': typeof AdminJackpotsNewRoute
   '/admin/jackpots/': typeof AdminJackpotsIndexRoute
+  '/api/v1/event/bet': typeof ApiV1EventBetRoute
   '/api/v1/event/simulate': typeof ApiV1EventSimulateRoute
   '/api/v1/event/simulate-bet': typeof ApiV1EventSimulateBetRoute
   '/api/v1/jackpots/$id': typeof ApiV1JackpotsIdRoute
@@ -191,6 +200,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/admin/jackpots/new'
     | '/admin/jackpots/'
+    | '/api/v1/event/bet'
     | '/api/v1/event/simulate'
     | '/api/v1/event/simulate-bet'
     | '/api/v1/jackpots/$id'
@@ -209,6 +219,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin/jackpots/new'
     | '/admin/jackpots'
+    | '/api/v1/event/bet'
     | '/api/v1/event/simulate'
     | '/api/v1/event/simulate-bet'
     | '/api/v1/jackpots/$id'
@@ -229,6 +240,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/admin/jackpots/new'
     | '/admin/jackpots/'
+    | '/api/v1/event/bet'
     | '/api/v1/event/simulate'
     | '/api/v1/event/simulate-bet'
     | '/api/v1/jackpots/$id'
@@ -244,6 +256,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  ApiV1EventBetRoute: typeof ApiV1EventBetRoute
   ApiV1EventSimulateRoute: typeof ApiV1EventSimulateRoute
   ApiV1EventSimulateBetRoute: typeof ApiV1EventSimulateBetRoute
   ApiV1JackpotsIdRoute: typeof ApiV1JackpotsIdRoute
@@ -368,6 +381,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1EventSimulateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/event/bet': {
+      id: '/api/v1/event/bet'
+      path: '/api/v1/event/bet'
+      fullPath: '/api/v1/event/bet'
+      preLoaderRoute: typeof ApiV1EventBetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/v1/jackpots/enable/$id': {
       id: '/api/v1/jackpots/enable/$id'
       path: '/api/v1/jackpots/enable/$id'
@@ -420,6 +440,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  ApiV1EventBetRoute: ApiV1EventBetRoute,
   ApiV1EventSimulateRoute: ApiV1EventSimulateRoute,
   ApiV1EventSimulateBetRoute: ApiV1EventSimulateBetRoute,
   ApiV1JackpotsIdRoute: ApiV1JackpotsIdRoute,
