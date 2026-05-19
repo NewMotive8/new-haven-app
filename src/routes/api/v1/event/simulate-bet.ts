@@ -60,7 +60,13 @@ export const Route = createFileRoute("/api/v1/event/simulate-bet")({
         const qRollMax = url.searchParams.get("externalRollMax");
         const qSeed = url.searchParams.get("rngSeed");
         const externalRoll = qRoll != null ? Number(qRoll) : candidate.externalRoll;
-        const externalRollMax = qRollMax != null ? Number(qRollMax) : candidate.externalRollMax;
+        const externalRollMaxRaw = qRollMax != null ? Number(qRollMax) : candidate.externalRollMax;
+        // Compliance default: if a deterministic roll is supplied without an explicit
+        // denominator, snap the max to the certified 10M RNG keyspace.
+        const externalRollMax =
+          Number.isFinite(externalRoll) && !Number.isFinite(externalRollMaxRaw)
+            ? 10_000_000
+            : externalRollMaxRaw;
         const rngSeed = qSeed != null ? Number(qSeed) : candidate.rngSeed;
 
         let rng: RngSource | undefined;
