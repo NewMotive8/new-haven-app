@@ -4566,7 +4566,112 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                           </div>
                         </div>
                       </div>
+
+                      {/* ── v2: Per-tier Contribution Split + Trigger Odds ── */}
+                      <div className="mt-4 pt-4 border-t border-neutral-800">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="text-xs uppercase tracking-wider text-neutral-500">Engine v2 · Split &amp; Trigger Odds</div>
+                          <div className="inline-flex rounded-md bg-neutral-800 p-0.5 text-xs">
+                            <button
+                              type="button"
+                              onClick={() => updateTier(idx, { contributionMode: 'legacy' })}
+                              className={`px-3 py-1 rounded ${(t.contributionMode ?? 'legacy') === 'legacy' ? 'bg-blue-500 text-white' : 'text-neutral-300'}`}
+                            >
+                              Legacy
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateTier(idx, { contributionMode: 'split' })}
+                              className={`px-3 py-1 rounded ${t.contributionMode === 'split' ? 'bg-blue-500 text-white' : 'text-neutral-300'}`}
+                            >
+                              Split
+                            </button>
+                          </div>
+                        </div>
+                        {t.contributionMode === 'split' && (() => {
+                          const tType = t.totalContributionType ?? 'fixed';
+                          const tAmt = Number(t.totalContributionAmount) || 0;
+                          const tPool = Number(t.poolWeight ?? 60);
+                          const tSeed = Number(t.seedWeight ?? 30);
+                          const tHouse = Number(t.houseWeight ?? 10);
+                          const tSum = tPool + tSeed + tHouse;
+                          const tOk = Math.abs(tSum - 100) < 0.05;
+                          const totalCalc = tType === 'fixed' ? tAmt : (previewWager * tAmt) / 100;
+                          const proj = (v: number) => `€${(totalCalc * (v / 100)).toFixed(4)}`;
+                          const setTierWeight = (key: 'pool' | 'seed' | 'house', val: number) => {
+                            const next = Math.max(0, Math.min(100, Number(val) || 0));
+                            const others = (['pool', 'seed', 'house'] as const).filter((k) => k !== key);
+                            const cur = { pool: tPool, seed: tSeed, house: tHouse };
+                            const remaining = 100 - next;
+                            const oSum = cur[others[0]] + cur[others[1]];
+                            let a: number, b: number;
+                            if (oSum <= 0) { a = remaining / 2; b = remaining - a; }
+                            else {
+                              a = Math.round((cur[others[0]] / oSum) * remaining * 100) / 100;
+                              b = Math.round((remaining - a) * 100) / 100;
+                            }
+                            const patch: any = { [`${key}Weight`]: next, [`${others[0]}Weight`]: a, [`${others[1]}Weight`]: b };
+                            updateTier(idx, patch);
+                          };
+                          return (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                              <div className="space-y-2">
+                                <BrightLabel>Total Contribution Type</BrightLabel>
+                                <select
+                                  value={tType}
+                                  onChange={(e) => updateTier(idx, { totalContributionType: e.target.value as 'fixed' | 'percentage' })}
+                                  className="w-full h-10 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-neutral-100"
+                                >
+                                  <option value="fixed">Fixed</option>
+                                  <option value="percentage">Percentage of Wager</option>
+                                </select>
+                              </div>
+                              <div className="space-y-2">
+                                <BrightLabel>Total Contribution Amount</BrightLabel>
+                                <Input type="number" step="0.01" min={0} value={tAmt}
+                                  onChange={(e) => updateTier(idx, { totalContributionAmount: parseFloat(e.target.value) || 0 })}
+                                  className="bg-neutral-800 border-neutral-700" />
+                              </div>
+                              {(['pool', 'seed', 'house'] as const).map((k) => {
+                                const val = k === 'pool' ? tPool : k === 'seed' ? tSeed : tHouse;
+                                const label = k === 'pool' ? 'Pool' : k === 'seed' ? 'Seed' : 'House';
+                                return (
+                                  <div key={k} className="space-y-2 md:col-span-2">
+                                    <div className="flex items-center justify-between">
+                                      <BrightLabel>{label} Weight</BrightLabel>
+                                      <span className="text-xs text-emerald-400 tabular-nums">{proj(val)} / spin</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Slider value={[val]} onValueChange={(v) => setTierWeight(k, v[0])} min={0} max={100} step={1} className="flex-1" />
+                                      <Input type="number" min={0} max={100} step={0.1} value={val} onChange={(e) => setTierWeight(k, parseFloat(e.target.value) || 0)} className="w-20 bg-neutral-800 border-neutral-700" />
+                                      <span className="text-xs text-neutral-400">%</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              <div className={`md:col-span-2 text-xs ${tOk ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                Sum: {tSum.toFixed(2)}% {tOk ? '✓' : '— must equal 100 to save'}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <BrightLabel>Trigger Probability Denominator (N)</BrightLabel>
+                            <Input type="number" min={0} step={1} value={t.triggerOdds ?? 0}
+                              onChange={(e) => updateTier(idx, { triggerOdds: Math.max(0, parseInt(e.target.value) || 0) })}
+                              placeholder="0 = disabled"
+                              className="bg-neutral-800 border-neutral-700" />
+                            <p className="text-[11px] text-neutral-500">
+                              {Number(t.triggerOdds) > 0
+                                ? `1 in ${Number(t.triggerOdds).toLocaleString()} (p = ${(1 / Number(t.triggerOdds)).toExponential(3)} / spin)`
+                                : 'Empty/0 → uses curve-based hit chance.'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
+
                   ))}
                 </div>
               </Card>
