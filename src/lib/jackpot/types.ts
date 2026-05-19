@@ -131,6 +131,10 @@ export interface JackpotConfigDTO {
   timed?: TimedConfigDTO;
   fixedWinAmount?: number;
   maximumWinAmount?: number;
+  /** Jackpot-level 3-way contribution split (Pool / Seed / House). */
+  contribution?: ContributionSplitDTO;
+  /** Fixed-odds trigger override. N where p = 1/N per spin. */
+  triggerOdds?: number;
 }
 
 export interface WinEventDTO {
@@ -153,6 +157,8 @@ export interface TierResultDTO {
   finalSeed: number;
   rejectedByGate: number;
   totalContribution: number;
+  /** House margin accumulated for this tier (split mode only). */
+  houseContributions?: number;
 }
 
 export interface EngineScopeAuditDTO {
