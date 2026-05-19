@@ -72,18 +72,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Incentiv8 Sandbox" },
-      { name: "description", content: "Incentiv8 Admin Login Page" },
+      { title: "Incentiv8" },
+      { name: "description", content: "Staging" },
       { name: "author", content: "Lovable" },
       { property: "og:title", content: "Incentiv8" },
-      { property: "og:description", content: "Incentiv8 Admin Login Page" },
+      { property: "og:description", content: "Staging" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
       { name: "twitter:title", content: "Incentiv8" },
-      { name: "twitter:description", content: "Incentiv8 Admin Login Page" },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/623a4666-150f-492a-8881-f1430f16f837/id-preview-b1ffeb4a--a9c97024-0dfc-4431-909f-455fbd4c43ad.lovable.app-1778930565760.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/623a4666-150f-492a-8881-f1430f16f837/id-preview-b1ffeb4a--a9c97024-0dfc-4431-909f-455fbd4c43ad.lovable.app-1778930565760.png" },
+      { name: "twitter:description", content: "Staging" },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/0b49ccdf-f822-495a-9bd6-ba27edd3749e" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/0b49ccdf-f822-495a-9bd6-ba27edd3749e" },
     ],
     links: [
       {
@@ -112,45 +112,11 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function SandboxBanner() {
-  return (
-    <div
-      role="banner"
-      aria-label="Test sandbox environment"
-      style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 100,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 10,
-        padding: "8px 16px",
-        background:
-          "repeating-linear-gradient(45deg, #b45309 0 12px, #f59e0b 12px 24px)",
-        color: "#1a1100",
-        fontWeight: 800,
-        fontSize: 13,
-        letterSpacing: 1.5,
-        textTransform: "uppercase",
-        borderBottom: "2px solid #78350f",
-        boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
-        fontFamily: "system-ui, -apple-system, Segoe UI, sans-serif",
-      }}
-    >
-      <span aria-hidden>⚠</span>
-      TEST SANDBOX — Non-production environment. Data here does not affect live operations.
-      <span aria-hidden>⚠</span>
-    </div>
-  );
-}
-
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SandboxBanner />
       <Outlet />
     </QueryClientProvider>
   );
