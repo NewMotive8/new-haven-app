@@ -183,6 +183,37 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   const [lifespanMinutes, setLifespanMinutes] = useState<number>(initial?.lifespanMinutes ?? 1440);
   const [mustDropPeriod, setMustDropPeriod] = useState<1 | 2 | 3 | 4>(initial?.mustDropPeriod ?? 2);
 
+  // --- v2: Engine v2 contribution split + fixed-odds trigger (global jackpot level)
+  const [contributionMode, setContributionMode] = useState<'legacy' | 'split'>(initial?.contributionMode ?? 'legacy');
+  const [totalContributionAmount, setTotalContributionAmount] = useState<number>(initial?.totalContributionAmount ?? 0.1);
+  const [totalContributionType, setTotalContributionType] = useState<'fixed' | 'percentage'>(initial?.totalContributionType ?? 'fixed');
+  const [poolWeight, setPoolWeight] = useState<number>(initial?.poolWeight ?? 60);
+  const [seedWeight, setSeedWeight] = useState<number>(initial?.seedWeight ?? 30);
+  const [houseWeight, setHouseWeight] = useState<number>(initial?.houseWeight ?? 10);
+  const [triggerOdds, setTriggerOdds] = useState<number>(initial?.triggerOdds ?? 0);
+  const [previewWager, setPreviewWager] = useState<number>(initial?.previewWager ?? 1.0);
+
+  // Rebalance two other weights when one is changed so the trio always sums to 100.
+  function rebalanceWeights(changed: 'pool' | 'seed' | 'house', nextRaw: number) {
+    const next = Math.max(0, Math.min(100, Number(nextRaw) || 0));
+    const others = (['pool', 'seed', 'house'] as const).filter((k) => k !== changed) as ['pool' | 'seed' | 'house', 'pool' | 'seed' | 'house'];
+    const current = { pool: poolWeight, seed: seedWeight, house: houseWeight };
+    const remaining = 100 - next;
+    const oSum = current[others[0]] + current[others[1]];
+    let a: number, b: number;
+    if (oSum <= 0) {
+      a = remaining / 2;
+      b = remaining - a;
+    } else {
+      a = Math.round((current[others[0]] / oSum) * remaining * 100) / 100;
+      b = Math.round((remaining - a) * 100) / 100;
+    }
+    const set = { pool: setPoolWeight, seed: setSeedWeight, house: setHouseWeight };
+    set[changed](next);
+    set[others[0]](a);
+    set[others[1]](b);
+  }
+
   // --- MULTI_LEVEL tiers editor state
   type TierRow = NonNullable<JackpotSavePayload['tiers']>[number];
   // Profit-optimized 3-tier baseline template (frontend defaults only — fully editable).
@@ -330,6 +361,15 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
         ? { lifespanMinutes, mustDropPeriod }
         : {}),
       ...(selectedType === 'multi_level' ? { tiers } : {}),
+      // ── v2: contribution split + trigger odds + preview wager
+      contributionMode,
+      totalContributionAmount,
+      totalContributionType,
+      poolWeight,
+      seedWeight,
+      houseWeight,
+      triggerOdds,
+      previewWager,
     };
   }
 
@@ -4212,6 +4252,154 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
           )}
         </div>
 
+        {/* ── Engine v2: Contribution Split + Fixed-Odds Trigger ──────────────── */}
+        <section className="mt-10 scroll-mt-20">
+          <h2 className="text-xl font-semibold mb-2">Engine v2 — Contribution Split &amp; Trigger Odds</h2>
+          <p className="text-sm text-neutral-400 mb-6">
+            Opt-in 3-way contribution split (Pool / Seed / House) and fixed-odds trigger override.
+            Legacy mode keeps current pool &amp; seed contribution behaviour byte-for-byte.
+          </p>
+
+          <Card className="p-6 bg-neutral-900/50 border-neutral-800 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <BrightLabel className="text-base">Contribution Mode</BrightLabel>
+                <p className="text-xs text-neutral-400 mt-1">
+                  Switch between legacy single-target contribution and the new 3-way split.
+                </p>
+              </div>
+              <div className="inline-flex rounded-lg bg-neutral-800 p-1">
+                <button
+                  type="button"
+                  onClick={() => setContributionMode('legacy')}
+                  className={`px-4 py-1.5 rounded-md text-sm transition-colors ${contributionMode === 'legacy' ? 'bg-blue-500 text-white' : 'text-neutral-300 hover:bg-neutral-700'}`}
+                >
+                  Legacy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setContributionMode('split')}
+                  className={`px-4 py-1.5 rounded-md text-sm transition-colors ${contributionMode === 'split' ? 'bg-blue-500 text-white' : 'text-neutral-300 hover:bg-neutral-700'}`}
+                >
+                  Split (Pool / Seed / House)
+                </button>
+              </div>
+            </div>
+
+            {contributionMode === 'split' && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="space-y-2">
+                    <BrightLabel>Total Contribution Type</BrightLabel>
+                    <select
+                      value={totalContributionType}
+                      onChange={(e) => setTotalContributionType(e.target.value as 'fixed' | 'percentage')}
+                      className="w-full h-10 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-neutral-100"
+                    >
+                      <option value="fixed">Fixed</option>
+                      <option value="percentage">Percentage of Wager</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <BrightLabel htmlFor="v2-total">Total Contribution Amount</BrightLabel>
+                    {totalContributionType === 'fixed' ? (
+                      <CurrencyInput id="v2-total" type="number" step="0.01" min={0} value={totalContributionAmount}
+                        onChange={(e) => setTotalContributionAmount(parseFloat(e.target.value) || 0)}
+                        className="bg-neutral-800 border-neutral-700" />
+                    ) : (
+                      <PercentageInput id="v2-total" type="number" step="0.01" min={0} value={totalContributionAmount}
+                        onChange={(e) => setTotalContributionAmount(parseFloat(e.target.value) || 0)}
+                        className="bg-neutral-800 border-neutral-700" />
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <BrightLabel htmlFor="v2-preview-wager">Preview Wager (for projections)</BrightLabel>
+                    <CurrencyInput id="v2-preview-wager" type="number" step="0.01" min={0} value={previewWager}
+                      onChange={(e) => setPreviewWager(parseFloat(e.target.value) || 0)}
+                      className="bg-neutral-800 border-neutral-700" />
+                  </div>
+                </div>
+
+                {(() => {
+                  const totalCalc = totalContributionType === 'fixed'
+                    ? totalContributionAmount
+                    : (previewWager * totalContributionAmount) / 100;
+                  const sum = poolWeight + seedWeight + houseWeight;
+                  const sumOk = Math.abs(sum - 100) < 0.05;
+                  const fmt = (v: number) => `€${(totalCalc * (v / 100)).toFixed(4)}`;
+                  const renderWeight = (
+                    key: 'pool' | 'seed' | 'house',
+                    label: string,
+                    value: number,
+                  ) => (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <BrightLabel>{label} Weight</BrightLabel>
+                        <span className="text-xs text-emerald-400 tabular-nums">{fmt(value)} / spin</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Slider
+                          value={[value]}
+                          onValueChange={(v) => rebalanceWeights(key, v[0])}
+                          min={0}
+                          max={100}
+                          step={1}
+                          className="flex-1"
+                        />
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={0.1}
+                          value={value}
+                          onChange={(e) => rebalanceWeights(key, parseFloat(e.target.value) || 0)}
+                          className="w-20 bg-neutral-800 border-neutral-700"
+                        />
+                        <span className="text-xs text-neutral-400 w-4">%</span>
+                      </div>
+                    </div>
+                  );
+                  return (
+                    <div>
+                      <div className="grid grid-cols-1 gap-4">
+                        {renderWeight('pool', 'Pool', poolWeight)}
+                        {renderWeight('seed', 'Seed', seedWeight)}
+                        {renderWeight('house', 'House', houseWeight)}
+                      </div>
+                      <div className={`mt-3 text-xs ${sumOk ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        Sum: {sum.toFixed(2)}% {sumOk ? '✓' : '— must equal 100 to save'}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </>
+            )}
+          </Card>
+
+          <Card className="p-6 bg-neutral-900/50 border-neutral-800 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <BrightLabel htmlFor="v2-trigger-odds">Trigger Probability Denominator (N)</BrightLabel>
+                <Input
+                  id="v2-trigger-odds"
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={triggerOdds || ''}
+                  onChange={(e) => setTriggerOdds(Math.max(0, parseInt(e.target.value) || 0))}
+                  placeholder="0 = disabled"
+                  className="bg-neutral-800 border-neutral-700"
+                />
+                <p className="text-[11px] text-neutral-500">
+                  {triggerOdds > 0
+                    ? `Computed odds: 1 in ${triggerOdds.toLocaleString()} (p = ${(1 / triggerOdds).toExponential(3)} per spin)`
+                    : 'Leave empty/0 to use the AVERAGE/MAXIMUM curve. When > 0, replaces baseline hit-chance.'}
+                </p>
+              </div>
+            </div>
+          </Card>
+        </section>
+
         {/* ── Engine Configuration: Multi-Level tiers + Timed lifespan ─────────── */}
         {(selectedType === 'multi_level' || selectedType === 'must_drop' || selectedType === 'frequency') && (
           <section className="mt-10 scroll-mt-20">
@@ -4378,7 +4566,112 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                           </div>
                         </div>
                       </div>
+
+                      {/* ── v2: Per-tier Contribution Split + Trigger Odds ── */}
+                      <div className="mt-4 pt-4 border-t border-neutral-800">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="text-xs uppercase tracking-wider text-neutral-500">Engine v2 · Split &amp; Trigger Odds</div>
+                          <div className="inline-flex rounded-md bg-neutral-800 p-0.5 text-xs">
+                            <button
+                              type="button"
+                              onClick={() => updateTier(idx, { contributionMode: 'legacy' })}
+                              className={`px-3 py-1 rounded ${(t.contributionMode ?? 'legacy') === 'legacy' ? 'bg-blue-500 text-white' : 'text-neutral-300'}`}
+                            >
+                              Legacy
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateTier(idx, { contributionMode: 'split' })}
+                              className={`px-3 py-1 rounded ${t.contributionMode === 'split' ? 'bg-blue-500 text-white' : 'text-neutral-300'}`}
+                            >
+                              Split
+                            </button>
+                          </div>
+                        </div>
+                        {t.contributionMode === 'split' && (() => {
+                          const tType = t.totalContributionType ?? 'fixed';
+                          const tAmt = Number(t.totalContributionAmount) || 0;
+                          const tPool = Number(t.poolWeight ?? 60);
+                          const tSeed = Number(t.seedWeight ?? 30);
+                          const tHouse = Number(t.houseWeight ?? 10);
+                          const tSum = tPool + tSeed + tHouse;
+                          const tOk = Math.abs(tSum - 100) < 0.05;
+                          const totalCalc = tType === 'fixed' ? tAmt : (previewWager * tAmt) / 100;
+                          const proj = (v: number) => `€${(totalCalc * (v / 100)).toFixed(4)}`;
+                          const setTierWeight = (key: 'pool' | 'seed' | 'house', val: number) => {
+                            const next = Math.max(0, Math.min(100, Number(val) || 0));
+                            const others = (['pool', 'seed', 'house'] as const).filter((k) => k !== key);
+                            const cur = { pool: tPool, seed: tSeed, house: tHouse };
+                            const remaining = 100 - next;
+                            const oSum = cur[others[0]] + cur[others[1]];
+                            let a: number, b: number;
+                            if (oSum <= 0) { a = remaining / 2; b = remaining - a; }
+                            else {
+                              a = Math.round((cur[others[0]] / oSum) * remaining * 100) / 100;
+                              b = Math.round((remaining - a) * 100) / 100;
+                            }
+                            const patch: any = { [`${key}Weight`]: next, [`${others[0]}Weight`]: a, [`${others[1]}Weight`]: b };
+                            updateTier(idx, patch);
+                          };
+                          return (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                              <div className="space-y-2">
+                                <BrightLabel>Total Contribution Type</BrightLabel>
+                                <select
+                                  value={tType}
+                                  onChange={(e) => updateTier(idx, { totalContributionType: e.target.value as 'fixed' | 'percentage' })}
+                                  className="w-full h-10 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-neutral-100"
+                                >
+                                  <option value="fixed">Fixed</option>
+                                  <option value="percentage">Percentage of Wager</option>
+                                </select>
+                              </div>
+                              <div className="space-y-2">
+                                <BrightLabel>Total Contribution Amount</BrightLabel>
+                                <Input type="number" step="0.01" min={0} value={tAmt}
+                                  onChange={(e) => updateTier(idx, { totalContributionAmount: parseFloat(e.target.value) || 0 })}
+                                  className="bg-neutral-800 border-neutral-700" />
+                              </div>
+                              {(['pool', 'seed', 'house'] as const).map((k) => {
+                                const val = k === 'pool' ? tPool : k === 'seed' ? tSeed : tHouse;
+                                const label = k === 'pool' ? 'Pool' : k === 'seed' ? 'Seed' : 'House';
+                                return (
+                                  <div key={k} className="space-y-2 md:col-span-2">
+                                    <div className="flex items-center justify-between">
+                                      <BrightLabel>{label} Weight</BrightLabel>
+                                      <span className="text-xs text-emerald-400 tabular-nums">{proj(val)} / spin</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Slider value={[val]} onValueChange={(v) => setTierWeight(k, v[0])} min={0} max={100} step={1} className="flex-1" />
+                                      <Input type="number" min={0} max={100} step={0.1} value={val} onChange={(e) => setTierWeight(k, parseFloat(e.target.value) || 0)} className="w-20 bg-neutral-800 border-neutral-700" />
+                                      <span className="text-xs text-neutral-400">%</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              <div className={`md:col-span-2 text-xs ${tOk ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                Sum: {tSum.toFixed(2)}% {tOk ? '✓' : '— must equal 100 to save'}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <BrightLabel>Trigger Probability Denominator (N)</BrightLabel>
+                            <Input type="number" min={0} step={1} value={t.triggerOdds ?? 0}
+                              onChange={(e) => updateTier(idx, { triggerOdds: Math.max(0, parseInt(e.target.value) || 0) })}
+                              placeholder="0 = disabled"
+                              className="bg-neutral-800 border-neutral-700" />
+                            <p className="text-[11px] text-neutral-500">
+                              {Number(t.triggerOdds) > 0
+                                ? `1 in ${Number(t.triggerOdds).toLocaleString()} (p = ${(1 / Number(t.triggerOdds)).toExponential(3)} / spin)`
+                                : 'Empty/0 → uses curve-based hit chance.'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
+
                   ))}
                 </div>
               </Card>

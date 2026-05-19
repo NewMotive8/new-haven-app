@@ -148,6 +148,9 @@ export async function createJackpot(
   brandId: string,
   dto: Partial<JackpotDTO>,
 ): Promise<JackpotDTO> {
+  // Pack v2 fields (contributionMode, weights, triggerOdds, tiers) into JSONB
+  // alongside the existing config blob. Older records that lack these keys
+  // continue to read back as legacy defaults via getJackpotConfig().
   const triggerCondition: Record<string, any> = {
     threshold: Number(dto.triggerThreshold ?? 1000),
     ...(dto.jackpotType ? { type: dto.jackpotType } : {}),
@@ -259,7 +262,9 @@ export async function applyTopup(
 
 /**
  * Build a JackpotConfigDTO suitable for the simulator engine
- * from the persisted jackpot/pool/seed data.
+ * from the persisted jackpot/pool/seed data. Unpacks v2 fields
+ * (contributionMode, weights, triggerOdds, tiers) from trigger_condition
+ * with safe legacy defaults for older rows that pre-date Engine v2.
  */
 export async function getJackpotConfig(
   brandId: string,
@@ -267,6 +272,35 @@ export async function getJackpotConfig(
 ): Promise<JackpotConfigDTO | undefined> {
   const jp = await getJackpot(brandId, id);
   if (!jp) return undefined;
+
+  // Re-read raw row so we can unpack the JSONB blob.
+  const { data: raw } = await supabaseAdmin
+    .from("jackpots")
+    .select("trigger_condition")
+    .eq("id", id)
+    .maybeSingle();
+  const cfg =
+    raw && raw.trigger_condition && typeof raw.trigger_condition === "object"
+      ? (raw.trigger_condition as Record<string, any>)
+      : {};
+  const v2 = (cfg.engineV2 ?? {}) as Record<string, any>;
+
+  const contribution =
+    v2.contributionMode === "split"
+      ? {
+          mode: "split" as const,
+          totalContributionAmount: Number(v2.totalContributionAmount) || 0,
+          totalContributionType:
+            (v2.totalContributionType ?? "fixed") === "fixed"
+              ? ("FIXED" as const)
+              : ("PERCENTAGE" as const),
+          poolWeight: Number(v2.poolWeight) || 0,
+          seedWeight: Number(v2.seedWeight) || 0,
+          houseWeight: Number(v2.houseWeight) || 0,
+        }
+      : undefined;
+  const triggerOdds = Number(v2.triggerOdds) || 0;
+
   return {
     id: jp.id,
     name: jp.name,
@@ -287,5 +321,7 @@ export async function getJackpotConfig(
       contributionAmount: 0,
       contributionType: "PERCENTAGE",
     },
+    ...(contribution ? { contribution } : {}),
+    ...(triggerOdds > 0 ? { triggerOdds } : {}),
   };
 }

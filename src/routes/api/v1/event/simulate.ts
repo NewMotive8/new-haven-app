@@ -10,6 +10,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { errorJson, json, preflight, requireBrandId } from "@/lib/jackpot/http";
 import { getJackpot, updateJackpot } from "@/lib/jackpot/store.server";
 import { simulateEngine } from "@/lib/jackpot/simulator";
+import { mulberry32 } from "@/lib/jackpot/rng";
 import type { JackpotConfigDTO, JackpotDTO, SimulatorDTO } from "@/lib/jackpot/types";
 
 // Adapt the legacy flat JackpotDTO stored in the mock to the engine's rich config.
@@ -53,11 +54,11 @@ export const Route = createFileRoute("/api/v1/event/simulate")({
         const jp = await getJackpot(brand, Number(body.jackpotId));
         if (!jp) return errorJson(`Jackpot ${body.jackpotId} not found`, 404);
 
-        const result = simulateEngine(
-          toConfig(jp),
-          Number(body.wager) || 0,
-          Number(body.iterations) || 0,
-        );
+        const seed = Number((body as SimulatorDTO).rngSeed);
+        const rng = Number.isFinite(seed) ? mulberry32(seed) : undefined;
+        const result = rng
+          ? simulateEngine(toConfig(jp), Number(body.wager) || 0, Number(body.iterations) || 0, rng)
+          : simulateEngine(toConfig(jp), Number(body.wager) || 0, Number(body.iterations) || 0);
 
         // Persist new pool balance back to the database.
         await updateJackpot(brand, jp.id, { poolBalance: result.finalPool });
