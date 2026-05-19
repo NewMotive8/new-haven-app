@@ -183,6 +183,37 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   const [lifespanMinutes, setLifespanMinutes] = useState<number>(initial?.lifespanMinutes ?? 1440);
   const [mustDropPeriod, setMustDropPeriod] = useState<1 | 2 | 3 | 4>(initial?.mustDropPeriod ?? 2);
 
+  // --- v2: Engine v2 contribution split + fixed-odds trigger (global jackpot level)
+  const [contributionMode, setContributionMode] = useState<'legacy' | 'split'>(initial?.contributionMode ?? 'legacy');
+  const [totalContributionAmount, setTotalContributionAmount] = useState<number>(initial?.totalContributionAmount ?? 0.1);
+  const [totalContributionType, setTotalContributionType] = useState<'fixed' | 'percentage'>(initial?.totalContributionType ?? 'fixed');
+  const [poolWeight, setPoolWeight] = useState<number>(initial?.poolWeight ?? 60);
+  const [seedWeight, setSeedWeight] = useState<number>(initial?.seedWeight ?? 30);
+  const [houseWeight, setHouseWeight] = useState<number>(initial?.houseWeight ?? 10);
+  const [triggerOdds, setTriggerOdds] = useState<number>(initial?.triggerOdds ?? 0);
+  const [previewWager, setPreviewWager] = useState<number>(initial?.previewWager ?? 1.0);
+
+  // Rebalance two other weights when one is changed so the trio always sums to 100.
+  function rebalanceWeights(changed: 'pool' | 'seed' | 'house', nextRaw: number) {
+    const next = Math.max(0, Math.min(100, Number(nextRaw) || 0));
+    const others = (['pool', 'seed', 'house'] as const).filter((k) => k !== changed) as ['pool' | 'seed' | 'house', 'pool' | 'seed' | 'house'];
+    const current = { pool: poolWeight, seed: seedWeight, house: houseWeight };
+    const remaining = 100 - next;
+    const oSum = current[others[0]] + current[others[1]];
+    let a: number, b: number;
+    if (oSum <= 0) {
+      a = remaining / 2;
+      b = remaining - a;
+    } else {
+      a = Math.round((current[others[0]] / oSum) * remaining * 100) / 100;
+      b = Math.round((remaining - a) * 100) / 100;
+    }
+    const set = { pool: setPoolWeight, seed: setSeedWeight, house: setHouseWeight };
+    set[changed](next);
+    set[others[0]](a);
+    set[others[1]](b);
+  }
+
   // --- MULTI_LEVEL tiers editor state
   type TierRow = NonNullable<JackpotSavePayload['tiers']>[number];
   // Profit-optimized 3-tier baseline template (frontend defaults only — fully editable).
