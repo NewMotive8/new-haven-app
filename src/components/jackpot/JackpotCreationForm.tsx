@@ -555,6 +555,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       overlappingRule,
       triggerOdds,
       previewWager,
+      eligibility: buildEligibility(),
     };
   }
 
