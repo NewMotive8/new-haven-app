@@ -1,32 +1,57 @@
-# Fix Contribution Amount rounding (0.251 vs 0.250)
+# Fix: `contributionAmount` in saved JSON ignores Split-mode inputs
 
-## Problem
+## What you're seeing
 
-In the Contribution Weight table, each row's Amount is computed as
-`base * (weight / 100)` and displayed via `.toFixed(3)`. With weights like
-34 / 33 / 33 and base 0.25, the true amounts are 0.0850 / 0.0825 / 0.0825
-(sum 0.25), but `toFixed(3)` rounds each independently to 0.085 / 0.083 / 0.083,
-which visually adds up to 0.251.
+In the saved jackpot JSON, `pool.contributionAmount` is `3` (and seed has a
+similar stale value) even though in the form you used **Split** mode and
+entered, for example, a Fixed Contribution Amount of `0.25` with weights
+60 / 30 / 10.
 
-Each row is mathematically correct on its own — the issue is that independent
-per-row rounding doesn't preserve the total.
+## Why
+
+`src/lib/jackpot/payload-to-config.ts` maps the JSON like this today:
+
+```
+pool.contributionAmount = payload.poolPercentageValue   // legacy field
+seed.contributionAmount = payload.seedPercentageValue   // legacy field
+```
+
+`poolPercentageValue` is initialized to `3` in the form
+(`JackpotCreationForm.tsx`, line 272). When you're in **Split** mode you never
+touch that legacy slider, so it stays at its default and that default is what
+gets written to the JSON. The v2 split inputs
+(`totalContributionAmount`, `poolWeight`, `seedWeight`, `houseWeight`) are
+saved separately under `contribution.*` but are never used to derive
+`pool.contributionAmount` / `seed.contributionAmount`.
+
+Same problem on multi-level tiers: tier `pool.contributionAmount` falls back
+to the global legacy value when the tier was configured via Split.
 
 ## Fix
 
-Use largest-remainder rounding so the three displayed Amounts always sum
-exactly to the base contribution amount.
+In `src/lib/jackpot/payload-to-config.ts`, when `contributionMode === "split"`,
+derive the per-bucket amounts from the split inputs instead of the legacy
+percentage fields:
 
-Scope: presentation only — `src/components/jackpot/JackpotCreationForm.tsx`,
-the `computed` helper inside the `jackpotContributionSection` IIFE
-(around lines 496–542). Same fix applied to the per-tier split block
-(around line 4349) where the same `toFixed(3)` pattern is used.
+- `pool.contributionAmount  = totalContributionAmount * poolWeight / 100`
+- `seed.contributionAmount  = totalContributionAmount * seedWeight / 100`
+- `pool.contributionType = seed.contributionType = totalContributionType`
+  (`FIXED` or `PERCENTAGE`)
 
-Algorithm (3 decimals):
-1. For each row compute `exact = base * weight / 100`.
-2. Floor each to 3 decimals (`floor(exact * 1000) / 1000`) and track the remainder.
-3. Distribute the rounding gap (`round(base*1000) - sum(floors*1000)`) one
-   unit at a time to the rows with the largest remainders.
-4. Render each row's allocated value with `.toFixed(3)`.
+Use largest-remainder rounding (same approach already used in the form's
+Amount table) so pool + seed + house sum exactly to
+`totalContributionAmount` at the displayed precision — no 0.251-style drift.
 
-Out of scope: the underlying numeric state, save payload, weight inputs,
-warning banner, styling.
+Apply the same rule per tier: when a tier's `contributionMode === "split"`,
+derive `tier.pool.contributionAmount` / `tier.seed.contributionAmount` from
+that tier's split inputs; otherwise keep the current legacy behavior.
+
+Leave `contribution.*` (the v2 block) as-is — it's still the source of truth
+and useful for round-tripping.
+
+## Out of scope
+
+- Form UI, validation, weight inputs.
+- `buildCreateBody` / `buildTriggerCondition` shape (only the
+  `payload-to-config.ts` mapping changes).
+- Legacy mode behavior — unchanged.
