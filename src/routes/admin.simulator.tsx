@@ -287,7 +287,7 @@ function SimulatorPage() {
                   onClick={() =>
                     navigate({
                       to: "/admin/jackpots/new",
-                      state: { jackpotConfig: originalPayloadRef.current } as never,
+                      state: (prev) => ({ ...prev, jackpotConfig: originalPayloadRef.current }) as never,
                     })
                   }
                   style={{
