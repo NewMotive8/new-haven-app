@@ -9,6 +9,10 @@ import type { JackpotSavePayload } from "@/components/jackpot/JackpotCreationFor
 function num(value: unknown, fallback = 0): number {
   if (value == null) return fallback;
   if (Array.isArray(value)) return num(value[0], fallback);
+  // largest-remainder split: distribute `total` across `weights` (in %)
+  // at `decimals` precision so the parts sum exactly to total.
+  // (declared below as splitAllocation)
+
   const n = typeof value === "number" ? value : parseFloat(String(value));
   return Number.isFinite(n) ? n : fallback;
 }
