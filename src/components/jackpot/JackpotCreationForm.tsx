@@ -238,6 +238,21 @@ export type JackpotSavePayload = {
   overlappingRule?: 'split' | 'additive';
   triggerOdds?: number;
   previewWager?: number;
+  // ── Eligibility & Rules Engine — game/event targeting metadata.
+  eligibility?: {
+    vertical: 'casino' | 'sportsbook';
+    casino?: {
+      categories: string[];
+      providers: string[];
+      gameIds: string[];
+    };
+    sportsbook?: {
+      betType: 'live' | 'prematch' | 'all';
+      sportType: string;
+      leagues: string[];
+      matchIds: string[];
+    };
+  };
 };
 
 export interface JackpotCreationFormProps {
@@ -314,6 +329,62 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   const [overlappingRule, setOverlappingRule] = useState<'split' | 'additive'>(initial?.overlappingRule ?? 'split');
   const [triggerOdds, setTriggerOdds] = useState<number>(initial?.triggerOdds ?? 0);
   const [previewWager, setPreviewWager] = useState<number>(initial?.previewWager ?? 1.0);
+
+  // --- Eligibility & Rules Engine — vertical-specific targeting
+  const [eligVertical, setEligVertical] = useState<'casino' | 'sportsbook'>(
+    initial?.eligibility?.vertical ?? 'casino',
+  );
+  const [eligCategories, setEligCategories] = useState<string[]>(
+    initial?.eligibility?.casino?.categories ?? [],
+  );
+  const [eligProviders, setEligProviders] = useState<string[]>(
+    initial?.eligibility?.casino?.providers ?? [],
+  );
+  const [eligGameIds, setEligGameIds] = useState<string[]>(
+    initial?.eligibility?.casino?.gameIds ?? [],
+  );
+  const [eligGameIdDraft, setEligGameIdDraft] = useState('');
+  const [eligBetType, setEligBetType] = useState<'live' | 'prematch' | 'all'>(
+    initial?.eligibility?.sportsbook?.betType ?? 'all',
+  );
+  const [eligSportType, setEligSportType] = useState<string>(
+    initial?.eligibility?.sportsbook?.sportType ?? '',
+  );
+  const [eligLeagues, setEligLeagues] = useState<string[]>(
+    initial?.eligibility?.sportsbook?.leagues ?? [],
+  );
+  const [eligLeagueDraft, setEligLeagueDraft] = useState('');
+  const [eligMatchIdsRaw, setEligMatchIdsRaw] = useState<string>(
+    (initial?.eligibility?.sportsbook?.matchIds ?? []).join(', '),
+  );
+
+  const toggleInArray = (arr: string[], value: string): string[] =>
+    arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
+
+  function buildEligibility(): JackpotSavePayload['eligibility'] {
+    if (eligVertical === 'casino') {
+      return {
+        vertical: 'casino',
+        casino: {
+          categories: eligCategories,
+          providers: eligProviders,
+          gameIds: eligGameIds,
+        },
+      };
+    }
+    return {
+      vertical: 'sportsbook',
+      sportsbook: {
+        betType: eligBetType,
+        sportType: eligSportType,
+        leagues: eligLeagues,
+        matchIds: eligMatchIdsRaw
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      },
+    };
+  }
 
   // Update only the edited weight; cap so the trio never exceeds 100. Other two are left alone.
   function setSingleWeight(changed: 'pool' | 'seed' | 'house', nextRaw: number) {
@@ -484,6 +555,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       overlappingRule,
       triggerOdds,
       previewWager,
+      eligibility: buildEligibility(),
     };
   }
 
@@ -651,6 +723,246 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       </Card>
     </section>
   ) : null;
+
+  // ── Eligibility & Rules Engine section (casino vs sportsbook targeting) ──
+  const CASINO_CATEGORIES = ['Slots', 'Live Casino', 'Table Games', 'Crash Games'];
+  const CASINO_PROVIDERS = ['Pragmatic Play', 'Evolution', 'Hacksaw', 'NetEnt', "Play'n GO", 'Relax Gaming'];
+  const SPORT_TYPES = ['Football', 'Basketball', 'Tennis', 'Hockey', 'Baseball', 'eSports', 'MMA'];
+
+  const eligibilitySection = (
+    <section className="scroll-mt-20">
+      <h2 className="text-xl font-semibold mb-6">Eligibility &amp; Rules Engine</h2>
+      <Card className="p-6 bg-neutral-900/50 border-neutral-800 mb-6">
+        {/* Vertical toggle */}
+        <div className="inline-flex gap-2 mb-6">
+          <button
+            type="button"
+            onClick={() => setEligVertical('casino')}
+            className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
+              eligVertical === 'casino'
+                ? 'bg-blue-500 text-white'
+                : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+            }`}
+          >
+            Casino Games
+          </button>
+          <button
+            type="button"
+            onClick={() => setEligVertical('sportsbook')}
+            className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
+              eligVertical === 'sportsbook'
+                ? 'bg-blue-500 text-white'
+                : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+            }`}
+          >
+            Sportsbook
+          </button>
+        </div>
+
+        {eligVertical === 'casino' ? (
+          <div className="space-y-6">
+            {/* Game Categories */}
+            <div className="space-y-2">
+              <BrightLabel className="text-sm font-semibold text-neutral-100">Game Categories</BrightLabel>
+              <div className="flex flex-wrap gap-2">
+                {CASINO_CATEGORIES.map((cat) => {
+                  const active = eligCategories.includes(cat);
+                  return (
+                    <button
+                      type="button"
+                      key={cat}
+                      onClick={() => setEligCategories((a) => toggleInArray(a, cat))}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                        active
+                          ? 'bg-blue-500/15 border-blue-500/50 text-blue-300'
+                          : 'bg-neutral-900 border-neutral-700 text-neutral-300 hover:border-neutral-500'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-neutral-400">Empty selection targets all categories.</p>
+            </div>
+
+            {/* Providers / Game Studios */}
+            <div className="space-y-2">
+              <BrightLabel className="text-sm font-semibold text-neutral-100">
+                Providers / Game Studios
+              </BrightLabel>
+              <div className="flex flex-wrap gap-2">
+                {CASINO_PROVIDERS.map((p) => {
+                  const active = eligProviders.includes(p);
+                  return (
+                    <button
+                      type="button"
+                      key={p}
+                      onClick={() => setEligProviders((a) => toggleInArray(a, p))}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                        active
+                          ? 'bg-blue-500/15 border-blue-500/50 text-blue-300'
+                          : 'bg-neutral-900 border-neutral-700 text-neutral-300 hover:border-neutral-500'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Specific Game IDs */}
+            <div className="space-y-2">
+              <BrightLabel htmlFor="elig-gameid" className="text-sm font-semibold text-neutral-100">
+                Specific Game IDs
+              </BrightLabel>
+              <div className="flex flex-wrap items-center gap-2 min-h-[40px] p-2 rounded-md bg-neutral-900 border border-neutral-700 focus-within:ring-2 focus-within:ring-blue-500">
+                {eligGameIds.map((id) => (
+                  <span
+                    key={id}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-neutral-800 text-xs text-neutral-100"
+                  >
+                    {id}
+                    <button
+                      type="button"
+                      onClick={() => setEligGameIds((a) => a.filter((v) => v !== id))}
+                      className="text-neutral-400 hover:text-neutral-100"
+                      aria-label={`Remove ${id}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                <input
+                  id="elig-gameid"
+                  value={eligGameIdDraft}
+                  onChange={(e) => setEligGameIdDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ',') {
+                      e.preventDefault();
+                      const v = eligGameIdDraft.trim();
+                      if (v && !eligGameIds.includes(v)) setEligGameIds((a) => [...a, v]);
+                      setEligGameIdDraft('');
+                    } else if (e.key === 'Backspace' && !eligGameIdDraft && eligGameIds.length > 0) {
+                      setEligGameIds((a) => a.slice(0, -1));
+                    }
+                  }}
+                  placeholder={eligGameIds.length ? '' : 'Type a game ID and press Enter…'}
+                  className="flex-1 min-w-[160px] bg-transparent text-sm text-neutral-100 outline-none"
+                />
+              </div>
+              <p className="text-xs text-neutral-400">Leave empty to include all games in the selected categories.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Bet Type Toggle */}
+            <div className="space-y-2">
+              <BrightLabel className="text-sm font-semibold text-neutral-100">Bet Type</BrightLabel>
+              <div className="inline-flex rounded-lg border border-neutral-700 overflow-hidden">
+                {([
+                  { v: 'live', label: 'Live / In-Play Only' },
+                  { v: 'prematch', label: 'Prematch Only' },
+                  { v: 'all', label: 'All Bets' },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.v}
+                    type="button"
+                    onClick={() => setEligBetType(opt.v)}
+                    className={`px-4 py-2 text-xs font-medium transition-colors ${
+                      eligBetType === opt.v
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-neutral-900 text-neutral-300 hover:bg-neutral-800'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Sport Type */}
+            <div className="space-y-2 max-w-sm">
+              <BrightLabel htmlFor="elig-sport" className="text-sm font-semibold text-neutral-100">
+                Sport Type
+              </BrightLabel>
+              <select
+                id="elig-sport"
+                value={eligSportType}
+                onChange={(e) => setEligSportType(e.target.value)}
+                className="w-full h-10 rounded-md bg-neutral-900 border border-neutral-700 px-3 text-sm text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Sports</option>
+                {SPORT_TYPES.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* League / Tournament Tags */}
+            <div className="space-y-2">
+              <BrightLabel htmlFor="elig-league" className="text-sm font-semibold text-neutral-100">
+                League / Tournament Tags
+              </BrightLabel>
+              <div className="flex flex-wrap items-center gap-2 min-h-[40px] p-2 rounded-md bg-neutral-900 border border-neutral-700 focus-within:ring-2 focus-within:ring-blue-500">
+                {eligLeagues.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-neutral-800 text-xs text-neutral-100 tracking-wider"
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => setEligLeagues((a) => a.filter((v) => v !== tag))}
+                      className="text-neutral-400 hover:text-neutral-100"
+                      aria-label={`Remove ${tag}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                <input
+                  id="elig-league"
+                  value={eligLeagueDraft}
+                  onChange={(e) => setEligLeagueDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ',') {
+                      e.preventDefault();
+                      const v = eligLeagueDraft.trim().toUpperCase().replace(/\s+/g, '_');
+                      if (v && !eligLeagues.includes(v)) setEligLeagues((a) => [...a, v]);
+                      setEligLeagueDraft('');
+                    } else if (e.key === 'Backspace' && !eligLeagueDraft && eligLeagues.length > 0) {
+                      setEligLeagues((a) => a.slice(0, -1));
+                    }
+                  }}
+                  placeholder={eligLeagues.length ? '' : 'e.g. UEFA_CHAMPIONS_LEAGUE'}
+                  className="flex-1 min-w-[200px] bg-transparent text-sm text-neutral-100 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Specific Match IDs */}
+            <div className="space-y-2">
+              <BrightLabel htmlFor="elig-matchids" className="text-sm font-semibold text-neutral-100">
+                Specific Match IDs
+              </BrightLabel>
+              <textarea
+                id="elig-matchids"
+                value={eligMatchIdsRaw}
+                onChange={(e) => setEligMatchIdsRaw(e.target.value)}
+                rows={3}
+                placeholder="Comma-separated fixture IDs (optional). Leave empty to include all matches."
+                className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        )}
+      </Card>
+    </section>
+  );
+
+
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100">
@@ -1262,6 +1574,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
               </section>
 
               {jackpotContributionSection}
+
+              {eligibilitySection}
 
               {/* Pool Setup Section */}
               <section ref={poolSetupRef} className="scroll-mt-20">
@@ -2241,6 +2555,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
               </section>
 
               {jackpotContributionSection}
+
+              {eligibilitySection}
 
               {/* Pool Setup Section */}
               <section ref={poolSetupRef} className="scroll-mt-20">
@@ -3652,6 +3968,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
               </section>
 
               {jackpotContributionSection}
+
+              {eligibilitySection}
 
               {/* Pool Setup Section */}
               <section ref={poolSetupRef} className="scroll-mt-20">

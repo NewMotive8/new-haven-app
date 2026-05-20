@@ -101,6 +101,9 @@ export function buildTriggerCondition(p: JackpotSavePayload): Record<string, unk
       overlappingRule: p.overlappingRule ?? "split",
       triggerOdds: p.triggerOdds ?? null,
     },
+    // ── Eligibility & Rules Engine — game/event targeting metadata for the
+    //    multi-campaign router. Lives under config.eligibility.games.
+    eligibility: { games: p.eligibility ?? null },
     ...(p.type === "multi_level" && Array.isArray(p.tiers) ? { tiers: p.tiers } : {}),
   };
 }
