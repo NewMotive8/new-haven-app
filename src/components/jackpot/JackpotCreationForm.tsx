@@ -186,6 +186,18 @@ export type JackpotSavePayload = {
   segments: string[];
   isCommunity: boolean;
   communitySplit: number;
+  // Community Win Mechanics — mirrors Java Community.java
+  communityPayoutIntervalSeconds?: number;
+  communityMaxWinAmount?: number;
+  communityMaxPlayers?: number;
+  community?: {
+    enabled: boolean;
+    split: number;
+    payoutInterval: string;
+    payoutIntervalSeconds?: number;
+    maximumWinAmount: number;
+    maximumNumberOfPlayers: number;
+  };
   isTemplate: boolean;
   selectedWidget: string;
   fixedWinAmount: number;
