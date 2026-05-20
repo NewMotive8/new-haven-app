@@ -499,12 +499,31 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
             : (previewWager * totalContributionAmount) / 100;
           const sum = poolWeight + seedWeight + houseWeight;
           const sumOk = Math.abs(sum - 100) < 0.05;
-          const computed = (w: number) => (base * (w / 100)).toFixed(3);
           const rows: Array<{ label: string; k: 'pool' | 'seed' | 'house'; value: number }> = [
             { label: 'Pool', k: 'pool', value: poolWeight },
             { label: 'Seed', k: 'seed', value: seedWeight },
             { label: 'House', k: 'house', value: houseWeight },
           ];
+          // Largest-remainder rounding @ 3 decimals so the three displayed
+          // Amounts always sum exactly to `base` (no 0.249 / 0.251 drift).
+          const allocated = (() => {
+            const out = [0, 0, 0];
+            if (!sumOk || base <= 0) {
+              return rows.map((r) => base * (r.value / 100));
+            }
+            const target = Math.round(base * 1000);
+            const exacts = rows.map((r) => (base * (r.value / 100)) * 1000);
+            const floors = exacts.map((x) => Math.floor(x));
+            let gap = target - floors.reduce((a, b) => a + b, 0);
+            const order = exacts
+              .map((x, i) => ({ i, rem: x - Math.floor(x) }))
+              .sort((a, b) => b.rem - a.rem)
+              .map((o) => o.i);
+            const units = floors.slice();
+            for (let j = 0; j < order.length && gap > 0; j++, gap--) units[order[j]]++;
+            for (let i = 0; i < units.length; i++) out[i] = units[i] / 1000;
+            return out;
+          })();
           return (
             <div>
               <div className="text-sm font-semibold text-neutral-100 mb-3">Contribution Weight</div>
@@ -513,7 +532,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                 <span className="text-sm font-semibold text-neutral-100">Weight</span>
                 <span className="text-sm font-semibold text-neutral-100">Amount</span>
               </div>
-              {rows.map(({ label, k, value }) => (
+              {rows.map(({ label, k, value }, i) => (
                 <div key={k} className="grid grid-cols-[140px_200px_200px] items-center gap-6 py-3">
                   <span className="text-sm font-semibold text-neutral-100">{label}</span>
                   <div className="relative">
@@ -527,7 +546,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                   <Input
                     readOnly
                     tabIndex={-1}
-                    value={computed(value)}
+                    value={allocated[i].toFixed(3)}
                     className="h-10 bg-neutral-900 border-neutral-700 text-neutral-400 tabular-nums cursor-default"
                   />
                 </div>
@@ -4355,7 +4374,25 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                           const tSum = tPool + tSeed + tHouse;
                           const tOk = Math.abs(tSum - 100) < 0.05;
                           const totalCalc = tType === 'fixed' ? tAmt : (previewWager * tAmt) / 100;
-                          const proj = (v: number) => `€${(totalCalc * (v / 100)).toFixed(4)}`;
+                          // Largest-remainder rounding @ 4 decimals so displayed amounts sum to totalCalc.
+                          const tAlloc = (() => {
+                            const weights = [tPool, tSeed, tHouse];
+                            if (!tOk || totalCalc <= 0) return weights.map((w) => totalCalc * (w / 100));
+                            const scale = 10000;
+                            const target = Math.round(totalCalc * scale);
+                            const exacts = weights.map((w) => (totalCalc * (w / 100)) * scale);
+                            const floors = exacts.map((x) => Math.floor(x));
+                            let gap = target - floors.reduce((a, b) => a + b, 0);
+                            const order = exacts.map((x, i) => ({ i, rem: x - Math.floor(x) }))
+                              .sort((a, b) => b.rem - a.rem).map((o) => o.i);
+                            const units = floors.slice();
+                            for (let j = 0; j < order.length && gap > 0; j++, gap--) units[order[j]]++;
+                            return units.map((u) => u / scale);
+                          })();
+                          const projIdx = (k: 'pool' | 'seed' | 'house') => {
+                            const i = k === 'pool' ? 0 : k === 'seed' ? 1 : 2;
+                            return `€${tAlloc[i].toFixed(4)}`;
+                          };
                           const setTierWeight = (key: 'pool' | 'seed' | 'house', val: number) => {
                             const others = (['pool', 'seed', 'house'] as const).filter((k) => k !== key);
                             const cur = { pool: tPool, seed: tSeed, house: tHouse };
@@ -4393,7 +4430,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                     <div key={k} className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-2.5 space-y-1.5">
                                       <div className="flex items-baseline justify-between">
                                         <BrightLabel className="text-xs">{label}</BrightLabel>
-                                        <span className="text-[10px] text-emerald-400 tabular-nums">{proj(val)}</span>
+                                        <span className="text-[10px] text-emerald-400 tabular-nums">{projIdx(k)}</span>
                                       </div>
                                       <div className="flex items-center gap-1">
                                         <WeightDraftInput
