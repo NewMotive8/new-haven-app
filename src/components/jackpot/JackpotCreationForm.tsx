@@ -439,19 +439,18 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
           const sum = poolWeight + seedWeight + houseWeight;
           const sumOk = Math.abs(sum - 100) < 0.05;
           const computed = (w: number) => (base * (w / 100)).toFixed(3);
-          const Row = ({ label, k, value }: { label: string; k: 'pool' | 'seed' | 'house'; value: number }) => (
-            <div className="grid grid-cols-[140px_200px_200px] items-center gap-6 py-3">
-              <span className="text-sm font-semibold text-neutral-100">{label}</span>
-              <div className="relative">
-                <Input type="number" min={0} max={100} step={1} value={value}
-                  onChange={(e) => rebalanceWeights(k, parseFloat(e.target.value) || 0)}
-                  className="h-10 bg-neutral-900 border-neutral-700 pr-8 tabular-nums" />
-                <span className="absolute inset-y-0 right-3 flex items-center text-sm text-neutral-400 pointer-events-none">%</span>
-              </div>
-              <Input readOnly tabIndex={-1} value={computed(value)}
-                className="h-10 bg-neutral-900 border-neutral-700 text-neutral-400 tabular-nums cursor-default" />
-            </div>
-          );
+          const handleChange = (k: 'pool' | 'seed' | 'house') => (e: React.ChangeEvent<HTMLInputElement>) => {
+            const raw = e.target.value;
+            if (raw === '') { setSingleWeight(k, 0); return; }
+            const n = parseFloat(raw);
+            if (Number.isNaN(n)) return;
+            setSingleWeight(k, n);
+          };
+          const rows: Array<{ label: string; k: 'pool' | 'seed' | 'house'; value: number }> = [
+            { label: 'Pool', k: 'pool', value: poolWeight },
+            { label: 'Seed', k: 'seed', value: seedWeight },
+            { label: 'House', k: 'house', value: houseWeight },
+          ];
           return (
             <div>
               <div className="text-sm font-semibold text-neutral-100 mb-3">Contribution Weight</div>
@@ -460,9 +459,29 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                 <span className="text-sm font-semibold text-neutral-100">Weight</span>
                 <span className="text-sm font-semibold text-neutral-100">Amount</span>
               </div>
-              <Row label="Pool" k="pool" value={poolWeight} />
-              <Row label="Seed" k="seed" value={seedWeight} />
-              <Row label="House" k="house" value={houseWeight} />
+              {rows.map(({ label, k, value }) => (
+                <div key={k} className="grid grid-cols-[140px_200px_200px] items-center gap-6 py-3">
+                  <span className="text-sm font-semibold text-neutral-100">{label}</span>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={value}
+                      onChange={handleChange(k)}
+                      className="h-10 bg-neutral-900 border-neutral-700 pr-8 tabular-nums"
+                    />
+                    <span className="absolute inset-y-0 right-3 flex items-center text-sm text-neutral-400 pointer-events-none">%</span>
+                  </div>
+                  <Input
+                    readOnly
+                    tabIndex={-1}
+                    value={computed(value)}
+                    className="h-10 bg-neutral-900 border-neutral-700 text-neutral-400 tabular-nums cursor-default"
+                  />
+                </div>
+              ))}
               {!sumOk && (
                 <div className="mt-2 text-xs text-amber-400">
                   Sum: {sum.toFixed(2)}% — must equal 100 to save
