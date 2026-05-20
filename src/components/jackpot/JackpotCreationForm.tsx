@@ -449,7 +449,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
           const sumOk = Math.abs(sum - 100) < 0.05;
           const computed = (w: number) => (base * (w / 100)).toFixed(3);
           const Row = ({ label, k, value }: { label: string; k: 'pool' | 'seed' | 'house'; value: number }) => (
-            <div className="grid grid-cols-[1fr_minmax(0,260px)_minmax(0,260px)] items-center gap-6 py-3">
+            <div className="grid grid-cols-[140px_200px_200px] items-center gap-6 py-3">
               <span className="text-sm font-semibold text-neutral-100">{label}</span>
               <div className="relative">
                 <Input type="number" min={0} max={100} step={1} value={value}
@@ -464,7 +464,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
           return (
             <div>
               <div className="text-sm font-semibold text-neutral-100 mb-3">Contribution Weight</div>
-              <div className="grid grid-cols-[1fr_minmax(0,260px)_minmax(0,260px)] gap-6 pb-3 border-b border-neutral-800">
+              <div className="grid grid-cols-[140px_200px_200px] gap-6 pb-3 border-b border-neutral-800">
                 <span />
                 <span className="text-sm font-semibold text-neutral-100">Weight</span>
                 <span className="text-sm font-semibold text-neutral-100">Amount</span>
