@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { applyCommunityPayout, type CommunityPayoutBreakdown } from "@/lib/jackpot/ledger";
 
 export const Route = createFileRoute("/sandbox-demo")({
   component: SandboxDemoPage,
@@ -84,6 +85,7 @@ function SandboxDemoPage() {
     cumHouse: number;
   }>({ spins: 0, totalWager: 0, cumPool: 0, cumSeed: 0, cumHouse: 0 });
   const [celebrating, setCelebrating] = useState(false);
+  const [lastCommunity, setLastCommunity] = useState<CommunityPayoutBreakdown | null>(null);
   const [spinning, setSpinning] = useState(false);
   const widgetHostRef = useRef<HTMLDivElement | null>(null);
 
