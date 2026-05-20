@@ -500,7 +500,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
     navigate({
       to: '/admin/simulator',
-      state: { jackpotConfig: payload } as never,
+      state: (prev) => ({ ...prev, jackpotConfig: payload }) as never,
     });
   }
 
