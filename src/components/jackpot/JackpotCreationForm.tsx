@@ -238,6 +238,21 @@ export type JackpotSavePayload = {
   overlappingRule?: 'split' | 'additive';
   triggerOdds?: number;
   previewWager?: number;
+  // ── Eligibility & Rules Engine — game/event targeting metadata.
+  eligibility?: {
+    vertical: 'casino' | 'sportsbook';
+    casino?: {
+      categories: string[];
+      providers: string[];
+      gameIds: string[];
+    };
+    sportsbook?: {
+      betType: 'live' | 'prematch' | 'all';
+      sportType: string;
+      leagues: string[];
+      matchIds: string[];
+    };
+  };
 };
 
 export interface JackpotCreationFormProps {
