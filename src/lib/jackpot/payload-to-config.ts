@@ -9,9 +9,29 @@ import type { JackpotSavePayload } from "@/components/jackpot/JackpotCreationFor
 function num(value: unknown, fallback = 0): number {
   if (value == null) return fallback;
   if (Array.isArray(value)) return num(value[0], fallback);
-  // largest-remainder split: distribute `total` across `weights` (in %)
-  // at `decimals` precision so the parts sum exactly to total.
-  // (declared below as splitAllocation)
+  const n = typeof value === "number" ? value : parseFloat(String(value));
+  return Number.isFinite(n) ? n : fallback;
+}
+
+/**
+ * Largest-remainder split: distribute `total` across `weights` (percentages
+ * 0..100) at `decimals` precision so the returned parts sum *exactly* to
+ * `total` at that precision — no 0.251-style rounding drift.
+ */
+function splitAllocation(total: number, weights: number[], decimals = 4): number[] {
+  const scale = Math.pow(10, decimals);
+  const totalUnits = Math.round(total * scale);
+  const exact = weights.map((w) => (total * (Number(w) || 0)) / 100 * scale);
+  const floors = exact.map((x) => Math.floor(x));
+  let gap = totalUnits - floors.reduce((s, v) => s + v, 0);
+  const remainders = exact
+    .map((x, i) => ({ i, r: x - Math.floor(x) }))
+    .sort((a, b) => b.r - a.r);
+  const out = floors.slice();
+  for (let k = 0; gap > 0 && k < remainders.length; k++, gap--) out[remainders[k].i] += 1;
+  return out.map((u) => u / scale);
+}
+
 
   const n = typeof value === "number" ? value : parseFloat(String(value));
   return Number.isFinite(n) ? n : fallback;
