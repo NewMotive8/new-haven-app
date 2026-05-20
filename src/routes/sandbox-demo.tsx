@@ -366,12 +366,26 @@ function SandboxDemoPage() {
             </div>
           </div>
 
+          <div className="flex flex-col gap-1">
+            <label className="text-xs uppercase tracking-wider text-slate-400">
+              Wager Amount (EUR)
+            </label>
+            <input
+              type="number"
+              min={0.01}
+              step={0.5}
+              value={wager}
+              onChange={(e) => setWager(parseFloat(e.target.value) || 0)}
+              className="bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm font-mono"
+            />
+          </div>
+
           <button
             onClick={handleSpin}
             disabled={!active || spinning}
             className="w-full py-4 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-700 disabled:cursor-not-allowed text-slate-950 font-bold text-lg transition"
           >
-            {spinning ? "Spinning…" : "Trigger Game Spin (€1.00)"}
+            {spinning ? "Spinning…" : `Trigger Game Spin (${fmt(wager)})`}
           </button>
 
           <label className="flex items-center justify-between bg-slate-950/40 border border-slate-800 rounded px-3 py-2 cursor-pointer">
