@@ -89,6 +89,7 @@ function SimulatorPage() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [result, setResult] = React.useState<SimulatorResponseDTO | null>(null);
+  const [activeConfig, setActiveConfig] = React.useState<JackpotConfigDTO | null>(null);
   const [saving, setSaving] = React.useState(false);
 
   async function handleSave() {
