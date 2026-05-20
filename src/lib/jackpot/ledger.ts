@@ -29,6 +29,10 @@ export interface BetLedger {
   entries: BetLedgerEntry[];
 }
 
+function isFixed(type: string | undefined): boolean {
+  return String(type ?? "").toUpperCase() === "FIXED";
+}
+
 /** Pure, side-effect-free split resolver. Mirrors simulator.resolveContribution. */
 export function resolveContributionSlice(
   contribution: ContributionSplitDTO | undefined,
@@ -37,18 +41,15 @@ export function resolveContributionSlice(
   wager: number,
 ): ContributionSlice {
   if (contribution && contribution.mode === "split") {
-    const type = contribution.totalContributionType ?? "FIXED";
     const total = Number(contribution.totalContributionAmount) || 0;
-    const totalForCalc = type === "FIXED" ? total : wager * (total / 100);
+    const totalForCalc = isFixed(contribution.totalContributionType) ? total : wager * (total / 100);
     const pw = Math.max(0, Number(contribution.poolWeight) || 0) / 100;
     const sw = Math.max(0, Number(contribution.seedWeight) || 0) / 100;
     const hw = Math.max(0, Number(contribution.houseWeight) || 0) / 100;
     return { pool: totalForCalc * pw, seed: totalForCalc * sw, house: totalForCalc * hw };
   }
-  const pool =
-    fallbackPool.type === "FIXED" ? fallbackPool.amount : wager * (fallbackPool.amount / 100);
-  const seed =
-    fallbackSeed.type === "FIXED" ? fallbackSeed.amount : wager * (fallbackSeed.amount / 100);
+  const pool = isFixed(fallbackPool.type) ? fallbackPool.amount : wager * (fallbackPool.amount / 100);
+  const seed = isFixed(fallbackSeed.type) ? fallbackSeed.amount : wager * (fallbackSeed.amount / 100);
   return { pool, seed, house: 0 };
 }
 
