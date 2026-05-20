@@ -4247,6 +4247,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
               {jackpotContributionSection}
 
               {eligibilitySection}
+              {playerTargetingSection}
 
               {/* Pool Setup Section */}
               <section ref={poolSetupRef} className="scroll-mt-20">
