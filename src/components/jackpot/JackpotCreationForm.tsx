@@ -4374,7 +4374,25 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                           const tSum = tPool + tSeed + tHouse;
                           const tOk = Math.abs(tSum - 100) < 0.05;
                           const totalCalc = tType === 'fixed' ? tAmt : (previewWager * tAmt) / 100;
-                          const proj = (v: number) => `€${(totalCalc * (v / 100)).toFixed(4)}`;
+                          // Largest-remainder rounding @ 4 decimals so displayed amounts sum to totalCalc.
+                          const tAlloc = (() => {
+                            const weights = [tPool, tSeed, tHouse];
+                            if (!tOk || totalCalc <= 0) return weights.map((w) => totalCalc * (w / 100));
+                            const scale = 10000;
+                            const target = Math.round(totalCalc * scale);
+                            const exacts = weights.map((w) => (totalCalc * (w / 100)) * scale);
+                            const floors = exacts.map((x) => Math.floor(x));
+                            let gap = target - floors.reduce((a, b) => a + b, 0);
+                            const order = exacts.map((x, i) => ({ i, rem: x - Math.floor(x) }))
+                              .sort((a, b) => b.rem - a.rem).map((o) => o.i);
+                            const units = floors.slice();
+                            for (let j = 0; j < order.length && gap > 0; j++, gap--) units[order[j]]++;
+                            return units.map((u) => u / scale);
+                          })();
+                          const projIdx = (k: 'pool' | 'seed' | 'house') => {
+                            const i = k === 'pool' ? 0 : k === 'seed' ? 1 : 2;
+                            return `€${tAlloc[i].toFixed(4)}`;
+                          };
                           const setTierWeight = (key: 'pool' | 'seed' | 'house', val: number) => {
                             const others = (['pool', 'seed', 'house'] as const).filter((k) => k !== key);
                             const cur = { pool: tPool, seed: tSeed, house: tHouse };
