@@ -1,36 +1,19 @@
-# Fix: Sandbox demo can't find any jackpot
+# Fix: Sandbox demo needs a default brand id
 
-## What's broken
+## What's happening
 
-The `/sandbox-demo` page polls `/api/v1/jackpots` every 2 seconds but every request comes back `400 Missing required 'brandId' header`. As a result the active jackpot stays `null` and the widget shows "Awaiting jackpot…" forever.
+You don't have a brand id to type in because the project never asked you for one — the admin app uses a hardcoded mock brand (`brandId: 1`, defined in `src/backoffice/app.tsx`). Every jackpot you create from `/admin/jackpots/new` is saved under that brand. The `/sandbox-demo` page, however, starts with an empty brand input and just sits there waiting.
 
-## Root cause
+## Fix
 
-Header name mismatch:
+In `src/routes/sandbox-demo.tsx`, default the brand id to `"1"` so the demo works out of the box, matching the rest of the admin:
 
-- `src/routes/sandbox-demo.tsx` sends `x-brand-id` (the convention used elsewhere in the app).
-- `src/lib/jackpot/http.ts` `requireBrandId()` only reads `brandId` / `brandid`.
+- When `localStorage` has no stored value, initialize `brandId` to `"1"` instead of `""`.
+- Keep the text input so it can still be overridden later if multi-brand support is added.
+- Add a small inline hint under the input: "Defaults to the admin mock brand (1)."
 
-The rest of the v1 jackpot API (`/api/v1/jackpots`, `/$id`, `/enable.$id`, `/disable.$id`, `/topup`, `/event/bet`, `/event/simulate-bet`) all funnel through `requireBrandId`, so the same demo page will also fail on Spin / Force Win.
+That's the only change. The header-name fix from the last turn is already in place, so once a brand id is present, polling will succeed and your jackpot will appear within ~2s.
 
-## Fix (one small change)
+## Files touched
 
-Update `requireBrandId` in `src/lib/jackpot/http.ts` to also accept `x-brand-id`:
-
-```ts
-const brandId =
-  request.headers.get("x-brand-id") ??
-  request.headers.get("brandId") ??
-  request.headers.get("brandid");
-```
-
-Also add `x-brand-id` to the `Access-Control-Allow-Headers` list in `CORS_HEADERS` so browsers don't strip it on preflight.
-
-No client-side changes needed — the demo page already stores the brand id in `localStorage` and forwards it as `x-brand-id`, matching the rest of the app.
-
-## Verification
-
-1. On `/sandbox-demo`, enter the same brand id used when creating the jackpot.
-2. Within ~2s the widget header should show the live pool amount and the panel should show the active jackpot's name/id.
-3. Clicking "Trigger Game Spin" should return a 200 and populate the Ledger Split row.
-4. Toggling "Force Jackpot Win" and spinning should trigger the celebration state with the confetti burst.
+- `src/routes/sandbox-demo.tsx` — default `brandId` state to `"1"`, add hint text.
