@@ -2556,6 +2556,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
               {jackpotContributionSection}
 
+              {eligibilitySection}
+
               {/* Pool Setup Section */}
               <section ref={poolSetupRef} className="scroll-mt-20">
                 <h2 className="text-base font-semibold mb-4">Pool</h2>
