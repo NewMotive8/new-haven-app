@@ -4430,7 +4430,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                     <div key={k} className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-2.5 space-y-1.5">
                                       <div className="flex items-baseline justify-between">
                                         <BrightLabel className="text-xs">{label}</BrightLabel>
-                                        <span className="text-[10px] text-emerald-400 tabular-nums">{proj(val)}</span>
+                                        <span className="text-[10px] text-emerald-400 tabular-nums">{projIdx(k)}</span>
                                       </div>
                                       <div className="flex items-center gap-1">
                                         <WeightDraftInput
