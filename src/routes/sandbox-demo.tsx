@@ -106,6 +106,16 @@ function SandboxDemoPage() {
         if (first) {
           setActive(first);
           setPoolDisplay(first.poolBalance);
+          setTracker((t) =>
+            t ?? {
+              startPool: first.poolBalance,
+              spins: 0,
+              totalWager: 0,
+              cumPool: 0,
+              cumSeed: 0,
+              cumHouse: 0,
+            },
+          );
         }
         setError(null);
       } catch (e) {
