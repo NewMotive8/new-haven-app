@@ -238,6 +238,24 @@ function SandboxDemoPage() {
         setPoolDisplays((d) => ({ ...d, [activePool.id]: (d[activePool.id] ?? 0) + poolAdd }));
         bumpTracker(w, poolAdd, seedAdd, houseAdd);
         await persistPoolGrowth(activePool.id, poolAdd);
+
+        // ── Community Win Mechanics — compute split when configured ──────────
+        const cfg = (activePool.config ?? {}) as Record<string, unknown>;
+        const community = cfg.community as
+          | { enabled?: boolean; split?: number; maximumWinAmount?: number; maximumNumberOfPlayers?: number }
+          | null
+          | undefined;
+        if (community && community.enabled && (community.split ?? 0) > 0) {
+          const winAmount = poolDisplays[activePool.id] ?? activePool.poolBalance;
+          const breakdown = applyCommunityPayout(winAmount, {
+            split: Number(community.split) || 0,
+            maximumWinAmount: Number(community.maximumWinAmount) || 0,
+            maximumNumberOfPlayers: Number(community.maximumNumberOfPlayers) || 1,
+          });
+          setLastCommunity(breakdown);
+        } else {
+          setLastCommunity(null);
+        }
         triggerCelebration();
       } else {
         // Multi-pool router: POST { wager } only, no jackpotId.
