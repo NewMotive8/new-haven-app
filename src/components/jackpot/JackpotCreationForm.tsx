@@ -4347,7 +4347,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                       </div>
                                       <div className="flex items-center gap-1">
                                         <Input type="number" min={0} max={100} step={0.1} value={val}
-                                          onChange={(e) => setTierWeight(k, parseFloat(e.target.value) || 0)}
+                                          onChange={(e) => { const r = e.target.value; if (r === '') { setTierWeight(k, 0); return; } const n = parseFloat(r); if (!Number.isNaN(n)) setTierWeight(k, n); }}
                                           className="h-8 bg-neutral-800 border-neutral-700 text-right tabular-nums text-xs" />
                                         <span className="text-[10px] text-neutral-400">%</span>
                                       </div>
