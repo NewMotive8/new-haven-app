@@ -1,36 +1,34 @@
 # Community Payout / Shared Win — End-to-End
 
-Wire a Community Win Mechanics block in the creator form, persist it through the master payload + sessionStorage, apply community-split math when a win drops, and surface the split in the sandbox win UI.
+Reuse the existing Community panel UI (toggle → Community Split slider with Winner/Community labels → Payout Interval segmented options → Maximum Win Amount → Maximum Number Of Players) as-is. Lift it out of the Widget Configuration panel into a dedicated "Community Win Mechanics" section directly below the asset eligibility panel, then wire persistence, the ledger split math, and the sandbox win UI on top of it.
 
-## 1. Creator Form — new "Community Win Mechanics" section
+## 1. Creator Form — relocate the existing Community panel
 
-In `src/components/jackpot/JackpotCreationForm.tsx`, add a new `communityWinSection` rendered immediately below the asset eligibility panel (i.e. directly after `{eligibilitySection}` and before `{overlappingSection}` in all three render paths: classic, must-drop, frequency).
+In `src/components/jackpot/JackpotCreationForm.tsx`:
 
-Controls inside the section:
-- Toggle: **Enable Community Payout Split** (reuses existing `isCommunity` state).
-- Conditionally revealed when ON:
-  - **Community Split Percentage** — slider 1–100, bound to existing `communitySplit` state (maps to schema `split`).
-  - **Activity Lookback Window (Seconds)** — number input, new state `communityLookbackSeconds` (maps to `payoutInterval`).
-  - **Maximum Payout Cap Per Member** — currency number, new state `communityMaxWinAmount` (maps to `maximumWinAmount`).
-  - **Maximum Qualified Players** — number, new state `communityMaxPlayers` (maps to `maximumNumberOfPlayers`).
+- Extract the existing Community block (currently nested inside Widget Configuration around lines ~2480–2620 for classic / ~3650–3790 for must-drop) into a shared `communityWinSection` JSX const, keeping all current controls, classes, and state bindings (`isCommunity`, `communitySplit`, `payoutInterval`, plus the existing Maximum Win Amount and Maximum Number Of Players inputs).
+- Render `{communityWinSection}` immediately after `{eligibilitySection}` and before `{overlappingSection}` in all three render paths (classic, must-drop, frequency).
+- Remove the now-duplicated copies from inside the Widget Configuration panels so it appears in exactly one place.
+- Header label for the new section wrapper: "Community Win Mechanics" (uses the same panel chrome as the neighbouring eligibility/overlapping sections).
 
-Note: the existing duplicate community fields buried inside the Widget Configuration panel (around lines 2480–2620 and 3650–3790) are removed so this new section is the single source of truth.
+No new UI controls are introduced; the existing Community panel from the screenshot is the canonical UI.
 
 ## 2. Payload + sessionStorage
 
-Extend `JackpotSavePayload` with a `community` block and serialize it in the save handler:
+Extend `JackpotSavePayload` with an explicit `community` block sourced from the existing state:
 
 ```ts
 community: {
-  enabled: boolean;
-  split: number;                  // %
-  payoutInterval: number;         // seconds
-  maximumWinAmount: number;       // per-member cap
-  maximumNumberOfPlayers: number; // dilution cap
+  enabled: boolean;              // isCommunity
+  split: number;                 // communitySplit[0]
+  payoutInterval: string;        // existing value (logged_in | contributed_once | contributed_within_time)
+  payoutIntervalSeconds?: number;// existing time-window input when payoutInterval === 'contributed_within_time'
+  maximumWinAmount: number;      // existing Maximum Win Amount input
+  maximumNumberOfPlayers: number;// existing Maximum Number Of Players input
 }
 ```
 
-In `src/lib/jackpot/build-create-body.ts`, attach the block under `config.community` inside `buildTriggerCondition`. Rehydrate the same fields from `sessionStorage` (`jackpot:pendingPayload`) alongside the ledger / weight / eligibility blocks already persisted.
+In `src/lib/jackpot/build-create-body.ts`, attach this block as `config.community` inside `buildTriggerCondition`. Rehydrate the same fields from `sessionStorage` (`jackpot:pendingPayload`) alongside the ledger / weight / eligibility blocks already persisted.
 
 ## 3. Engine — community distribution on win
 
@@ -43,7 +41,7 @@ export interface CommunityPayoutBreakdown {
   communityPool: number;
   communitySize: number;
   communityMemberPayOut: number;
-  cappedDelta: number; // sum clipped by per-member cap
+  cappedDelta: number;
 }
 
 export function applyCommunityPayout(
@@ -58,37 +56,31 @@ Math:
 - `triggeringPayout = winAmount - communityPool`
 - `communitySize = max(1, floor(rng() * maximumNumberOfPlayers) + 1)`
 - `rawShare = communityPool / communitySize`
-- If `rawShare > maximumWinAmount`: `communityMemberPayOut = maximumWinAmount`, `cappedDelta = (rawShare - maximumWinAmount) * communitySize` (logged, returned to house).
+- If `maximumWinAmount > 0` and `rawShare > maximumWinAmount`: cap `communityMemberPayOut = maximumWinAmount`, `cappedDelta = (rawShare - maximumWinAmount) * communitySize`.
 
-Hook this helper into the win path used by the sandbox/forced-drop flow (the `forceWin` branch in `src/routes/sandbox-demo.tsx` and any shared win-evaluation step in the simulator's per-iteration win record) so the resulting ledger entry carries:
-- `isCommunity: true`
-- `communitySize`
-- `communityMemberPayOut`
-- `triggeringPayout`
-
-Non-community wins are untouched.
+Hook this helper into the win path used by the sandbox/forced-drop flow (the `forceWin` branch in `src/routes/sandbox-demo.tsx`) so the resulting ledger entry carries `isCommunity`, `communitySize`, `communityMemberPayOut`, `triggeringPayout`. Non-community wins are untouched.
 
 ## 4. Win schema alignment
 
-The ledger entry/`WinEventDTO` returned by the engine and the response shape from `/simulate-bet` (force-win) gain optional fields mirroring `Win.java`: `isCommunity`, `communitySize`, `communityMemberPayOut`. Existing consumers ignore them when absent.
+`WinEventDTO` (and the response from `/simulate-bet` force-win path) gain optional fields mirroring `Win.java`: `isCommunity`, `communitySize`, `communityMemberPayOut`. Existing consumers ignore them when absent.
 
 ## 5. Sandbox win UI
 
-In `src/routes/sandbox-demo.tsx`, inside the celebration overlay (around `jooba-celebration`), when the most recent win carries `isCommunity`, render:
+In `src/routes/sandbox-demo.tsx`, inside the celebration overlay (around `jooba-celebration`), when the latest win carries `isCommunity`, render:
 - Badge: `COMMUNITY PAYOUT TRIGGERED`
 - Lines:
   - `Triggering Winner Payout: €X.XX`
   - `Community Split: €Y.YY distributed among Z active community players (€W.WW each)`
 
-Use existing token classes for styling; no new design system tokens.
+Uses existing token classes; no new design tokens.
 
 ## Technical details
 
 - Files touched:
-  - `src/components/jackpot/JackpotCreationForm.tsx` — new section, new state, remove duplicate Widget-Config community fields, extend save payload.
+  - `src/components/jackpot/JackpotCreationForm.tsx` — extract & relocate the existing Community panel, extend save payload.
   - `src/lib/jackpot/build-create-body.ts` — surface `config.community`.
-  - `src/lib/jackpot/types.ts` — add `CommunityConfigDTO` + optional fields on `WinEventDTO`.
+  - `src/lib/jackpot/types.ts` — `CommunityConfigDTO` + optional fields on `WinEventDTO`.
   - `src/lib/jackpot/ledger.ts` — `applyCommunityPayout` helper.
   - `src/routes/sandbox-demo.tsx` — wire forced-win community branch + celebration UI.
-- No DB migration: this lives entirely in the JSONB `config` blob already persisted on `jackpots.trigger_condition`.
+- No DB migration: data lives in the JSONB `config` blob on `jackpots.trigger_condition`.
 - No new dependencies.
