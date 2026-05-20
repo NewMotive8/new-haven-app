@@ -13,6 +13,27 @@ function num(value: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+/**
+ * Largest-remainder split: distribute `total` across `weights` (percentages
+ * 0..100) at `decimals` precision so the returned parts sum *exactly* to
+ * `total` at that precision — no 0.251-style rounding drift.
+ */
+function splitAllocation(total: number, weights: number[], decimals = 4): number[] {
+  const scale = Math.pow(10, decimals);
+  const totalUnits = Math.round(total * scale);
+  const exact = weights.map((w) => (total * (Number(w) || 0)) / 100 * scale);
+  const floors = exact.map((x) => Math.floor(x));
+  let gap = totalUnits - floors.reduce((s, v) => s + v, 0);
+  const remainders = exact
+    .map((x, i) => ({ i, r: x - Math.floor(x) }))
+    .sort((a, b) => b.r - a.r);
+  const out = floors.slice();
+  for (let k = 0; gap > 0 && k < remainders.length; k++, gap--) out[remainders[k].i] += 1;
+  return out.map((u) => u / scale);
+}
+
+
+
 function mapStructural(formType: unknown): JackpotStructuralType {
   const t = String(formType ?? "").toLowerCase();
   if (t === "multi_level" || t === "multilevel" || t === "multi-level") return "MULTI_LEVEL";
@@ -30,12 +51,30 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
     payload.payoutModel === "maximum" ? "MAXIMUM" : "AVERAGE";
   const structuralType = mapStructural(payload.type);
 
-  const poolContributionType =
-    payload.contributionType === "fixed" ? "FIXED" : "PERCENTAGE";
-  const poolContributionAmount = num(payload.poolPercentageValue, 0);
-  const seedContributionType =
-    payload.seedContributionType === "fixed" ? "FIXED" : "PERCENTAGE";
-  const seedContributionAmount = num(payload.seedPercentageValue, 0);
+  // ── v2 jackpot-level split overrides legacy per-bucket amounts/types ──
+  const jSplit = payload.contributionMode === "split";
+  const jTotalType =
+    (payload.totalContributionType ?? "fixed") === "fixed" ? "FIXED" : "PERCENTAGE";
+  const [jPoolAmt, jSeedAmt] = jSplit
+    ? splitAllocation(num(payload.totalContributionAmount, 0), [
+        num(payload.poolWeight, 60),
+        num(payload.seedWeight, 30),
+        num(payload.houseWeight, 10),
+      ])
+    : [NaN, NaN];
+
+  const poolContributionType = jSplit
+    ? jTotalType
+    : payload.contributionType === "fixed"
+      ? "FIXED"
+      : "PERCENTAGE";
+  const poolContributionAmount = jSplit ? jPoolAmt : num(payload.poolPercentageValue, 0);
+  const seedContributionType = jSplit
+    ? jTotalType
+    : payload.seedContributionType === "fixed"
+      ? "FIXED"
+      : "PERCENTAGE";
+  const seedContributionAmount = jSplit ? jSeedAmt : num(payload.seedPercentageValue, 0);
 
   const reseed = num(payload.reseedingAmount, 0);
   const minWin = num(payload.minWinAmount, 0);
@@ -66,6 +105,8 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
     contributionType: seedContributionType,
     operatorShare: seedOperatorShare,
   } as const;
+
+
 
   // ── MULTI_LEVEL — build tier array (fall back to even-weighted single tier).
   let tiers: TierDTO[] | undefined;
@@ -159,11 +200,27 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
               houseWeight: num(src.houseWeight, 10),
             }
           : undefined;
+      // When the tier uses Split mode, override its pool/seed contribution
+      // amount + type from the split inputs (largest-remainder rounding so
+      // pool+seed+house sum exactly to the tier total).
+      let pool = t.pool;
+      let seed = t.seed;
+      if (tSplit) {
+        const [pAmt, sAmt] = splitAllocation(
+          tSplit.totalContributionAmount,
+          [tSplit.poolWeight, tSplit.seedWeight, tSplit.houseWeight],
+        );
+        pool = { ...pool, contributionAmount: pAmt, contributionType: tSplit.totalContributionType };
+        seed = { ...seed, contributionAmount: sAmt, contributionType: tSplit.totalContributionType };
+      }
       return {
         ...t,
+        pool,
+        seed,
         ...(tSplit ? { contribution: tSplit } : {}),
         ...(num(src.triggerOdds, 0) > 0 ? { triggerOdds: num(src.triggerOdds, 0) } : {}),
       };
+
     });
   }
 
