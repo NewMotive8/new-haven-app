@@ -1099,7 +1099,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
               {/* Pool Setup Section */}
               <section ref={poolSetupRef} className="scroll-mt-20">
-                <h2 className="text-xl font-semibold mb-6">Pool Setup</h2>
+                <h2 className="text-base font-semibold mb-4">Pool</h2>
                 
                 <div className="grid gap-6">
                   <Card className="p-6 bg-neutral-900/50 border-neutral-800">
@@ -1356,7 +1356,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
               {/* Seed Setup Section */}
               <section ref={seedSetupRef} className="scroll-mt-20">
-                <h2 className="text-xl font-semibold mb-6">Seed Setup</h2>
+                <h2 className="text-base font-semibold mb-4">Seed</h2>
                 
                 <div className="grid gap-6">
                   <Card className="p-6 bg-neutral-900/50 border-neutral-800">
@@ -2119,7 +2119,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
               {/* Pool Setup Section */}
               <section ref={poolSetupRef} className="scroll-mt-20">
-                <h2 className="text-xl font-semibold mb-6">Pool Setup</h2>
+                <h2 className="text-base font-semibold mb-4">Pool</h2>
 
                 <div className="grid gap-6">
                   <Card className="p-6 bg-neutral-900/50 border-neutral-800">
@@ -2376,7 +2376,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
               {/* Seed Setup Section */}
               <section ref={seedSetupRef} className="scroll-mt-20">
-                <h2 className="text-xl font-semibold mb-6">Seed Setup</h2>
+                <h2 className="text-base font-semibold mb-4">Seed</h2>
 
                 <div className="grid gap-6">
                   <Card className="p-6 bg-neutral-900/50 border-neutral-800">
@@ -3571,7 +3571,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
               {/* Pool Setup Section */}
               <section ref={poolSetupRef} className="scroll-mt-20">
-                <h2 className="text-xl font-semibold mb-6">Pool Setup</h2>
+                <h2 className="text-base font-semibold mb-4">Pool</h2>
 
                 <div className="grid gap-6">
                   <Card className="p-6 bg-neutral-900/50 border-neutral-800">
@@ -3828,7 +3828,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
               {/* Seed Setup Section */}
               <section ref={seedSetupRef} className="scroll-mt-20">
-                <h2 className="text-xl font-semibold mb-6">Seed Setup</h2>
+                <h2 className="text-base font-semibold mb-4">Seed</h2>
 
                 <div className="grid gap-6">
                   <Card className="p-6 bg-neutral-900/50 border-neutral-800">
