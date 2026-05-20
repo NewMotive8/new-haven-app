@@ -57,6 +57,7 @@ function SandboxDemoPage() {
   const [error, setError] = useState<string | null>(null);
   const [optedIn, setOptedIn] = useState(true);
   const [forceWin, setForceWin] = useState(false);
+  const [wager, setWager] = useState<number>(1);
   const [lastSplit, setLastSplit] = useState<LedgerSplit | null>(null);
   const [celebrating, setCelebrating] = useState(false);
   const [spinning, setSpinning] = useState(false);
