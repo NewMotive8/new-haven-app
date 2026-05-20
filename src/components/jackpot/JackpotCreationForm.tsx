@@ -1067,6 +1067,161 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
     return c.code.toLowerCase().includes(q) || c.name.toLowerCase().includes(q);
   });
 
+  // ── Community Win Mechanics — relocated out of Widget Configuration ──
+  const communityWinSection = (
+    <section className="scroll-mt-20">
+      <h2 className="text-xl font-semibold mb-6">Community Win Mechanics</h2>
+      <Card className="p-6 bg-neutral-900/50 border-neutral-800 mb-6">
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-6">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <BrightLabel className="text-sm font-medium">Community</BrightLabel>
+                <p className="text-xs text-neutral-400 mt-1">
+                  Enable community jackpots where multiple players can share the win
+                </p>
+              </div>
+              <Switch
+                checked={isCommunity}
+                onCheckedChange={setIsCommunity}
+                className="data-[state=checked]:bg-green-500"
+              />
+            </div>
+            <div></div>
+          </div>
+
+          {isCommunity && (
+            <div className="pt-4 space-y-6 border-t border-neutral-800">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <BrightLabel htmlFor="cw-community-split">Community Split</BrightLabel>
+                    <span className="text-sm text-neutral-400">{communitySplit[0]}%</span>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs text-neutral-400 mb-1">
+                      <span>Winner</span>
+                      <span>Community</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-neutral-400">0%</span>
+                      <Slider
+                        id="cw-community-split"
+                        value={communitySplit}
+                        onValueChange={setCommunitySplit}
+                        max={100}
+                        step={1}
+                        className="flex-1"
+                      />
+                      <span className="text-sm text-neutral-400">100%</span>
+                    </div>
+                    <div className="relative h-4">
+                      <span
+                        className="absolute text-xs text-neutral-400 -translate-x-1/2"
+                        style={{ left: `${communitySplit[0]}%` }}
+                      >
+                        {communitySplit[0]}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div></div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <BrightLabel className="text-sm font-medium">Payout Interval</BrightLabel>
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setPayoutInterval('logged_in')}
+                      className={`w-full px-4 py-3 rounded-lg text-sm font-medium text-left transition-all ${
+                        payoutInterval === 'logged_in'
+                          ? 'bg-blue-500/20 text-white border-2 border-blue-500'
+                          : 'bg-neutral-800 text-neutral-400 border-2 border-neutral-700 hover:border-neutral-600'
+                      }`}
+                    >
+                      Currently Logged In
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPayoutInterval('contributed_once')}
+                      className={`w-full px-4 py-3 rounded-lg text-sm font-medium text-left transition-all ${
+                        payoutInterval === 'contributed_once'
+                          ? 'bg-blue-500/20 text-white border-2 border-blue-500'
+                          : 'bg-neutral-800 text-neutral-400 border-2 border-neutral-700 hover:border-neutral-600'
+                      }`}
+                    >
+                      Has Contributed At Least Once To This Jackpot
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPayoutInterval('contributed_within_time')}
+                      className={`w-full px-4 py-3 rounded-lg text-sm font-medium text-left transition-all ${
+                        payoutInterval === 'contributed_within_time'
+                          ? 'bg-blue-500/20 text-white border-2 border-blue-500'
+                          : 'bg-neutral-800 text-neutral-400 border-2 border-neutral-700 hover:border-neutral-600'
+                      }`}
+                    >
+                      Has Contributed Within This Amount Of Time
+                    </button>
+
+                    {payoutInterval === 'contributed_within_time' && (
+                      <div className="pt-2 space-y-2">
+                        <BrightLabel htmlFor="cw-payout-interval-seconds">Activity Lookback Window (Seconds)</BrightLabel>
+                        <Input
+                          id="cw-payout-interval-seconds"
+                          type="number"
+                          placeholder="e.g., 60, 300, 3600"
+                          value={communityPayoutIntervalSeconds || ''}
+                          onChange={(e) => setCommunityPayoutIntervalSeconds(Number(e.target.value) || 0)}
+                          min="0"
+                          className="bg-neutral-800 border-neutral-700 max-w-[240px]"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div></div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <BrightLabel htmlFor="cw-max-win">Maximum Payout Cap Per Member</BrightLabel>
+                  <CurrencyInput
+                    id="cw-max-win"
+                    type="number"
+                    placeholder="0"
+                    value={communityMaxWinAmount || ''}
+                    onChange={(e) => setCommunityMaxWinAmount(Number(e.target.value) || 0)}
+                    className="bg-neutral-800 border-neutral-700"
+                  />
+                </div>
+                <div></div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <BrightLabel htmlFor="cw-max-players">Maximum Qualified Players</BrightLabel>
+                  <Input
+                    id="cw-max-players"
+                    type="number"
+                    placeholder="0"
+                    value={communityMaxPlayers || ''}
+                    onChange={(e) => setCommunityMaxPlayers(Number(e.target.value) || 0)}
+                    min="0"
+                    className="bg-neutral-800 border-neutral-700"
+                  />
+                </div>
+                <div></div>
+              </div>
+            </div>
+          )}
+        </div>
+      </Card>
+    </section>
+  );
+
   const playerTargetingSection = (
     <section className="scroll-mt-20">
       <h2 className="text-xl font-semibold mb-6">Player Targeting &amp; Restrictions</h2>
