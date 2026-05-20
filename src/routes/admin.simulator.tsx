@@ -143,6 +143,7 @@ function SimulatorPage() {
         },
       );
       setResult(res.data);
+      setActiveConfig(parsedPayload);
     } catch (e: any) {
       setError(e?.response?.data?.error || e?.message || "Simulation failed");
     } finally {
