@@ -361,6 +361,7 @@ function ResultsSummary({
     : result.winAmountCounter || 0;
   const contribPctOfWager = totalWager > 0 ? (totalContributionReceived / totalWager) * 100 : 0;
   const payoutPctOfWager = totalWager > 0 ? (totalPayout / totalWager) * 100 : 0;
+  const averageDropAmount = totalDrops > 0 ? totalPayout / totalDrops : 0;
 
   return (
     <>
