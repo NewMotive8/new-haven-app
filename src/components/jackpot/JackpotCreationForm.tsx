@@ -2394,28 +2394,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-4">
-                        <button
-                          onClick={() => setSeedContributionType('fixed')}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            seedContributionType === 'fixed'
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'
-                          }`}
-                        >
-                          Fixed
-                        </button>
-                        <button
-                          onClick={() => setSeedContributionType('percentage')}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            seedContributionType === 'percentage'
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'
-                          }`}
-                        >
-                          Percentage
-                        </button>
-                      </div>
+
+
 
                       {seedContributionType === 'percentage' ? (
                         <>
