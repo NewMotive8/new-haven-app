@@ -33,9 +33,6 @@ function splitAllocation(total: number, weights: number[], decimals = 4): number
 }
 
 
-  const n = typeof value === "number" ? value : parseFloat(String(value));
-  return Number.isFinite(n) ? n : fallback;
-}
 
 function mapStructural(formType: unknown): JackpotStructuralType {
   const t = String(formType ?? "").toLowerCase();
