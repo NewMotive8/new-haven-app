@@ -1,29 +1,38 @@
-# Remove Fixed Pool / Seed Contribution Amount fields
+# Fix Contribution Weight table editing
 
-## Why these fields are redundant
+## Issues observed
 
-Contribution is already fully defined at the **Jackpot level**:
+1. **Can't type into the % fields** — only the spinner arrows work.
+2. **Editing one weight changes the other two** — user wants free editing, just capped so the total can't exceed 100%.
 
-1. **Contribution type** (Fixed or Percentage) — set once on the jackpot.
-2. **Contribution amount** — the single source-of-truth value for that jackpot.
-3. **Contribution Weight distribution table** — splits that jackpot-level amount across Pool and Seed (and any other destinations).
+## Root causes
 
-Given (1) + (2) + (3), the Pool and Seed cards don't need their own "Fixed … Contribution Amount" inputs. The amount is set at the jackpot level, and the per-destination share is derived from the Contribution Weight table — not from a second amount typed into each card. Keeping these fields would create two competing sources of truth for the same number.
+In `src/components/jackpot/JackpotCreationForm.tsx`:
 
-## What to remove
+1. The `Row` component is defined **inside the render IIFE** (~L452). Every keystroke triggers a parent re-render, which creates a brand-new `Row` component identity, which unmounts and remounts the `<Input>` — so it loses focus after a single character. Spinner arrow clicks happen to "work" because each click is a single committed event that doesn't depend on retained focus across keystrokes. On top of that, `parseFloat(e.target.value) || 0` turns an empty string into `0`, so the field can never be cleared while typing.
+2. `rebalanceWeights` (~L197) deliberately redistributes the other two values to force the trio to sum to 100. That's the auto-rebalance the user is rejecting.
 
-In `src/components/jackpot/JackpotCreationForm.tsx`, delete the label + input (and surrounding field wrapper) at each occurrence:
+The same pattern is duplicated inside each multi-level tier (~L4290–4360) via `setTierWeight`.
 
-1. ~L1249 — Classic: Fixed Pool Contribution Amount
-2. ~L1492 — Classic: Fixed Seed Contribution Amount
-3. ~L2269 — Must Drop: Fixed Pool Contribution Amount
-4. ~L2510 — Must Drop: Fixed Seed Contribution Amount
-5. ~L3721 — Frequency: Fixed Pool Contribution Amount
-6. ~L3962 — Frequency: Fixed Seed Contribution Amount
+## Changes
 
-Leave the Player/Operator % split UI and sliders untouched.
+### 1. Top-level Contribution Weight table (~L445–480)
+
+- Move `Row` out of the render IIFE — either lift it to a stable component above the JSX, or inline the three rows directly. Either way, the input keeps its identity across renders and focus is preserved while typing.
+- Replace `rebalanceWeights` with `setSingleWeight(key, val)` that only updates the one field the user is editing.
+- Cap the typed value so the total can't exceed 100: clamp `val` to `[0, 100 - sumOfOtherTwo]`. The other two weights are never touched.
+- Keep the existing amber "Sum: X% — must equal 100 to save" warning when the total isn't exactly 100. The save-side validator in `buildCreateBody` already blocks save until the sum is exactly 100, so this is the only gate needed.
+- Allow empty / in-progress input: store the raw string in local state (or accept `e.target.value === '' ? 0 : parseFloat(...)`) so backspacing to empty doesn't snap to 0.
+
+### 2. Per-tier weight controls in Multi-Level (~L4290–4360)
+
+Apply the same two fixes to `setTierWeight`:
+- Only patch the edited key (`poolWeight` / `seedWeight` / `houseWeight`) on the tier.
+- Clamp to `[0, 100 - other two]` so the tier's total can't exceed 100.
+- Keep the existing "Sum: X% — must equal 100 to save" indicator.
 
 ## Out of scope
 
-- No changes to jackpot-level Contribution type/amount or the Contribution Weight table.
-- No business-logic or backend changes. Unused state vars can be cleaned up in a follow-up if they're truly orphaned.
+- No changes to the save-time validation in `src/lib/jackpot/build-create-body.ts` (the "exactly 100" gate stays — it just runs at save instead of fighting the user mid-edit).
+- No styling / layout changes to the table itself.
+- No changes to the jackpot-level Contribution type/amount inputs above the table.
