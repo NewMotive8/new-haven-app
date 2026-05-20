@@ -252,6 +252,14 @@ export type JackpotSavePayload = {
       leagues: string[];
       matchIds: string[];
     };
+    players?: {
+      audienceMode: 'all' | 'custom';
+      vipTiers: string[];
+      crmSegmentsInclude: string[];
+      crmSegmentsExclude: string[];
+      restrictedCountries: string[];
+      blacklistedPlayerIds: string[];
+    };
   };
 };
 
