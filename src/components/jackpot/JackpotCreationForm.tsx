@@ -1010,6 +1010,233 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
     </section>
   );
 
+  // ── Player Targeting & Restrictions section ──
+  const VIP_TIERS = ['Bronze', 'Silver', 'Gold', 'Platinum'];
+  const CRM_EXCLUDE_PRESETS = ['Bonus Abusers', 'High-Risk Flags', 'Self-Excluded', 'Chargeback History'];
+  const COUNTRY_LIST: Array<{ code: string; name: string }> = [
+    { code: 'US', name: 'United States' }, { code: 'GB', name: 'United Kingdom' },
+    { code: 'DE', name: 'Germany' }, { code: 'NL', name: 'Netherlands' },
+    { code: 'FR', name: 'France' }, { code: 'ES', name: 'Spain' },
+    { code: 'IT', name: 'Italy' }, { code: 'BE', name: 'Belgium' },
+    { code: 'SE', name: 'Sweden' }, { code: 'NO', name: 'Norway' },
+    { code: 'DK', name: 'Denmark' }, { code: 'FI', name: 'Finland' },
+    { code: 'PL', name: 'Poland' }, { code: 'PT', name: 'Portugal' },
+    { code: 'IE', name: 'Ireland' }, { code: 'AT', name: 'Austria' },
+    { code: 'CH', name: 'Switzerland' }, { code: 'CA', name: 'Canada' },
+    { code: 'AU', name: 'Australia' }, { code: 'NZ', name: 'New Zealand' },
+    { code: 'BR', name: 'Brazil' }, { code: 'MX', name: 'Mexico' },
+    { code: 'AR', name: 'Argentina' }, { code: 'JP', name: 'Japan' },
+    { code: 'SG', name: 'Singapore' }, { code: 'HK', name: 'Hong Kong' },
+    { code: 'ZA', name: 'South Africa' }, { code: 'TR', name: 'Turkey' },
+    { code: 'IN', name: 'India' }, { code: 'AE', name: 'United Arab Emirates' },
+  ];
+  const filteredCountries = COUNTRY_LIST.filter((c) => {
+    const q = countrySearch.trim().toLowerCase();
+    if (!q) return true;
+    return c.code.toLowerCase().includes(q) || c.name.toLowerCase().includes(q);
+  });
+
+  const playerTargetingSection = (
+    <section className="scroll-mt-20">
+      <h2 className="text-xl font-semibold mb-6">Player Targeting &amp; Restrictions</h2>
+      <Card className="p-6 bg-neutral-900/50 border-neutral-800 mb-6">
+        <div className="space-y-2 mb-6">
+          <BrightLabel className="text-sm font-semibold text-neutral-100">Target Audience</BrightLabel>
+          <div className="inline-flex gap-2">
+            <button
+              type="button"
+              onClick={() => setAudienceMode('all')}
+              className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
+                audienceMode === 'all'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+              }`}
+            >
+              All Public Players
+            </button>
+            <button
+              type="button"
+              onClick={() => setAudienceMode('custom')}
+              className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
+                audienceMode === 'custom'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+              }`}
+            >
+              Custom Target Segments &amp; Restrictions
+            </button>
+          </div>
+          {audienceMode === 'all' && (
+            <p className="text-xs text-neutral-400">All eligible players will see and contribute to this jackpot.</p>
+          )}
+        </div>
+
+        {audienceMode === 'custom' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4 border-t border-neutral-800">
+            {/* Left column — Inclusions */}
+            <div className="space-y-6">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald-400">Inclusions / White-list</h3>
+
+              <div className="space-y-2">
+                <BrightLabel className="text-sm font-semibold text-neutral-100">Target VIP Tiers</BrightLabel>
+                <div className="flex flex-wrap gap-2">
+                  {VIP_TIERS.map((tier) => {
+                    const active = vipTiers.includes(tier);
+                    return (
+                      <button
+                        type="button"
+                        key={tier}
+                        onClick={() => setVipTiers((a) => toggleInArray(a, tier))}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                          active
+                            ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-300'
+                            : 'bg-neutral-900 border-neutral-700 text-neutral-300 hover:border-neutral-500'
+                        }`}
+                      >
+                        {tier}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-neutral-400">Empty = all tiers eligible.</p>
+              </div>
+
+              <div className="space-y-2">
+                <BrightLabel htmlFor="crm-include" className="text-sm font-semibold text-neutral-100">
+                  Target CRM Segments
+                </BrightLabel>
+                <div className="flex flex-wrap items-center gap-2 min-h-[40px] p-2 rounded-md bg-neutral-900 border border-neutral-700 focus-within:ring-2 focus-within:ring-emerald-500">
+                  {crmSegmentsInclude.map((seg) => (
+                    <span key={seg} className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-900/40 text-xs text-emerald-100">
+                      {seg}
+                      <button
+                        type="button"
+                        onClick={() => setCrmSegmentsInclude((a) => a.filter((v) => v !== seg))}
+                        className="text-emerald-300 hover:text-white"
+                        aria-label={`Remove ${seg}`}
+                      >×</button>
+                    </span>
+                  ))}
+                  <input
+                    id="crm-include"
+                    value={crmSegmentIncludeDraft}
+                    onChange={(e) => setCrmSegmentIncludeDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ',') {
+                        e.preventDefault();
+                        const v = crmSegmentIncludeDraft.trim();
+                        if (v && !crmSegmentsInclude.includes(v)) setCrmSegmentsInclude((a) => [...a, v]);
+                        setCrmSegmentIncludeDraft('');
+                      } else if (e.key === 'Backspace' && !crmSegmentIncludeDraft && crmSegmentsInclude.length > 0) {
+                        setCrmSegmentsInclude((a) => a.slice(0, -1));
+                      }
+                    }}
+                    placeholder={crmSegmentsInclude.length ? '' : 'e.g. Re-engaged Users, March Madness Depositors'}
+                    className="flex-1 min-w-[200px] bg-transparent text-sm text-neutral-100 outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Right column — Exclusions */}
+            <div className="space-y-6">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-rose-400">Exclusions &amp; Restrictions / Black-list</h3>
+
+              <div className="space-y-2">
+                <BrightLabel className="text-sm font-semibold text-neutral-100">Exclude CRM Segments</BrightLabel>
+                <div className="flex flex-wrap gap-2">
+                  {CRM_EXCLUDE_PRESETS.map((seg) => {
+                    const active = crmSegmentsExclude.includes(seg);
+                    return (
+                      <button
+                        type="button"
+                        key={seg}
+                        onClick={() => setCrmSegmentsExclude((a) => toggleInArray(a, seg))}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                          active
+                            ? 'bg-rose-500/15 border-rose-500/50 text-rose-300'
+                            : 'bg-neutral-900 border-neutral-700 text-neutral-300 hover:border-neutral-500'
+                        }`}
+                      >
+                        {seg}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <BrightLabel htmlFor="geo-search" className="text-sm font-semibold text-neutral-100">
+                  Restricted Countries (GEO)
+                </BrightLabel>
+                <input
+                  id="geo-search"
+                  type="text"
+                  value={countrySearch}
+                  onChange={(e) => setCountrySearch(e.target.value)}
+                  placeholder="Search ISO code or country name…"
+                  className="w-full h-10 rounded-md bg-neutral-900 border border-neutral-700 px-3 text-sm text-neutral-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                />
+                <div className="max-h-40 overflow-y-auto rounded-md border border-neutral-800 bg-neutral-950/60 p-2 space-y-1">
+                  {filteredCountries.map((c) => {
+                    const active = restrictedCountries.includes(c.code);
+                    return (
+                      <label key={c.code} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-neutral-800/50 cursor-pointer text-sm">
+                        <input
+                          type="checkbox"
+                          checked={active}
+                          onChange={() => setRestrictedCountries((a) => toggleInArray(a, c.code))}
+                          className="accent-rose-500"
+                        />
+                        <span className="font-mono text-xs text-rose-300 w-6">{c.code}</span>
+                        <span className="text-neutral-200">{c.name}</span>
+                      </label>
+                    );
+                  })}
+                  {filteredCountries.length === 0 && (
+                    <p className="text-xs text-neutral-500 px-2 py-1">No matches.</p>
+                  )}
+                </div>
+                {restrictedCountries.length > 0 && (
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {restrictedCountries.map((code) => (
+                      <span key={code} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-900/40 text-xs text-rose-100 font-mono">
+                        {code}
+                        <button
+                          type="button"
+                          onClick={() => setRestrictedCountries((a) => a.filter((v) => v !== code))}
+                          className="text-rose-300 hover:text-white"
+                          aria-label={`Remove ${code}`}
+                        >×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <BrightLabel htmlFor="blacklist-ids" className="text-sm font-semibold text-neutral-100">
+                  Blacklisted Player IDs
+                </BrightLabel>
+                <textarea
+                  id="blacklist-ids"
+                  value={blacklistedIdsRaw}
+                  onChange={(e) => setBlacklistedIdsRaw(e.target.value)}
+                  rows={3}
+                  placeholder="Comma-separated player account tokens (e.g. p_8821, p_9904)"
+                  className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </Card>
+    </section>
+  );
+
+
+
+
 
 
   return (
