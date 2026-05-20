@@ -25,6 +25,10 @@ function rowToDTO(row: JackpotRow): JackpotDTO {
     row.trigger_condition && typeof row.trigger_condition === "object"
       ? Number(row.trigger_condition.threshold ?? 0)
       : 0;
+  const cfg =
+    row.trigger_condition && typeof row.trigger_condition === "object"
+      ? (row.trigger_condition as Record<string, unknown>)
+      : undefined;
   return {
     id: Number(row.id),
     name: row.name,
@@ -36,6 +40,7 @@ function rowToDTO(row: JackpotRow): JackpotDTO {
     brandId: String(row.brand_id),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    config: cfg,
   };
 }
 
