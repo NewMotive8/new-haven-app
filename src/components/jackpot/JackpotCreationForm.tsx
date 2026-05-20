@@ -500,13 +500,6 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
           const sum = poolWeight + seedWeight + houseWeight;
           const sumOk = Math.abs(sum - 100) < 0.05;
           const computed = (w: number) => (base * (w / 100)).toFixed(3);
-          const handleChange = (k: 'pool' | 'seed' | 'house') => (e: React.ChangeEvent<HTMLInputElement>) => {
-            const raw = e.target.value;
-            if (raw === '') { setSingleWeight(k, 0); return; }
-            const n = parseFloat(raw);
-            if (Number.isNaN(n)) return;
-            setSingleWeight(k, n);
-          };
           const rows: Array<{ label: string; k: 'pool' | 'seed' | 'house'; value: number }> = [
             { label: 'Pool', k: 'pool', value: poolWeight },
             { label: 'Seed', k: 'seed', value: seedWeight },
@@ -524,13 +517,9 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                 <div key={k} className="grid grid-cols-[140px_200px_200px] items-center gap-6 py-3">
                   <span className="text-sm font-semibold text-neutral-100">{label}</span>
                   <div className="relative">
-                    <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={1}
+                    <WeightDraftInput
                       value={value}
-                      onChange={handleChange(k)}
+                      onCommit={(next) => setSingleWeight(k, next)}
                       className="h-10 bg-neutral-900 border-neutral-700 pr-8 tabular-nums"
                     />
                     <span className="absolute inset-y-0 right-3 flex items-center text-sm text-neutral-400 pointer-events-none">%</span>
