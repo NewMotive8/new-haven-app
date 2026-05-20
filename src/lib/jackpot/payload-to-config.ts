@@ -51,12 +51,30 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
     payload.payoutModel === "maximum" ? "MAXIMUM" : "AVERAGE";
   const structuralType = mapStructural(payload.type);
 
-  const poolContributionType =
-    payload.contributionType === "fixed" ? "FIXED" : "PERCENTAGE";
-  const poolContributionAmount = num(payload.poolPercentageValue, 0);
-  const seedContributionType =
-    payload.seedContributionType === "fixed" ? "FIXED" : "PERCENTAGE";
-  const seedContributionAmount = num(payload.seedPercentageValue, 0);
+  // ── v2 jackpot-level split overrides legacy per-bucket amounts/types ──
+  const jSplit = payload.contributionMode === "split";
+  const jTotalType =
+    (payload.totalContributionType ?? "fixed") === "fixed" ? "FIXED" : "PERCENTAGE";
+  const [jPoolAmt, jSeedAmt] = jSplit
+    ? splitAllocation(num(payload.totalContributionAmount, 0), [
+        num(payload.poolWeight, 60),
+        num(payload.seedWeight, 30),
+        num(payload.houseWeight, 10),
+      ])
+    : [NaN, NaN];
+
+  const poolContributionType = jSplit
+    ? jTotalType
+    : payload.contributionType === "fixed"
+      ? "FIXED"
+      : "PERCENTAGE";
+  const poolContributionAmount = jSplit ? jPoolAmt : num(payload.poolPercentageValue, 0);
+  const seedContributionType = jSplit
+    ? jTotalType
+    : payload.seedContributionType === "fixed"
+      ? "FIXED"
+      : "PERCENTAGE";
+  const seedContributionAmount = jSplit ? jSeedAmt : num(payload.seedPercentageValue, 0);
 
   const reseed = num(payload.reseedingAmount, 0);
   const minWin = num(payload.minWinAmount, 0);
@@ -87,6 +105,8 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
     contributionType: seedContributionType,
     operatorShare: seedOperatorShare,
   } as const;
+
+
 
   // ── MULTI_LEVEL — build tier array (fall back to even-weighted single tier).
   let tiers: TierDTO[] | undefined;
