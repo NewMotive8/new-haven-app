@@ -98,6 +98,7 @@ export function buildTriggerCondition(p: JackpotSavePayload): Record<string, unk
       poolWeight: p.poolWeight ?? null,
       seedWeight: p.seedWeight ?? null,
       houseWeight: p.houseWeight ?? null,
+      overlappingRule: p.overlappingRule ?? "split",
       triggerOdds: p.triggerOdds ?? null,
     },
     ...(p.type === "multi_level" && Array.isArray(p.tiers) ? { tiers: p.tiers } : {}),
