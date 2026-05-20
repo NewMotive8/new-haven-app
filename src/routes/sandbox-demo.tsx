@@ -316,6 +316,9 @@ function SandboxDemoPage() {
               placeholder="paste brand id…"
               className="bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm font-mono"
             />
+            <span className="text-[11px] text-slate-500 mt-1">
+              Defaults to the admin mock brand (1).
+            </span>
           </div>
 
           <div className="grid grid-cols-2 gap-3 text-sm">
