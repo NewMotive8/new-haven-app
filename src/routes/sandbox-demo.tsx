@@ -533,6 +533,24 @@ function SandboxDemoPage() {
   );
 }
 
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-slate-950/60 border border-slate-800 rounded p-2 flex items-center justify-between">
+      <span className="text-slate-500 uppercase text-[10px]">{label}</span>
+      <span className="font-semibold tabular-nums text-slate-200">{value}</span>
+    </div>
+  );
+}
+
+function Row({ label, value, className = "" }: { label: string; value: string; className?: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-slate-500">{label}</span>
+      <span className={`tabular-nums ${className || "text-slate-200"}`}>{value}</span>
+    </div>
+  );
+}
+
 function Split({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div className="bg-slate-950/60 border border-slate-800 rounded p-2 text-center">
