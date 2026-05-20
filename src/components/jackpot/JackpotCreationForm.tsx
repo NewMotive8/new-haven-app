@@ -424,15 +424,20 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
           <BrightLabel htmlFor="v2-total" className="text-sm text-neutral-300">
             {totalContributionType === 'fixed' ? 'Fixed Contribution Amount' : 'Percent of Wager'}
           </BrightLabel>
-          {totalContributionType === 'fixed' ? (
-            <CurrencyInput id="v2-total" type="number" step="0.01" min={0} value={totalContributionAmount}
+          <div className="relative">
+            <Input
+              id="v2-total"
+              type="number"
+              step="0.01"
+              min={0}
+              value={totalContributionAmount}
               onChange={(e) => setTotalContributionAmount(parseFloat(e.target.value) || 0)}
-              className="bg-neutral-800 border-neutral-700" />
-          ) : (
-            <PercentageInput id="v2-total" type="number" step="0.01" min={0} value={totalContributionAmount}
-              onChange={(e) => setTotalContributionAmount(parseFloat(e.target.value) || 0)}
-              className="bg-neutral-800 border-neutral-700" />
-          )}
+              className="bg-neutral-800 border-neutral-700 pr-8 tabular-nums"
+            />
+            <span className="absolute inset-y-0 right-3 flex items-center text-neutral-400 pointer-events-none text-sm">
+              {totalContributionType === 'fixed' ? '€' : '%'}
+            </span>
+          </div>
         </div>
 
         {(() => {
@@ -443,25 +448,25 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
           const sumOk = Math.abs(sum - 100) < 0.05;
           const computed = (w: number) => (base * (w / 100)).toFixed(3);
           const Row = ({ label, k, value }: { label: string; k: 'pool' | 'seed' | 'house'; value: number }) => (
-            <div className="grid grid-cols-[80px_1fr_1fr] items-center gap-4 py-2">
-              <span className="text-sm text-neutral-300">{label}</span>
+            <div className="grid grid-cols-[64px_140px_140px] items-center gap-3 py-1.5">
+              <span className="text-sm text-neutral-400">{label}</span>
               <div className="relative">
                 <Input type="number" min={0} max={100} step={1} value={value}
                   onChange={(e) => rebalanceWeights(k, parseFloat(e.target.value) || 0)}
-                  className="h-10 bg-neutral-800 border-neutral-700 pr-7 tabular-nums" />
-                <span className="absolute inset-y-0 right-3 flex items-center text-xs text-neutral-400 pointer-events-none">%</span>
+                  className="h-9 bg-neutral-800 border-neutral-700 pr-7 tabular-nums text-center" />
+                <span className="absolute inset-y-0 right-2.5 flex items-center text-xs text-neutral-400 pointer-events-none">%</span>
               </div>
               <Input readOnly tabIndex={-1} value={computed(value)}
-                className="h-10 bg-neutral-800/60 border-neutral-700 text-neutral-300 tabular-nums cursor-default" />
+                className="h-9 bg-neutral-800/60 border-neutral-700 text-neutral-300 tabular-nums cursor-default text-center" />
             </div>
           );
           return (
-            <div className="space-y-1">
-              <div className="text-sm text-neutral-300 mb-1">Contribution Weight</div>
-              <div className="grid grid-cols-[80px_1fr_1fr] gap-4 pb-2 border-b border-neutral-800">
+            <div>
+              <div className="text-sm text-neutral-300 mb-2">Contribution Weight</div>
+              <div className="grid grid-cols-[64px_140px_140px] gap-3 pb-2">
                 <span />
-                <span className="text-xs text-neutral-400 text-center">Weight</span>
-                <span className="text-xs text-neutral-400 text-center">Amount</span>
+                <span className="text-xs text-neutral-500 text-center">Weight</span>
+                <span className="text-xs text-neutral-500 text-center">Amount</span>
               </div>
               <Row label="Pool" k="pool" value={poolWeight} />
               <Row label="Seed" k="seed" value={seedWeight} />
