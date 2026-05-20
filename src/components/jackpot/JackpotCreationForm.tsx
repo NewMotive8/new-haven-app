@@ -401,16 +401,23 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
     <section className="scroll-mt-20">
       <h2 className="text-xl font-semibold mb-6">Jackpot Contribution</h2>
       <Card className="p-6 bg-neutral-900/50 border-neutral-800 mb-6">
-        <div className="flex items-center gap-3 mb-5">
-          <span className={`text-sm ${totalContributionType === 'fixed' ? 'text-neutral-100 font-medium' : 'text-neutral-500'}`}>Fixed</span>
-          <Switch
-            checked={totalContributionType === 'percentage'}
-            onCheckedChange={(checked) => {
-              setContributionMode('split');
-              setTotalContributionType(checked ? 'percentage' : 'fixed');
-            }}
-          />
-          <span className={`text-sm ${totalContributionType === 'percentage' ? 'text-neutral-100 font-medium' : 'text-neutral-500'}`}>Percent</span>
+        <div className="inline-flex rounded-lg bg-neutral-800 p-1 mb-5">
+          <button
+            type="button"
+            onClick={() => { setContributionMode('split'); setTotalContributionType('fixed'); }}
+            className={`px-5 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              contributionMode === 'split' && totalContributionType === 'fixed'
+                ? 'bg-blue-500 text-white' : 'text-neutral-300 hover:bg-neutral-700'
+            }`}
+          >Fixed</button>
+          <button
+            type="button"
+            onClick={() => { setContributionMode('split'); setTotalContributionType('percentage'); }}
+            className={`px-5 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              contributionMode === 'split' && totalContributionType === 'percentage'
+                ? 'bg-blue-500 text-white' : 'text-neutral-300 hover:bg-neutral-700'
+            }`}
+          >Percent</button>
         </div>
 
         <div className="grid grid-cols-2 gap-6 mb-6">
