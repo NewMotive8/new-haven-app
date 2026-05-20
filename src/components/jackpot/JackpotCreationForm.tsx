@@ -4262,123 +4262,130 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
           </p>
 
           <Card className="p-6 bg-neutral-900/50 border-neutral-800 mb-6">
-            {/* Header utility row: Preview Wager isolated at top */}
-            {contributionMode === 'split' && (
-              <div className="flex items-center justify-between gap-4 pb-4 mb-4 border-b border-neutral-800">
-                <div>
-                  <BrightLabel htmlFor="v2-preview-wager" className="text-xs uppercase tracking-wider text-neutral-400">Preview Wager</BrightLabel>
-                  <p className="text-[11px] text-neutral-500 mt-0.5">Used only for live projection math below — not saved.</p>
-                </div>
-                <div className="w-40">
-                  <CurrencyInput id="v2-preview-wager" type="number" step="0.01" min={0} value={previewWager}
-                    onChange={(e) => setPreviewWager(parseFloat(e.target.value) || 0)}
-                    className="bg-neutral-800 border-neutral-700 text-right" />
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <BrightLabel className="text-base">Contribution Mode</BrightLabel>
-                <p className="text-xs text-neutral-400 mt-1">
-                  Switch between legacy single-target contribution and the new 3-way split.
-                </p>
-              </div>
-              <div className="inline-flex rounded-lg bg-neutral-800 p-1">
-                <button
-                  type="button"
-                  onClick={() => setContributionMode('legacy')}
-                  className={`px-4 py-1.5 rounded-md text-sm transition-colors ${contributionMode === 'legacy' ? 'bg-blue-500 text-white' : 'text-neutral-300 hover:bg-neutral-700'}`}
-                >
-                  Legacy
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setContributionMode('split')}
-                  className={`px-4 py-1.5 rounded-md text-sm transition-colors ${contributionMode === 'split' ? 'bg-blue-500 text-white' : 'text-neutral-300 hover:bg-neutral-700'}`}
-                >
-                  Split (Pool / Seed / House)
-                </button>
-              </div>
+            {/* Fixed / Percent pill toggle — matches Figma "Fixed | Percent" tabs.
+                Drives both contributionMode (legacy ⇢ Percent / split ⇢ Fixed-style table)
+                and totalContributionType so the split table always renders with the new look. */}
+            <div className="inline-flex rounded-lg bg-neutral-800 p-1 mb-5">
+              <button
+                type="button"
+                onClick={() => {
+                  setContributionMode('split');
+                  setTotalContributionType('fixed');
+                }}
+                className={`px-5 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  contributionMode === 'split' && totalContributionType === 'fixed'
+                    ? 'bg-blue-500 text-white'
+                    : 'text-neutral-300 hover:bg-neutral-700'
+                }`}
+              >
+                Fixed
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setContributionMode('split');
+                  setTotalContributionType('percentage');
+                }}
+                className={`px-5 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  contributionMode === 'split' && totalContributionType === 'percentage'
+                    ? 'bg-blue-500 text-white'
+                    : 'text-neutral-300 hover:bg-neutral-700'
+                }`}
+              >
+                Percent
+              </button>
+              <button
+                type="button"
+                onClick={() => setContributionMode('legacy')}
+                className={`px-5 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  contributionMode === 'legacy'
+                    ? 'bg-blue-500 text-white'
+                    : 'text-neutral-300 hover:bg-neutral-700'
+                }`}
+              >
+                Legacy
+              </button>
             </div>
 
             {contributionMode === 'split' && (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  <div className="space-y-2">
-                    <BrightLabel>Total Contribution Type</BrightLabel>
-                    <select
-                      value={totalContributionType}
-                      onChange={(e) => setTotalContributionType(e.target.value as 'fixed' | 'percentage')}
-                      className="w-full h-10 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-neutral-100"
-                    >
-                      <option value="fixed">Fixed</option>
-                      <option value="percentage">Percentage of Wager</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <BrightLabel htmlFor="v2-total">Total Contribution Amount</BrightLabel>
-                    {totalContributionType === 'fixed' ? (
-                      <CurrencyInput id="v2-total" type="number" step="0.01" min={0} value={totalContributionAmount}
-                        onChange={(e) => setTotalContributionAmount(parseFloat(e.target.value) || 0)}
-                        className="bg-neutral-800 border-neutral-700" />
-                    ) : (
-                      <PercentageInput id="v2-total" type="number" step="0.01" min={0} value={totalContributionAmount}
-                        onChange={(e) => setTotalContributionAmount(parseFloat(e.target.value) || 0)}
-                        className="bg-neutral-800 border-neutral-700" />
-                    )}
-                  </div>
+                {/* Single contribution amount row — Figma "Fixed Contribution Amount" */}
+                <div className="space-y-2 mb-6">
+                  <BrightLabel htmlFor="v2-total" className="text-sm text-neutral-300">
+                    {totalContributionType === 'fixed' ? 'Fixed Contribution Amount' : 'Percent of Wager'}
+                  </BrightLabel>
+                  {totalContributionType === 'fixed' ? (
+                    <CurrencyInput
+                      id="v2-total"
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      value={totalContributionAmount}
+                      onChange={(e) => setTotalContributionAmount(parseFloat(e.target.value) || 0)}
+                      className="bg-neutral-800 border-neutral-700"
+                    />
+                  ) : (
+                    <PercentageInput
+                      id="v2-total"
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      value={totalContributionAmount}
+                      onChange={(e) => setTotalContributionAmount(parseFloat(e.target.value) || 0)}
+                      className="bg-neutral-800 border-neutral-700"
+                    />
+                  )}
                 </div>
 
+                {/* Contribution Weight table — Figma layout: label | Weight % | Amount € */}
                 {(() => {
-                  const totalCalc = totalContributionType === 'fixed'
+                  const base = totalContributionType === 'fixed'
                     ? totalContributionAmount
                     : (previewWager * totalContributionAmount) / 100;
                   const sum = poolWeight + seedWeight + houseWeight;
                   const sumOk = Math.abs(sum - 100) < 0.05;
-                  const fmt = (v: number) => `€${(totalCalc * (v / 100)).toFixed(4)}`;
-                  const renderWeight = (
-                    key: 'pool' | 'seed' | 'house',
-                    label: string,
-                    value: number,
-                  ) => (
-                    <div className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-3 space-y-2">
-                      <div className="flex items-baseline justify-between">
-                        <BrightLabel className="text-sm">{label}</BrightLabel>
-                        <span className="text-[11px] text-emerald-400 tabular-nums">{fmt(value)}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
+                  const computed = (w: number) => (base * (w / 100)).toFixed(3);
+
+                  const Row = ({ label, k, value }: { label: string; k: 'pool' | 'seed' | 'house'; value: number }) => (
+                    <div className="grid grid-cols-[80px_1fr_1fr] items-center gap-4 py-2">
+                      <span className="text-sm text-neutral-300">{label}</span>
+                      <div className="relative">
                         <Input
                           type="number"
                           min={0}
                           max={100}
-                          step={0.1}
+                          step={1}
                           value={value}
-                          onChange={(e) => rebalanceWeights(key, parseFloat(e.target.value) || 0)}
-                          className="h-9 bg-neutral-800 border-neutral-700 text-right tabular-nums"
+                          onChange={(e) => rebalanceWeights(k, parseFloat(e.target.value) || 0)}
+                          className="h-10 bg-neutral-800 border-neutral-700 pr-7 tabular-nums"
                         />
-                        <span className="text-xs text-neutral-400">%</span>
+                        <span className="absolute inset-y-0 right-3 flex items-center text-xs text-neutral-400 pointer-events-none">%</span>
                       </div>
-                      <Slider
-                        value={[value]}
-                        onValueChange={(v) => rebalanceWeights(key, v[0])}
-                        min={0}
-                        max={100}
-                        step={1}
+                      <Input
+                        readOnly
+                        tabIndex={-1}
+                        value={computed(value)}
+                        className="h-10 bg-neutral-800/60 border-neutral-700 text-neutral-300 tabular-nums cursor-default"
                       />
-                      <div className="text-[10px] uppercase tracking-wider text-neutral-500">per spin</div>
                     </div>
                   );
+
                   return (
-                    <div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        {renderWeight('pool', 'Pool Weight %', poolWeight)}
-                        {renderWeight('seed', 'Seed Weight %', seedWeight)}
-                        {renderWeight('house', 'House Weight %', houseWeight)}
+                    <div className="space-y-1">
+                      <div className="text-sm text-neutral-300 mb-1">Contribution Weight</div>
+                      <div className="grid grid-cols-[80px_1fr_1fr] gap-4 pb-2 border-b border-neutral-800">
+                        <span />
+                        <span className="text-xs text-neutral-400 text-center">Weight</span>
+                        <span className="text-xs text-neutral-400 text-center">Amount</span>
                       </div>
-                      <div className={`mt-3 text-xs ${sumOk ? 'text-emerald-400' : 'text-amber-400'}`}>
-                        Sum: {sum.toFixed(2)}% {sumOk ? '✓' : '— must equal 100 to save'}
-                      </div>
+                      <Row label="Pool" k="pool" value={poolWeight} />
+                      <Row label="Seed" k="seed" value={seedWeight} />
+                      <Row label="House" k="house" value={houseWeight} />
+                      {!sumOk && (
+                        <div className="mt-2 text-xs text-amber-400">
+                          Sum: {sum.toFixed(2)}% — must equal 100 to save
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
