@@ -501,6 +501,11 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       return;
     }
 
+    try {
+      sessionStorage.setItem('jackpot:pendingPayload', JSON.stringify(payload));
+    } catch {
+      /* sessionStorage unavailable — fall back to history state only */
+    }
     navigate({
       to: '/admin/simulator',
       state: (prev) => ({ ...prev, jackpotConfig: payload }) as never,
