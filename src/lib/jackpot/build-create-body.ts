@@ -104,6 +104,8 @@ export function buildTriggerCondition(p: JackpotSavePayload): Record<string, unk
     // ── Eligibility & Rules Engine — game/event targeting metadata for the
     //    multi-campaign router. Lives under config.eligibility.games.
     eligibility: { games: p.eligibility ?? null },
+    // ── Community Win Mechanics — mirrors Java Community.java
+    community: p.community ?? null,
     ...(p.type === "multi_level" && Array.isArray(p.tiers) ? { tiers: p.tiers } : {}),
   };
 }
