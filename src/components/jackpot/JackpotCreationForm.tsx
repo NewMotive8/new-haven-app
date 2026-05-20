@@ -4644,66 +4644,83 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                             updateTier(idx, patch);
                           };
                           return (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                              <div className="space-y-2">
-                                <BrightLabel>Total Contribution Type</BrightLabel>
-                                <select
-                                  value={tType}
-                                  onChange={(e) => updateTier(idx, { totalContributionType: e.target.value as 'fixed' | 'percentage' })}
-                                  className="w-full h-10 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-neutral-100"
-                                >
-                                  <option value="fixed">Fixed</option>
-                                  <option value="percentage">Percentage of Wager</option>
-                                </select>
+                            <div className="space-y-4 mb-3">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <BrightLabel>Total Contribution Type</BrightLabel>
+                                  <select
+                                    value={tType}
+                                    onChange={(e) => updateTier(idx, { totalContributionType: e.target.value as 'fixed' | 'percentage' })}
+                                    className="w-full h-10 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-neutral-100"
+                                  >
+                                    <option value="fixed">Fixed</option>
+                                    <option value="percentage">Percentage of Wager</option>
+                                  </select>
+                                </div>
+                                <div className="space-y-2">
+                                  <BrightLabel>Total Contribution Amount</BrightLabel>
+                                  <Input type="number" step="0.01" min={0} value={tAmt}
+                                    onChange={(e) => updateTier(idx, { totalContributionAmount: parseFloat(e.target.value) || 0 })}
+                                    className="bg-neutral-800 border-neutral-700" />
+                                </div>
                               </div>
-                              <div className="space-y-2">
-                                <BrightLabel>Total Contribution Amount</BrightLabel>
-                                <Input type="number" step="0.01" min={0} value={tAmt}
-                                  onChange={(e) => updateTier(idx, { totalContributionAmount: parseFloat(e.target.value) || 0 })}
-                                  className="bg-neutral-800 border-neutral-700" />
+                              <div className="grid grid-cols-3 gap-2">
+                                {(['pool', 'seed', 'house'] as const).map((k) => {
+                                  const val = k === 'pool' ? tPool : k === 'seed' ? tSeed : tHouse;
+                                  const label = k === 'pool' ? 'Pool %' : k === 'seed' ? 'Seed %' : 'House %';
+                                  return (
+                                    <div key={k} className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-2.5 space-y-1.5">
+                                      <div className="flex items-baseline justify-between">
+                                        <BrightLabel className="text-xs">{label}</BrightLabel>
+                                        <span className="text-[10px] text-emerald-400 tabular-nums">{proj(val)}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Input type="number" min={0} max={100} step={0.1} value={val}
+                                          onChange={(e) => setTierWeight(k, parseFloat(e.target.value) || 0)}
+                                          className="h-8 bg-neutral-800 border-neutral-700 text-right tabular-nums text-xs" />
+                                        <span className="text-[10px] text-neutral-400">%</span>
+                                      </div>
+                                      <Slider value={[val]} onValueChange={(v) => setTierWeight(k, v[0])} min={0} max={100} step={1} />
+                                    </div>
+                                  );
+                                })}
                               </div>
-                              {(['pool', 'seed', 'house'] as const).map((k) => {
-                                const val = k === 'pool' ? tPool : k === 'seed' ? tSeed : tHouse;
-                                const label = k === 'pool' ? 'Pool' : k === 'seed' ? 'Seed' : 'House';
-                                return (
-                                  <div key={k} className="space-y-2 md:col-span-2">
-                                    <div className="flex items-center justify-between">
-                                      <BrightLabel>{label} Weight</BrightLabel>
-                                      <span className="text-xs text-emerald-400 tabular-nums">{proj(val)} / spin</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <Slider value={[val]} onValueChange={(v) => setTierWeight(k, v[0])} min={0} max={100} step={1} className="flex-1" />
-                                      <Input type="number" min={0} max={100} step={0.1} value={val} onChange={(e) => setTierWeight(k, parseFloat(e.target.value) || 0)} className="w-20 bg-neutral-800 border-neutral-700" />
-                                      <span className="text-xs text-neutral-400">%</span>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                              <div className={`md:col-span-2 text-xs ${tOk ? 'text-emerald-400' : 'text-amber-400'}`}>
+                              <div className={`text-xs ${tOk ? 'text-emerald-400' : 'text-amber-400'}`}>
                                 Sum: {tSum.toFixed(2)}% {tOk ? '✓' : '— must equal 100 to save'}
                               </div>
                             </div>
                           );
                         })()}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <BrightLabel>Trigger Probability Denominator (N)</BrightLabel>
-                            <Input type="number" min={0} max={10_000_000} step={1} value={t.triggerOdds ?? 0}
-                              onChange={(e) => updateTier(idx, { triggerOdds: Math.max(0, Math.min(10_000_000, parseInt(e.target.value) || 0)) })}
+                        <div className="rounded-lg border border-neutral-800 bg-neutral-900/40 p-3 space-y-2">
+                          <BrightLabel className="text-sm">Trigger Probability Denominator (N)</BrightLabel>
+                          <div className="flex items-stretch gap-2">
+                            <Input type="number" min={0} max={10_000_000} step={1} maxLength={8} value={t.triggerOdds ?? 0}
+                              onChange={(e) => {
+                                const raw = parseInt(e.target.value.slice(0, 8)) || 0;
+                                updateTier(idx, { triggerOdds: Math.max(0, Math.min(10_000_000, raw)) });
+                              }}
                               placeholder="0 = disabled"
                               aria-invalid={Number(t.triggerOdds) > 10_000_000}
-                              className={`bg-neutral-800 border-neutral-700 ${Number(t.triggerOdds) > 10_000_000 ? 'border-red-500 ring-1 ring-red-500' : ''}`} />
-                            {Number(t.triggerOdds) > 10_000_000 && (
-                              <p className="text-[11px] text-red-400">
-                                Exceeds certified RNG ceiling of 10,000,000.
-                              </p>
-                            )}
-                            <p className="text-[11px] text-neutral-500">
+                              className={`flex-1 bg-neutral-800 border-neutral-700 ${Number(t.triggerOdds) > 10_000_000 ? 'border-red-500 ring-1 ring-red-500' : ''}`} />
+                            <div className="flex items-center px-3 rounded-md bg-neutral-800/60 border border-neutral-800 text-xs text-emerald-400 tabular-nums whitespace-nowrap min-w-[140px] justify-center">
                               {Number(t.triggerOdds) > 0
-                                ? `1 in ${Number(t.triggerOdds).toLocaleString()} (p = ${(1 / Number(t.triggerOdds)).toExponential(3)} / spin)`
-                                : 'Empty/0 → uses curve-based hit chance. Max: 10,000,000.'}
-                            </p>
+                                ? `1 in ${Number(t.triggerOdds).toLocaleString()} spins`
+                                : 'disabled'}
+                            </div>
                           </div>
+                          <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300">
+                            <span className="font-semibold">RNG Boundary Limit:</span> Max 10,000,000
+                          </div>
+                          {Number(t.triggerOdds) > 10_000_000 && (
+                            <p className="text-[11px] text-red-400">
+                              Exceeds certified RNG ceiling of 10,000,000.
+                            </p>
+                          )}
+                          <p className="text-[11px] text-neutral-500">
+                            {Number(t.triggerOdds) > 0
+                              ? `p = ${(1 / Number(t.triggerOdds)).toExponential(3)} per spin`
+                              : 'Empty/0 → uses curve-based hit chance.'}
+                          </p>
                         </div>
                       </div>
                     </div>
