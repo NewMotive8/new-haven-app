@@ -481,6 +481,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       poolWeight,
       seedWeight,
       houseWeight,
+      overlappingRule,
       triggerOdds,
       previewWager,
     };
