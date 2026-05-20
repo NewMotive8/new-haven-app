@@ -51,7 +51,7 @@ function fmt(n: number, currency = "EUR") {
 }
 
 function SandboxDemoPage() {
-  const [brandId, setBrandId] = useState<string>("");
+  const [brandId, setBrandId] = useState<string>("1");
   const [active, setActive] = useState<Jackpot | null>(null);
   const [poolDisplay, setPoolDisplay] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
@@ -316,6 +316,9 @@ function SandboxDemoPage() {
               placeholder="paste brand id…"
               className="bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm font-mono"
             />
+            <span className="text-[11px] text-slate-500 mt-1">
+              Defaults to the admin mock brand (1).
+            </span>
           </div>
 
           <div className="grid grid-cols-2 gap-3 text-sm">
