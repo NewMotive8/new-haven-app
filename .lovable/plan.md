@@ -1,50 +1,46 @@
-# Fix: bet endpoint ignores engine-v2 split
+# Fix: ledger case-sensitivity drops the v2 split
 
 ## What's wrong
 
-The blumberg jackpot is saved with the v2 split contract:
+After the previous fix, `getJackpot` now carries the full v2 config to the
+bet endpoint, but every spin still shows Pool €0 / Seed €0 / House €0.
 
-- `contributionMode: "split"`
-- `totalContributionAmount: 0.15` fixed
-- weights pool 60 / seed 30 / house 10
+The blumberg jackpot stores:
 
-Expected per €1 spin: Pool €0.09, Seed €0.045, House €0.015.
-Observed per €1 spin: Pool €0.03, Seed €0, House €0.
+- `engineV2.totalContributionType: "fixed"` (lowercase)
+- `engineV2.totalContributionAmount: 0.15`
+- weights 60 / 30 / 10
 
-The split is correctly persisted in the database — the bug is on the read path.
+`src/lib/jackpot/ledger.ts → resolveContributionSlice` compares the type to
+the uppercase literal `"FIXED"`. Because `"fixed" !== "FIXED"`, it falls into
+the percentage branch and computes
+`totalForCalc = 1 × 0.15 / 100 = 0.0015`, then `pool = 0.0015 × 0.6 ≈ €0.001`.
+That rounds to €0.00 in the UI, which is what the user sees.
 
-## Root cause
-
-`src/lib/jackpot/store.server.ts → rowToDTO` returns a `JackpotDTO` that does
-**not** include the `config` blob (the row's `trigger_condition` JSONB, which
-holds `engineV2`, `tiers`, `pool`, `seed`, etc.).
-
-`src/routes/api/v1/event/bet.ts → inlineConfigFromDto(jp)` then reads
-`jp.config` to build the ledger input. Because `config` is `undefined`, it
-falls back to the classic shape with only `contribution_percentage` (0.03)
-mapped to pool. The v2 split and tiers are silently dropped.
-
-The same gap affects `listJackpots`, so `/api/v1/jackpots` also returns rows
-without `config`, which is why the sandbox-demo widget can't show v2 info.
+The same case mismatch affects the legacy fallback (`pool.contributionType`,
+`seed.contributionType`) and the per-tier path, because the admin form also
+writes these lowercase.
 
 ## Fix
 
-In `src/lib/jackpot/store.server.ts`:
+Normalize the contribution-type comparison in
+`src/lib/jackpot/ledger.ts`:
 
-- Extend `rowToDTO` to attach `config: row.trigger_condition` on the DTO
-  (typed as `Record<string, unknown> | undefined`).
-- No SQL change needed — `trigger_condition` is already in `SELECT`.
+- Introduce a small helper `isFixed(type)` that uppercases the value and
+  returns `true` when it equals `"FIXED"`.
+- Use it in all three places: split branch (`totalContributionType`),
+  flat pool fallback, and flat seed fallback.
 
-That single change makes `getJackpot` / `listJackpots` carry the v2 contract
-through to the bet endpoint and the sandbox UI, so the ledger split lines up
-with what was saved in the admin form.
+No change required in `bet.ts` or the admin write path — the helper just
+makes the comparison case-insensitive so both `"fixed"` and `"FIXED"` work.
 
 ## Verification
 
-After the fix, on `/sandbox-demo` with brand 1, a €1 spin against the
-blumberg jackpot should produce Pool €0.09, Seed €0.045, House €0.015, and
-the pool balance should grow by €0.09 per spin (still persisted via topup).
+On `/sandbox-demo`, brand 1, with the existing blumberg jackpot, a €1 spin
+should produce: Pool €0.09, Seed €0.045, House €0.015. The pool balance
+should grow by €0.09 per spin (topup already wired).
 
 ## Files
 
-- `src/lib/jackpot/store.server.ts` — include `config` in the DTO.
+- `src/lib/jackpot/ledger.ts` — case-insensitive `FIXED` check in
+  `resolveContributionSlice`.
