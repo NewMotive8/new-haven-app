@@ -120,7 +120,7 @@ const AmountDraftInput = ({
 
   const commit = () => {
     setIsEditing(false);
-    const raw = draft.trim();
+    const raw = draft.trim().replace(',', '.');
     if (raw === '' || raw === '.') {
       onCommit(0);
       setDraft('');
@@ -144,7 +144,7 @@ const AmountDraftInput = ({
       onBlur={commit}
       onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
       onChange={(e) => {
-        const raw = e.target.value;
+        const raw = e.target.value.replace(',', '.');
         if (!/^\d*\.?\d*$/.test(raw)) return;
         setDraft(raw);
       }}
