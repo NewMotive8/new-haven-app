@@ -4252,19 +4252,13 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
           )}
         </div>
 
-        {/* ── Engine v2: Contribution Split + Fixed-Odds Trigger ──────────────── */}
+        {/* ── Jackpot Contribution (matches Figma reference: Fixed/Percent + Weight table) ── */}
         {selectedType !== 'multi_level' && (
         <section className="mt-10 scroll-mt-20">
-          <h2 className="text-xl font-semibold mb-2">Engine v2 — Contribution Split &amp; Trigger Odds</h2>
-          <p className="text-sm text-neutral-400 mb-6">
-            Opt-in 3-way contribution split (Pool / Seed / House) and fixed-odds trigger override.
-            Legacy mode keeps current pool &amp; seed contribution behaviour byte-for-byte.
-          </p>
+          <h2 className="text-xl font-semibold mb-6">Jackpot Contribution</h2>
 
           <Card className="p-6 bg-neutral-900/50 border-neutral-800 mb-6">
-            {/* Fixed / Percent pill toggle — matches Figma "Fixed | Percent" tabs.
-                Drives both contributionMode (legacy ⇢ Percent / split ⇢ Fixed-style table)
-                and totalContributionType so the split table always renders with the new look. */}
+            {/* Fixed / Percent pill toggle */}
             <div className="inline-flex rounded-lg bg-neutral-800 p-1 mb-5">
               <button
                 type="button"
@@ -4294,148 +4288,94 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
               >
                 Percent
               </button>
-              <button
-                type="button"
-                onClick={() => setContributionMode('legacy')}
-                className={`px-5 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  contributionMode === 'legacy'
-                    ? 'bg-blue-500 text-white'
-                    : 'text-neutral-300 hover:bg-neutral-700'
-                }`}
-              >
-                Legacy
-              </button>
             </div>
 
-            {contributionMode === 'split' && (
-              <>
-                {/* Single contribution amount row — Figma "Fixed Contribution Amount" */}
-                <div className="space-y-2 mb-6">
-                  <BrightLabel htmlFor="v2-total" className="text-sm text-neutral-300">
-                    {totalContributionType === 'fixed' ? 'Fixed Contribution Amount' : 'Percent of Wager'}
-                  </BrightLabel>
-                  {totalContributionType === 'fixed' ? (
-                    <CurrencyInput
-                      id="v2-total"
+            {/* Single contribution amount row */}
+            <div className="space-y-2 mb-6">
+              <BrightLabel htmlFor="v2-total" className="text-sm text-neutral-300">
+                {totalContributionType === 'fixed' ? 'Fixed Contribution Amount' : 'Percent of Wager'}
+              </BrightLabel>
+              {totalContributionType === 'fixed' ? (
+                <CurrencyInput
+                  id="v2-total"
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={totalContributionAmount}
+                  onChange={(e) => setTotalContributionAmount(parseFloat(e.target.value) || 0)}
+                  className="bg-neutral-800 border-neutral-700"
+                />
+              ) : (
+                <PercentageInput
+                  id="v2-total"
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={totalContributionAmount}
+                  onChange={(e) => setTotalContributionAmount(parseFloat(e.target.value) || 0)}
+                  className="bg-neutral-800 border-neutral-700"
+                />
+              )}
+            </div>
+
+            {/* Contribution Weight table — Figma layout: label | Weight % | Amount € */}
+            {(() => {
+              const base = totalContributionType === 'fixed'
+                ? totalContributionAmount
+                : (previewWager * totalContributionAmount) / 100;
+              const sum = poolWeight + seedWeight + houseWeight;
+              const sumOk = Math.abs(sum - 100) < 0.05;
+              const computed = (w: number) => (base * (w / 100)).toFixed(3);
+
+              const Row = ({ label, k, value }: { label: string; k: 'pool' | 'seed' | 'house'; value: number }) => (
+                <div className="grid grid-cols-[80px_1fr_1fr] items-center gap-4 py-2">
+                  <span className="text-sm text-neutral-300">{label}</span>
+                  <div className="relative">
+                    <Input
                       type="number"
-                      step="0.01"
                       min={0}
-                      value={totalContributionAmount}
-                      onChange={(e) => setTotalContributionAmount(parseFloat(e.target.value) || 0)}
-                      className="bg-neutral-800 border-neutral-700"
+                      max={100}
+                      step={1}
+                      value={value}
+                      onChange={(e) => rebalanceWeights(k, parseFloat(e.target.value) || 0)}
+                      className="h-10 bg-neutral-800 border-neutral-700 pr-7 tabular-nums"
                     />
-                  ) : (
-                    <PercentageInput
-                      id="v2-total"
-                      type="number"
-                      step="0.01"
-                      min={0}
-                      value={totalContributionAmount}
-                      onChange={(e) => setTotalContributionAmount(parseFloat(e.target.value) || 0)}
-                      className="bg-neutral-800 border-neutral-700"
-                    />
+                    <span className="absolute inset-y-0 right-3 flex items-center text-xs text-neutral-400 pointer-events-none">%</span>
+                  </div>
+                  <Input
+                    readOnly
+                    tabIndex={-1}
+                    value={computed(value)}
+                    className="h-10 bg-neutral-800/60 border-neutral-700 text-neutral-300 tabular-nums cursor-default"
+                  />
+                </div>
+              );
+
+              return (
+                <div className="space-y-1">
+                  <div className="text-sm text-neutral-300 mb-1">Contribution Weight</div>
+                  <div className="grid grid-cols-[80px_1fr_1fr] gap-4 pb-2 border-b border-neutral-800">
+                    <span />
+                    <span className="text-xs text-neutral-400 text-center">Weight</span>
+                    <span className="text-xs text-neutral-400 text-center">Amount</span>
+                  </div>
+                  <Row label="Pool" k="pool" value={poolWeight} />
+                  <Row label="Seed" k="seed" value={seedWeight} />
+                  <Row label="House" k="house" value={houseWeight} />
+                  {!sumOk && (
+                    <div className="mt-2 text-xs text-amber-400">
+                      Sum: {sum.toFixed(2)}% — must equal 100 to save
+                    </div>
                   )}
                 </div>
-
-                {/* Contribution Weight table — Figma layout: label | Weight % | Amount € */}
-                {(() => {
-                  const base = totalContributionType === 'fixed'
-                    ? totalContributionAmount
-                    : (previewWager * totalContributionAmount) / 100;
-                  const sum = poolWeight + seedWeight + houseWeight;
-                  const sumOk = Math.abs(sum - 100) < 0.05;
-                  const computed = (w: number) => (base * (w / 100)).toFixed(3);
-
-                  const Row = ({ label, k, value }: { label: string; k: 'pool' | 'seed' | 'house'; value: number }) => (
-                    <div className="grid grid-cols-[80px_1fr_1fr] items-center gap-4 py-2">
-                      <span className="text-sm text-neutral-300">{label}</span>
-                      <div className="relative">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          step={1}
-                          value={value}
-                          onChange={(e) => rebalanceWeights(k, parseFloat(e.target.value) || 0)}
-                          className="h-10 bg-neutral-800 border-neutral-700 pr-7 tabular-nums"
-                        />
-                        <span className="absolute inset-y-0 right-3 flex items-center text-xs text-neutral-400 pointer-events-none">%</span>
-                      </div>
-                      <Input
-                        readOnly
-                        tabIndex={-1}
-                        value={computed(value)}
-                        className="h-10 bg-neutral-800/60 border-neutral-700 text-neutral-300 tabular-nums cursor-default"
-                      />
-                    </div>
-                  );
-
-                  return (
-                    <div className="space-y-1">
-                      <div className="text-sm text-neutral-300 mb-1">Contribution Weight</div>
-                      <div className="grid grid-cols-[80px_1fr_1fr] gap-4 pb-2 border-b border-neutral-800">
-                        <span />
-                        <span className="text-xs text-neutral-400 text-center">Weight</span>
-                        <span className="text-xs text-neutral-400 text-center">Amount</span>
-                      </div>
-                      <Row label="Pool" k="pool" value={poolWeight} />
-                      <Row label="Seed" k="seed" value={seedWeight} />
-                      <Row label="House" k="house" value={houseWeight} />
-                      {!sumOk && (
-                        <div className="mt-2 text-xs text-amber-400">
-                          Sum: {sum.toFixed(2)}% — must equal 100 to save
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </>
-            )}
+              );
+            })()}
           </Card>
-
-          <Card className="p-6 bg-neutral-900/50 border-neutral-800 mb-6">
-            <div className="space-y-2 max-w-2xl">
-              <BrightLabel htmlFor="v2-trigger-odds">Trigger Probability Denominator (N)</BrightLabel>
-              <div className="flex items-stretch gap-3">
-                <Input
-                  id="v2-trigger-odds"
-                  type="number"
-                  min={0}
-                  max={10_000_000}
-                  step={1}
-                  maxLength={8}
-                  value={triggerOdds || ''}
-                  onChange={(e) => {
-                    const raw = parseInt(e.target.value.slice(0, 8)) || 0;
-                    setTriggerOdds(Math.max(0, Math.min(10_000_000, raw)));
-                  }}
-                  placeholder="0 = disabled"
-                  aria-invalid={triggerOdds > 10_000_000}
-                  className={`flex-1 bg-neutral-800 border-neutral-700 ${triggerOdds > 10_000_000 ? 'border-red-500 ring-1 ring-red-500' : ''}`}
-                />
-                <div className="flex items-center px-3 rounded-md bg-neutral-800/60 border border-neutral-800 text-xs text-emerald-400 tabular-nums whitespace-nowrap min-w-[160px] justify-center">
-                  {triggerOdds > 0
-                    ? `1 in ${triggerOdds.toLocaleString()} spins`
-                    : 'disabled'}
-                </div>
-              </div>
-              <div className="inline-flex items-center gap-1.5 mt-1 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300">
-                <span className="font-semibold">RNG Boundary Limit:</span> Max 10,000,000
-              </div>
-              {triggerOdds > 10_000_000 && (
-                <p className="text-[11px] text-red-400">
-                  Exceeds certified RNG ceiling of 10,000,000. Value will be rejected on save.
-                </p>
-              )}
-              <p className="text-[11px] text-neutral-500">
-                {triggerOdds > 0
-                  ? `p = ${(1 / triggerOdds).toExponential(3)} per spin`
-                  : 'Leave empty/0 to use the AVERAGE/MAXIMUM curve. When > 0, replaces baseline hit-chance.'}
-              </p>
-            </div>
-          </Card>
+          {/* Trigger Probability card intentionally removed — user will indicate placement later. */}
         </section>
         )}
+
+
 
         {/* ── Engine Configuration: Multi-Level tiers + Timed lifespan ─────────── */}
         {(selectedType === 'multi_level' || selectedType === 'must_drop' || selectedType === 'frequency') && (
