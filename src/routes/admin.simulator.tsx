@@ -53,9 +53,20 @@ function SimulatorPage() {
   const incoming = useRouterState({
     select: (s) => s.location.state as { jackpotConfig?: JackpotSavePayload } | undefined,
   });
-  const originalPayloadRef = React.useRef<JackpotSavePayload | undefined>(incoming?.jackpotConfig);
+  const hydratedPayload = React.useMemo<JackpotSavePayload | undefined>(() => {
+    if (incoming?.jackpotConfig) return incoming.jackpotConfig;
+    if (typeof window === 'undefined') return undefined;
+    try {
+      const raw = sessionStorage.getItem('jackpot:pendingPayload');
+      return raw ? (JSON.parse(raw) as JackpotSavePayload) : undefined;
+    } catch {
+      return undefined;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const originalPayloadRef = React.useRef<JackpotSavePayload | undefined>(hydratedPayload);
   const initialConfig = React.useMemo<JackpotConfigDTO>(
-    () => (incoming?.jackpotConfig ? mapPayloadToConfig(incoming.jackpotConfig) : DEFAULT_CONFIG),
+    () => (hydratedPayload ? mapPayloadToConfig(hydratedPayload) : DEFAULT_CONFIG),
     // Intentionally empty: only read incoming state on first mount so user
     // edits in the textarea are never overwritten on re-render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -90,6 +101,7 @@ function SimulatorPage() {
         headers: { brandId: String(brandId), "Content-Type": "application/json" },
       });
       toast.success("Jackpot created");
+      try { sessionStorage.removeItem('jackpot:pendingPayload'); } catch { /* noop */ }
       navigate({ to: "/admin/jackpots" });
     } catch (err: unknown) {
       const msg =
