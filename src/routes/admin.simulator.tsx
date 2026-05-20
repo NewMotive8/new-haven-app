@@ -101,6 +101,7 @@ function SimulatorPage() {
         headers: { brandId: String(brandId), "Content-Type": "application/json" },
       });
       toast.success("Jackpot created");
+      try { sessionStorage.removeItem('jackpot:pendingPayload'); } catch { /* noop */ }
       navigate({ to: "/admin/jackpots" });
     } catch (err: unknown) {
       const msg =
