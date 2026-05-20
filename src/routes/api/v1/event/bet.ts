@@ -8,8 +8,8 @@
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { errorJson, json, preflight, requireBrandId } from "@/lib/jackpot/http";
-import { getJackpot } from "@/lib/jackpot/store.server";
-import { computeBetLedger } from "@/lib/jackpot/ledger";
+import { getJackpot, listJackpots } from "@/lib/jackpot/store.server";
+import { computeBetLedger, computeMultiCampaignLedger } from "@/lib/jackpot/ledger";
 import type { JackpotConfigDTO, JackpotDTO } from "@/lib/jackpot/types";
 
 function inlineConfigFromDto(jp: JackpotDTO): JackpotConfigDTO {
@@ -50,6 +50,7 @@ function inlineConfigFromDto(jp: JackpotDTO): JackpotConfigDTO {
             poolWeight: Number(v2.poolWeight) || 0,
             seedWeight: Number(v2.seedWeight) || 0,
             houseWeight: Number(v2.houseWeight) || 0,
+            overlappingRule: (v2.overlappingRule as "split" | "additive") ?? "split",
           }
         : undefined,
   };
@@ -63,7 +64,14 @@ export const Route = createFileRoute("/api/v1/event/bet")({
         const brand = requireBrandId(request);
         if (brand instanceof Response) return brand;
 
-        let body: { jackpotId?: number; wager?: number; config?: JackpotConfigDTO; playerId?: string; eventId?: string };
+        let body: {
+          jackpotId?: number;
+          wager?: number;
+          config?: JackpotConfigDTO;
+          configs?: JackpotConfigDTO[];
+          playerId?: string;
+          eventId?: string;
+        };
         try {
           body = (await request.json()) as typeof body;
         } catch {
@@ -73,27 +81,83 @@ export const Route = createFileRoute("/api/v1/event/bet")({
         const wager = Number(body.wager) || 0;
         if (wager <= 0) return errorJson("wager must be a positive number", 400);
 
-        let cfg: JackpotConfigDTO | undefined = body.config;
-        if (!cfg && body.jackpotId != null) {
-          const jp = await getJackpot(brand, Number(body.jackpotId));
-          if (!jp) return errorJson(`Jackpot ${body.jackpotId} not found`, 404);
-          cfg = inlineConfigFromDto(jp);
+        // -----------------------------------------------------------------
+        // Legacy single-jackpot path (back-compat).
+        // -----------------------------------------------------------------
+        if (body.config || body.jackpotId != null) {
+          let cfg: JackpotConfigDTO | undefined = body.config;
+          if (!cfg && body.jackpotId != null) {
+            const jp = await getJackpot(brand, Number(body.jackpotId));
+            if (!jp) return errorJson(`Jackpot ${body.jackpotId} not found`, 404);
+            cfg = inlineConfigFromDto(jp);
+          }
+          if (!cfg) return errorJson("Body must include `config` or `jackpotId`", 400);
+
+          const ledger = computeBetLedger(cfg, wager);
+          return json({
+            brandId: brand,
+            jackpotId: cfg.id,
+            eventId: body.eventId ?? null,
+            playerId: body.playerId ?? null,
+            processedAt: new Date().toISOString(),
+            wager,
+            contribution: ledger.totals,
+            house: ledger.totals.house,
+            totalContribution: ledger.totalContribution,
+            tierBreakdown: ledger.entries,
+          });
         }
-        if (!cfg) return errorJson("Body must include `config` or `jackpotId`", 400);
 
-        const ledger = computeBetLedger(cfg, wager);
+        // -----------------------------------------------------------------
+        // Multi-campaign router. Matches every enabled jackpot for the brand
+        // and routes each one through split / additive math per spec.
+        // -----------------------------------------------------------------
+        let configs: JackpotConfigDTO[];
+        if (Array.isArray(body.configs) && body.configs.length > 0) {
+          configs = body.configs;
+        } else {
+          const all = await listJackpots(brand);
+          configs = all.filter((j) => j.enabled).map(inlineConfigFromDto);
+        }
 
+        if (configs.length === 0) {
+          return json({
+            brandId: brand,
+            eventId: body.eventId ?? null,
+            playerId: body.playerId ?? null,
+            processedAt: new Date().toISOString(),
+            wager,
+            matched: 0,
+            splitDenominator: 0,
+            contribution: { pool: 0, seed: 0, house: 0 },
+            house: 0,
+            totalContribution: 0,
+            perJackpot: [],
+          });
+        }
+
+        const multi = computeMultiCampaignLedger(configs, wager);
         return json({
           brandId: brand,
-          jackpotId: cfg.id,
           eventId: body.eventId ?? null,
           playerId: body.playerId ?? null,
           processedAt: new Date().toISOString(),
           wager,
-          contribution: ledger.totals,
-          house: ledger.totals.house,
-          totalContribution: ledger.totalContribution,
-          tierBreakdown: ledger.entries,
+          matched: multi.perCampaign.length,
+          splitDenominator: multi.splitDenominator,
+          contribution: multi.totals,
+          house: multi.totals.house,
+          totalContribution: multi.totalContribution,
+          perJackpot: multi.perCampaign.map((e) => ({
+            jackpotId: e.jackpotId,
+            jackpotName: e.jackpotName,
+            routing: e.routing,
+            splitDenominator: e.splitDenominator,
+            contribution: e.ledger.totals,
+            house: e.ledger.totals.house,
+            totalContribution: e.ledger.totalContribution,
+            tierBreakdown: e.ledger.entries,
+          })),
         });
       },
     },
