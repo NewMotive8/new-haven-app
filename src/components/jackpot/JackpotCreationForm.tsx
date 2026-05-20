@@ -434,28 +434,6 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
     };
   }
 
-        vertical: 'casino',
-        casino: {
-          categories: eligCategories,
-          providers: eligProviders,
-          gameIds: eligGameIds,
-        },
-      };
-    }
-    return {
-      vertical: 'sportsbook',
-      sportsbook: {
-        betType: eligBetType,
-        sportType: eligSportType,
-        leagues: eligLeagues,
-        matchIds: eligMatchIdsRaw
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
-      },
-    };
-  }
-
   // Update only the edited weight; cap so the trio never exceeds 100. Other two are left alone.
   function setSingleWeight(changed: 'pool' | 'seed' | 'house', nextRaw: number) {
     const others = (['pool', 'seed', 'house'] as const).filter((k) => k !== changed);
