@@ -4396,9 +4396,11 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                         <span className="text-[10px] text-emerald-400 tabular-nums">{proj(val)}</span>
                                       </div>
                                       <div className="flex items-center gap-1">
-                                        <Input type="number" min={0} max={100} step={0.1} value={val}
-                                          onChange={(e) => { const r = e.target.value; if (r === '') { setTierWeight(k, 0); return; } const n = parseFloat(r); if (!Number.isNaN(n)) setTierWeight(k, n); }}
-                                          className="h-8 bg-neutral-800 border-neutral-700 text-right tabular-nums text-xs" />
+                                        <WeightDraftInput
+                                          value={val}
+                                          onCommit={(next) => setTierWeight(k, next)}
+                                          className="h-8 bg-neutral-800 border-neutral-700 text-right tabular-nums text-xs"
+                                        />
                                         <span className="text-[10px] text-neutral-400">%</span>
                                       </div>
                                       <Slider value={[val]} onValueChange={(v) => setTierWeight(k, v[0])} min={0} max={100} step={1} />
