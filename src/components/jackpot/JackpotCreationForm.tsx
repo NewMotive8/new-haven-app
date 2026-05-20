@@ -420,24 +420,27 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
           >Percent</button>
         </div>
 
-        <div className="space-y-2 mb-6">
-          <BrightLabel htmlFor="v2-total" className="text-sm text-neutral-300">
-            {totalContributionType === 'fixed' ? 'Fixed Contribution Amount' : 'Percent of Wager'}
-          </BrightLabel>
-          <div className="relative">
-            <Input
-              id="v2-total"
-              type="number"
-              step="0.01"
-              min={0}
-              value={totalContributionAmount}
-              onChange={(e) => setTotalContributionAmount(parseFloat(e.target.value) || 0)}
-              className="bg-neutral-800 border-neutral-700 pr-8 tabular-nums"
-            />
-            <span className="absolute inset-y-0 right-3 flex items-center text-neutral-400 pointer-events-none text-sm">
-              {totalContributionType === 'fixed' ? '€' : '%'}
-            </span>
+        <div className="grid grid-cols-2 gap-6 mb-6">
+          <div className="space-y-2">
+            <BrightLabel htmlFor="v2-total" className="text-sm text-neutral-300">
+              {totalContributionType === 'fixed' ? 'Fixed Contribution Amount' : 'Percent of Wager'}
+            </BrightLabel>
+            <div className="relative">
+              <Input
+                id="v2-total"
+                type="number"
+                step="0.01"
+                min={0}
+                value={totalContributionAmount}
+                onChange={(e) => setTotalContributionAmount(parseFloat(e.target.value) || 0)}
+                className="bg-neutral-800 border-neutral-700 pr-8 tabular-nums"
+              />
+              <span className="absolute inset-y-0 right-3 flex items-center text-neutral-400 pointer-events-none text-sm">
+                {totalContributionType === 'fixed' ? '€' : '%'}
+              </span>
+            </div>
           </div>
+          <div></div>
         </div>
 
         {(() => {
