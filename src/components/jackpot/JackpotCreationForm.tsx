@@ -193,25 +193,15 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   const [triggerOdds, setTriggerOdds] = useState<number>(initial?.triggerOdds ?? 0);
   const [previewWager, setPreviewWager] = useState<number>(initial?.previewWager ?? 1.0);
 
-  // Rebalance two other weights when one is changed so the trio always sums to 100.
-  function rebalanceWeights(changed: 'pool' | 'seed' | 'house', nextRaw: number) {
-    const next = Math.max(0, Math.min(100, Number(nextRaw) || 0));
-    const others = (['pool', 'seed', 'house'] as const).filter((k) => k !== changed) as ['pool' | 'seed' | 'house', 'pool' | 'seed' | 'house'];
+  // Update only the edited weight; cap so the trio never exceeds 100. Other two are left alone.
+  function setSingleWeight(changed: 'pool' | 'seed' | 'house', nextRaw: number) {
+    const others = (['pool', 'seed', 'house'] as const).filter((k) => k !== changed);
     const current = { pool: poolWeight, seed: seedWeight, house: houseWeight };
-    const remaining = 100 - next;
-    const oSum = current[others[0]] + current[others[1]];
-    let a: number, b: number;
-    if (oSum <= 0) {
-      a = remaining / 2;
-      b = remaining - a;
-    } else {
-      a = Math.round((current[others[0]] / oSum) * remaining * 100) / 100;
-      b = Math.round((remaining - a) * 100) / 100;
-    }
+    const otherSum = current[others[0]] + current[others[1]];
+    const max = Math.max(0, 100 - otherSum);
+    const next = Math.max(0, Math.min(max, Number(nextRaw) || 0));
     const set = { pool: setPoolWeight, seed: setSeedWeight, house: setHouseWeight };
     set[changed](next);
-    set[others[0]](a);
-    set[others[1]](b);
   }
 
   // --- MULTI_LEVEL tiers editor state
@@ -449,19 +439,18 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
           const sum = poolWeight + seedWeight + houseWeight;
           const sumOk = Math.abs(sum - 100) < 0.05;
           const computed = (w: number) => (base * (w / 100)).toFixed(3);
-          const Row = ({ label, k, value }: { label: string; k: 'pool' | 'seed' | 'house'; value: number }) => (
-            <div className="grid grid-cols-[140px_200px_200px] items-center gap-6 py-3">
-              <span className="text-sm font-semibold text-neutral-100">{label}</span>
-              <div className="relative">
-                <Input type="number" min={0} max={100} step={1} value={value}
-                  onChange={(e) => rebalanceWeights(k, parseFloat(e.target.value) || 0)}
-                  className="h-10 bg-neutral-900 border-neutral-700 pr-8 tabular-nums" />
-                <span className="absolute inset-y-0 right-3 flex items-center text-sm text-neutral-400 pointer-events-none">%</span>
-              </div>
-              <Input readOnly tabIndex={-1} value={computed(value)}
-                className="h-10 bg-neutral-900 border-neutral-700 text-neutral-400 tabular-nums cursor-default" />
-            </div>
-          );
+          const handleChange = (k: 'pool' | 'seed' | 'house') => (e: React.ChangeEvent<HTMLInputElement>) => {
+            const raw = e.target.value;
+            if (raw === '') { setSingleWeight(k, 0); return; }
+            const n = parseFloat(raw);
+            if (Number.isNaN(n)) return;
+            setSingleWeight(k, n);
+          };
+          const rows: Array<{ label: string; k: 'pool' | 'seed' | 'house'; value: number }> = [
+            { label: 'Pool', k: 'pool', value: poolWeight },
+            { label: 'Seed', k: 'seed', value: seedWeight },
+            { label: 'House', k: 'house', value: houseWeight },
+          ];
           return (
             <div>
               <div className="text-sm font-semibold text-neutral-100 mb-3">Contribution Weight</div>
@@ -470,9 +459,29 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                 <span className="text-sm font-semibold text-neutral-100">Weight</span>
                 <span className="text-sm font-semibold text-neutral-100">Amount</span>
               </div>
-              <Row label="Pool" k="pool" value={poolWeight} />
-              <Row label="Seed" k="seed" value={seedWeight} />
-              <Row label="House" k="house" value={houseWeight} />
+              {rows.map(({ label, k, value }) => (
+                <div key={k} className="grid grid-cols-[140px_200px_200px] items-center gap-6 py-3">
+                  <span className="text-sm font-semibold text-neutral-100">{label}</span>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={value}
+                      onChange={handleChange(k)}
+                      className="h-10 bg-neutral-900 border-neutral-700 pr-8 tabular-nums"
+                    />
+                    <span className="absolute inset-y-0 right-3 flex items-center text-sm text-neutral-400 pointer-events-none">%</span>
+                  </div>
+                  <Input
+                    readOnly
+                    tabIndex={-1}
+                    value={computed(value)}
+                    className="h-10 bg-neutral-900 border-neutral-700 text-neutral-400 tabular-nums cursor-default"
+                  />
+                </div>
+              ))}
               {!sumOk && (
                 <div className="mt-2 text-xs text-amber-400">
                   Sum: {sum.toFixed(2)}% — must equal 100 to save
@@ -4298,19 +4307,12 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                           const totalCalc = tType === 'fixed' ? tAmt : (previewWager * tAmt) / 100;
                           const proj = (v: number) => `€${(totalCalc * (v / 100)).toFixed(4)}`;
                           const setTierWeight = (key: 'pool' | 'seed' | 'house', val: number) => {
-                            const next = Math.max(0, Math.min(100, Number(val) || 0));
                             const others = (['pool', 'seed', 'house'] as const).filter((k) => k !== key);
                             const cur = { pool: tPool, seed: tSeed, house: tHouse };
-                            const remaining = 100 - next;
-                            const oSum = cur[others[0]] + cur[others[1]];
-                            let a: number, b: number;
-                            if (oSum <= 0) { a = remaining / 2; b = remaining - a; }
-                            else {
-                              a = Math.round((cur[others[0]] / oSum) * remaining * 100) / 100;
-                              b = Math.round((remaining - a) * 100) / 100;
-                            }
-                            const patch: any = { [`${key}Weight`]: next, [`${others[0]}Weight`]: a, [`${others[1]}Weight`]: b };
-                            updateTier(idx, patch);
+                            const otherSum = cur[others[0]] + cur[others[1]];
+                            const max = Math.max(0, 100 - otherSum);
+                            const next = Math.max(0, Math.min(max, Number(val) || 0));
+                            updateTier(idx, { [`${key}Weight`]: next } as any);
                           };
                           return (
                             <div className="space-y-4 mb-3">
@@ -4345,7 +4347,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                       </div>
                                       <div className="flex items-center gap-1">
                                         <Input type="number" min={0} max={100} step={0.1} value={val}
-                                          onChange={(e) => setTierWeight(k, parseFloat(e.target.value) || 0)}
+                                          onChange={(e) => { const r = e.target.value; if (r === '') { setTierWeight(k, 0); return; } const n = parseFloat(r); if (!Number.isNaN(n)) setTierWeight(k, n); }}
                                           className="h-8 bg-neutral-800 border-neutral-700 text-right tabular-nums text-xs" />
                                         <span className="text-[10px] text-neutral-400">%</span>
                                       </div>
