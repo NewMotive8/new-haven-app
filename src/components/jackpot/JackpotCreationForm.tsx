@@ -193,25 +193,15 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   const [triggerOdds, setTriggerOdds] = useState<number>(initial?.triggerOdds ?? 0);
   const [previewWager, setPreviewWager] = useState<number>(initial?.previewWager ?? 1.0);
 
-  // Rebalance two other weights when one is changed so the trio always sums to 100.
-  function rebalanceWeights(changed: 'pool' | 'seed' | 'house', nextRaw: number) {
-    const next = Math.max(0, Math.min(100, Number(nextRaw) || 0));
-    const others = (['pool', 'seed', 'house'] as const).filter((k) => k !== changed) as ['pool' | 'seed' | 'house', 'pool' | 'seed' | 'house'];
+  // Update only the edited weight; cap so the trio never exceeds 100. Other two are left alone.
+  function setSingleWeight(changed: 'pool' | 'seed' | 'house', nextRaw: number) {
+    const others = (['pool', 'seed', 'house'] as const).filter((k) => k !== changed);
     const current = { pool: poolWeight, seed: seedWeight, house: houseWeight };
-    const remaining = 100 - next;
-    const oSum = current[others[0]] + current[others[1]];
-    let a: number, b: number;
-    if (oSum <= 0) {
-      a = remaining / 2;
-      b = remaining - a;
-    } else {
-      a = Math.round((current[others[0]] / oSum) * remaining * 100) / 100;
-      b = Math.round((remaining - a) * 100) / 100;
-    }
+    const otherSum = current[others[0]] + current[others[1]];
+    const max = Math.max(0, 100 - otherSum);
+    const next = Math.max(0, Math.min(max, Number(nextRaw) || 0));
     const set = { pool: setPoolWeight, seed: setSeedWeight, house: setHouseWeight };
     set[changed](next);
-    set[others[0]](a);
-    set[others[1]](b);
   }
 
   // --- MULTI_LEVEL tiers editor state
