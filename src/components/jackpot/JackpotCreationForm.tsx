@@ -401,24 +401,25 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
     <section className="scroll-mt-20">
       <h2 className="text-xl font-semibold mb-6">Jackpot Contribution</h2>
       <Card className="p-6 bg-neutral-900/50 border-neutral-800 mb-6">
-        <div className="inline-flex rounded-lg bg-neutral-800 p-1 mb-5">
+        <div className="inline-flex gap-2 mb-6">
           <button
             type="button"
             onClick={() => { setContributionMode('split'); setTotalContributionType('fixed'); }}
-            className={`px-5 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
               contributionMode === 'split' && totalContributionType === 'fixed'
-                ? 'bg-blue-500 text-white' : 'text-neutral-300 hover:bg-neutral-700'
+                ? 'bg-blue-500 text-white' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
             }`}
           >Fixed</button>
           <button
             type="button"
             onClick={() => { setContributionMode('split'); setTotalContributionType('percentage'); }}
-            className={`px-5 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
               contributionMode === 'split' && totalContributionType === 'percentage'
-                ? 'bg-blue-500 text-white' : 'text-neutral-300 hover:bg-neutral-700'
+                ? 'bg-blue-500 text-white' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
             }`}
           >Percent</button>
         </div>
+
 
         <div className="space-y-2 mb-8">
           <BrightLabel htmlFor="v2-total" className="text-sm font-semibold text-neutral-100">
