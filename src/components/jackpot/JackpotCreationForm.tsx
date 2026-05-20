@@ -235,6 +235,7 @@ export type JackpotSavePayload = {
   poolWeight?: number;
   seedWeight?: number;
   houseWeight?: number;
+  overlappingRule?: 'split' | 'additive';
   triggerOdds?: number;
   previewWager?: number;
 };
