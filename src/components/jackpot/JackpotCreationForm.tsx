@@ -1244,20 +1244,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                               <div></div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-6">
-                              <div className="space-y-2">
-                                <BrightLabel htmlFor="pool-contribution">Fixed Pool Contribution Amount</BrightLabel>
-                                <CurrencyInput
-                                  id="pool-contribution"
-                                  type="number"
-                                  placeholder="1"
-                                  value={poolPercentageValue[0]}
-                                  onChange={(e) => setPoolPercentageValue([parseFloat(e.target.value) || 0])}
-                                  className="bg-neutral-800 border-neutral-700"
-                                />
-                              </div>
-                              <div></div>
-                            </div>
+
+
 
                             <div className="grid grid-cols-2 gap-6">
                               <div className="space-y-2">
@@ -1488,19 +1476,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                         </>
                       ) : (
                         <>
-                          <div className="space-y-2">
-                            <BrightLabel htmlFor="seed-contribution">Fixed Seed Contribution Amount</BrightLabel>
-                            <div className="max-w-[400px]">
-                              <CurrencyInput
-                                id="seed-contribution"
-                                type="number"
-                                placeholder="0"
-                                value={seedPercentageValue[0]}
-                                onChange={(e) => setSeedPercentageValue([parseFloat(e.target.value) || 0])}
-                                className="bg-neutral-800 border-neutral-700 w-full"
-                              />
-                            </div>
-                          </div>
+
+
 
                           <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
@@ -2264,20 +2241,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                               <div></div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-6">
-                              <div className="space-y-2">
-                                <BrightLabel htmlFor="pool-contribution">Fixed Pool Contribution Amount</BrightLabel>
-                                <CurrencyInput
-                                  id="pool-contribution"
-                                  type="number"
-                                  placeholder="1"
-                                  value={poolPercentageValue[0]}
-                                  onChange={(e) => setPoolPercentageValue([parseFloat(e.target.value) || 0])}
-                                  className="bg-neutral-800 border-neutral-700"
-                                />
-                              </div>
-                              <div></div>
-                            </div>
+
+
 
                             <div className="grid grid-cols-2 gap-6">
                               <div className="space-y-2">
@@ -2506,19 +2471,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                         </>
                       ) : (
                         <>
-                          <div className="space-y-2">
-                            <BrightLabel htmlFor="seed-contribution">Fixed Seed Contribution Amount</BrightLabel>
-                            <div className="max-w-[400px]">
-                              <CurrencyInput
-                                id="seed-contribution"
-                                type="number"
-                                placeholder="0"
-                                value={seedPercentageValue[0]}
-                                onChange={(e) => setSeedPercentageValue([parseFloat(e.target.value) || 0])}
-                                className="bg-neutral-800 border-neutral-700 w-full"
-                              />
-                            </div>
-                          </div>
+
+
 
                           <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
@@ -3716,20 +3670,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                               <div></div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-6">
-                              <div className="space-y-2">
-                                <BrightLabel htmlFor="frequency-pool-contribution-fixed">Fixed Pool Contribution Amount</BrightLabel>
-                                <CurrencyInput
-                                  id="frequency-pool-contribution-fixed"
-                                  type="number"
-                                  placeholder="1"
-                                  value={poolPercentageValue[0]}
-                                  onChange={(e) => setPoolPercentageValue([parseFloat(e.target.value) || 0])}
-                                  className="bg-neutral-800 border-neutral-700"
-                                />
-                              </div>
-                              <div></div>
-                            </div>
+
+
 
                             <div className="grid grid-cols-2 gap-6">
                               <div className="space-y-2">
@@ -3958,19 +3900,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                         </>
                       ) : (
                         <>
-                          <div className="space-y-2">
-                            <BrightLabel htmlFor="frequency-seed-contribution-fixed">Fixed Seed Contribution Amount</BrightLabel>
-                            <div className="max-w-[400px]">
-                              <CurrencyInput
-                                id="frequency-seed-contribution-fixed"
-                                type="number"
-                                placeholder="0"
-                                value={seedPercentageValue[0]}
-                                onChange={(e) => setSeedPercentageValue([parseFloat(e.target.value) || 0])}
-                                className="bg-neutral-800 border-neutral-700 w-full"
-                              />
-                            </div>
-                          </div>
+
+
 
                           <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
