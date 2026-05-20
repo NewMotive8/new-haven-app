@@ -3576,28 +3576,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                 <div className="grid gap-6">
                   <Card className="p-6 bg-neutral-900/50 border-neutral-800">
                     <div className="space-y-6">
-                      <div className="flex items-center gap-4">
-                        <button
-                          onClick={() => setContributionType('fixed')}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            contributionType === 'fixed'
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'
-                          }`}
-                        >
-                          Fixed
-                        </button>
-                        <button
-                          onClick={() => setContributionType('percentage')}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            contributionType === 'percentage'
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'
-                          }`}
-                        >
-                          Percentage
-                        </button>
-                      </div>
+
+
 
                       {contributionType === 'percentage' ? (
                         <>
