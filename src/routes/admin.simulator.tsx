@@ -46,26 +46,6 @@ const input: React.CSSProperties = {
   width: "100%",
 };
 
-function StatCard({ title, value, hint }: { title: string; value: string; hint?: string }) {
-  return (
-    <div style={{ ...panel, padding: 16 }}>
-      <div style={{ fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase", color: "#9fb0c8" }}>{title}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: "#f8fafc", marginTop: 6 }}>{value}</div>
-      {hint && <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>{hint}</div>}
-    </div>
-  );
-}
-
-function Row({ k, v }: { k: string; v: number }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between" }}>
-      <span style={{ color: "#9fb0c8" }}>{k}</span>
-      <span style={{ color: "#f1f5f9", fontVariantNumeric: "tabular-nums" }}>
-        {v.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-      </span>
-    </div>
-  );
-}
 
 function SimulatorPage() {
   const { brandId } = React.useContext(BrandContext);
