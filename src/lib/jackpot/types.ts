@@ -83,6 +83,8 @@ export interface ContributionSplitDTO {
   poolWeight?: number;
   seedWeight?: number;
   houseWeight?: number;
+  /** How this jackpot behaves when several active jackpots match the same spin. */
+  overlappingRule?: "split" | "additive";
 }
 
 /** One tier in a MULTI_LEVEL jackpot (mirrors Java Pool+Seed with multiLevelTier/Weight). */
