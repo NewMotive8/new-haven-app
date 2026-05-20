@@ -38,6 +38,7 @@ type LedgerSplit = {
   seed: number;
   house: number;
   totalContribution: number;
+  processedAt: string;
 };
 
 const BRAND_KEY = "jackpot-brand-id";
@@ -202,6 +203,7 @@ function SandboxDemoPage() {
           seed: json.contribution?.seed ?? 0,
           house: json.contribution?.house ?? 0,
           totalContribution: json.totalContribution ?? 0,
+          processedAt: new Date().toISOString(),
         });
         setPoolDisplay((p) => p + poolAdd);
         await persistPoolGrowth(active.id, poolAdd);
@@ -217,6 +219,7 @@ function SandboxDemoPage() {
         const json = (await res.json()) as {
           contribution: { pool: number; seed: number; house: number };
           totalContribution: number;
+          processedAt?: string;
           tierBreakdown?: Array<{ won?: boolean; amount?: number }>;
         };
         setLastSplit({
@@ -224,6 +227,7 @@ function SandboxDemoPage() {
           seed: json.contribution.seed,
           house: json.contribution.house,
           totalContribution: json.totalContribution,
+          processedAt: json.processedAt ?? new Date().toISOString(),
         });
         setPoolDisplay((p) => p + json.contribution.pool);
         await persistPoolGrowth(active.id, json.contribution.pool);
@@ -405,11 +409,18 @@ function SandboxDemoPage() {
           </label>
 
           <div className="border-t border-slate-800 pt-4">
-            <div className="text-xs uppercase tracking-wider text-slate-400 mb-2">
-              Last Ledger Split (Engine v2)
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div className="text-xs uppercase tracking-wider text-slate-400">
+                Last Ledger Split (Engine v2)
+              </div>
+              {lastSplit ? (
+                <div className="text-[11px] tabular-nums text-slate-500">
+                  {new Date(lastSplit.processedAt).toLocaleTimeString()}
+                </div>
+              ) : null}
             </div>
             {lastSplit ? (
-              <div className="grid grid-cols-3 gap-2 text-sm">
+              <div key={lastSplit.processedAt} className="grid grid-cols-3 gap-2 text-sm">
                 <Split label="Pool" value={lastSplit.pool} color="text-emerald-400" />
                 <Split label="Seed" value={lastSplit.seed} color="text-sky-400" />
                 <Split label="House" value={lastSplit.house} color="text-amber-400" />
