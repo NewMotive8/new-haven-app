@@ -224,6 +224,7 @@ function SandboxDemoPage() {
           processedAt: new Date().toISOString(),
         });
         setPoolDisplay((p) => p + poolAdd);
+        bumpTracker(w, poolAdd, json.contribution?.seed ?? 0, json.contribution?.house ?? 0);
         await persistPoolGrowth(active.id, poolAdd);
         // Forced roll = guaranteed hit
         triggerCelebration();
