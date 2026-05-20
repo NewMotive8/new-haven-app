@@ -57,6 +57,7 @@ function SandboxDemoPage() {
   const [error, setError] = useState<string | null>(null);
   const [optedIn, setOptedIn] = useState(true);
   const [forceWin, setForceWin] = useState(false);
+  const [wager, setWager] = useState<number>(1);
   const [lastSplit, setLastSplit] = useState<LedgerSplit | null>(null);
   const [celebrating, setCelebrating] = useState(false);
   const [spinning, setSpinning] = useState(false);
@@ -152,16 +153,40 @@ function SandboxDemoPage() {
     };
   };
 
+  // ── Persist pool growth so polling reflects each spin ─────────────────────
+  const persistPoolGrowth = async (jackpotId: number, amount: number) => {
+    if (amount <= 0) return;
+    try {
+      await fetch("/api/v1/jackpots/topup", {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({
+          jackpotId,
+          amount,
+          backofficeUser: "sandbox-demo",
+          isSeed: false,
+        }),
+      });
+    } catch {
+      /* non-fatal — poll will resync */
+    }
+  };
+
   // ── Trigger spin ──────────────────────────────────────────────────────────
   const handleSpin = async () => {
     if (!active || spinning) return;
+    const w = Number(wager);
+    if (!Number.isFinite(w) || w <= 0) {
+      setError("Wager must be a positive number");
+      return;
+    }
     setSpinning(true);
     setError(null);
     try {
       if (forceWin) {
         const body = buildConfigBody(active);
         const res = await fetch(
-          "/api/v1/event/simulate-bet?externalRoll=1&wager=1&iterations=1",
+          `/api/v1/event/simulate-bet?externalRoll=1&wager=${w}&iterations=1`,
           { method: "POST", headers: headers(), body: JSON.stringify(body) },
         );
         if (!res.ok) throw new Error(`Simulate HTTP ${res.status}`);
@@ -171,19 +196,22 @@ function SandboxDemoPage() {
           drops?: unknown[];
           winners?: number;
         };
+        const poolAdd = json.contribution?.pool ?? 0;
         setLastSplit({
-          pool: json.contribution?.pool ?? 0,
+          pool: poolAdd,
           seed: json.contribution?.seed ?? 0,
           house: json.contribution?.house ?? 0,
           totalContribution: json.totalContribution ?? 0,
         });
+        setPoolDisplay((p) => p + poolAdd);
+        await persistPoolGrowth(active.id, poolAdd);
         // Forced roll = guaranteed hit
         triggerCelebration();
       } else {
         const res = await fetch("/api/v1/event/bet", {
           method: "POST",
           headers: headers(),
-          body: JSON.stringify({ jackpotId: active.id, wager: 1 }),
+          body: JSON.stringify({ jackpotId: active.id, wager: w }),
         });
         if (!res.ok) throw new Error(`Bet HTTP ${res.status}`);
         const json = (await res.json()) as {
@@ -197,6 +225,8 @@ function SandboxDemoPage() {
           house: json.contribution.house,
           totalContribution: json.totalContribution,
         });
+        setPoolDisplay((p) => p + json.contribution.pool);
+        await persistPoolGrowth(active.id, json.contribution.pool);
         const won = json.tierBreakdown?.some((t) => t.won === true);
         if (won) triggerCelebration();
       }
@@ -336,12 +366,26 @@ function SandboxDemoPage() {
             </div>
           </div>
 
+          <div className="flex flex-col gap-1">
+            <label className="text-xs uppercase tracking-wider text-slate-400">
+              Wager Amount (EUR)
+            </label>
+            <input
+              type="number"
+              min={0.01}
+              step={0.5}
+              value={wager}
+              onChange={(e) => setWager(parseFloat(e.target.value) || 0)}
+              className="bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm font-mono"
+            />
+          </div>
+
           <button
             onClick={handleSpin}
             disabled={!active || spinning}
             className="w-full py-4 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-700 disabled:cursor-not-allowed text-slate-950 font-bold text-lg transition"
           >
-            {spinning ? "Spinning…" : "Trigger Game Spin (€1.00)"}
+            {spinning ? "Spinning…" : `Trigger Game Spin (${fmt(wager)})`}
           </button>
 
           <label className="flex items-center justify-between bg-slate-950/40 border border-slate-800 rounded px-3 py-2 cursor-pointer">
