@@ -1,7 +1,7 @@
 export const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, brandId, X-Requested-With",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, brandId, x-brand-id, X-Requested-With",
   "Access-Control-Max-Age": "86400",
 } as const;
 
@@ -25,8 +25,12 @@ export function preflight(): Response {
 }
 
 export function requireBrandId(request: Request): string | Response {
-  // Headers are case-insensitive; "brandId" works for fetch and most clients.
-  const brandId = request.headers.get("brandId") ?? request.headers.get("brandid");
+  // Headers are case-insensitive. Accept the canonical `brandId` plus the
+  // `x-brand-id` variant used by the sandbox demo and other internal callers.
+  const brandId =
+    request.headers.get("x-brand-id") ??
+    request.headers.get("brandId") ??
+    request.headers.get("brandid");
   if (!brandId) return errorJson("Missing required 'brandId' header", 400);
   return brandId;
 }
