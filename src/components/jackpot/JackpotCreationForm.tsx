@@ -4307,19 +4307,12 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                           const totalCalc = tType === 'fixed' ? tAmt : (previewWager * tAmt) / 100;
                           const proj = (v: number) => `€${(totalCalc * (v / 100)).toFixed(4)}`;
                           const setTierWeight = (key: 'pool' | 'seed' | 'house', val: number) => {
-                            const next = Math.max(0, Math.min(100, Number(val) || 0));
                             const others = (['pool', 'seed', 'house'] as const).filter((k) => k !== key);
                             const cur = { pool: tPool, seed: tSeed, house: tHouse };
-                            const remaining = 100 - next;
-                            const oSum = cur[others[0]] + cur[others[1]];
-                            let a: number, b: number;
-                            if (oSum <= 0) { a = remaining / 2; b = remaining - a; }
-                            else {
-                              a = Math.round((cur[others[0]] / oSum) * remaining * 100) / 100;
-                              b = Math.round((remaining - a) * 100) / 100;
-                            }
-                            const patch: any = { [`${key}Weight`]: next, [`${others[0]}Weight`]: a, [`${others[1]}Weight`]: b };
-                            updateTier(idx, patch);
+                            const otherSum = cur[others[0]] + cur[others[1]];
+                            const max = Math.max(0, 100 - otherSum);
+                            const next = Math.max(0, Math.min(max, Number(val) || 0));
+                            updateTier(idx, { [`${key}Weight`]: next } as any);
                           };
                           return (
                             <div className="space-y-4 mb-3">
