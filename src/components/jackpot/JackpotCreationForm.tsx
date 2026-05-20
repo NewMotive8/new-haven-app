@@ -1445,19 +1445,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                             <div></div>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="min-wager-seed-percentage">Minimum Wager Amount</BrightLabel>
-                              <CurrencyInput
-                                id="min-wager-seed-percentage"
-                                type="number"
-                                placeholder="0"
-                                defaultValue="0"
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
+
+
 
                           <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
@@ -1541,18 +1530,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                             <div></div>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="min-wager-seed-fixed">Minimum Wager Amount</BrightLabel>
-                              <CurrencyInput
-                                id="min-wager-seed-fixed"
-                                type="number"
-                                placeholder="0"
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
+
+
 
                           <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
@@ -2441,19 +2420,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                             <div></div>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="min-wager-seed-percentage">Minimum Wager Amount</BrightLabel>
-                              <CurrencyInput
-                                id="min-wager-seed-percentage"
-                                type="number"
-                                placeholder="0"
-                                defaultValue="0"
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
+
+
 
                           <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
@@ -2536,18 +2504,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                             <div></div>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="min-wager-seed-fixed">Minimum Wager Amount</BrightLabel>
-                              <CurrencyInput
-                                id="min-wager-seed-fixed"
-                                type="number"
-                                placeholder="0"
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
+
+
 
                           <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
@@ -3870,19 +3828,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                             <div></div>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="frequency-min-wager-seed-percentage">Minimum Wager Amount</BrightLabel>
-                              <CurrencyInput
-                                id="frequency-min-wager-seed-percentage"
-                                type="number"
-                                placeholder="0"
-                                defaultValue="0"
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
+
+
 
                           <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
@@ -3965,18 +3912,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                             <div></div>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="frequency-min-wager-seed-fixed">Minimum Wager Amount</BrightLabel>
-                              <CurrencyInput
-                                id="frequency-min-wager-seed-fixed"
-                                type="number"
-                                placeholder="0"
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
+
+
 
                           <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
