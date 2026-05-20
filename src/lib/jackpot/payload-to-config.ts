@@ -200,11 +200,27 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
               houseWeight: num(src.houseWeight, 10),
             }
           : undefined;
+      // When the tier uses Split mode, override its pool/seed contribution
+      // amount + type from the split inputs (largest-remainder rounding so
+      // pool+seed+house sum exactly to the tier total).
+      let pool = t.pool;
+      let seed = t.seed;
+      if (tSplit) {
+        const [pAmt, sAmt] = splitAllocation(
+          tSplit.totalContributionAmount,
+          [tSplit.poolWeight, tSplit.seedWeight, tSplit.houseWeight],
+        );
+        pool = { ...pool, contributionAmount: pAmt, contributionType: tSplit.totalContributionType };
+        seed = { ...seed, contributionAmount: sAmt, contributionType: tSplit.totalContributionType };
+      }
       return {
         ...t,
+        pool,
+        seed,
         ...(tSplit ? { contribution: tSplit } : {}),
         ...(num(src.triggerOdds, 0) > 0 ? { triggerOdds: num(src.triggerOdds, 0) } : {}),
       };
+
     });
   }
 
