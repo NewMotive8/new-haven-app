@@ -384,6 +384,7 @@ function ResultsSummary({
           badge={`${housePctActual.toFixed(2)}% of wager`}
         />
         <KpiCard label="Jackpot Number of Drops" value={fmtInt(totalDrops)} />
+        <KpiCard label="Average Jackpot Drop" value={`€ ${fmt(averageDropAmount)}`} />
       </div>
 
 
