@@ -153,16 +153,40 @@ function SandboxDemoPage() {
     };
   };
 
+  // ── Persist pool growth so polling reflects each spin ─────────────────────
+  const persistPoolGrowth = async (jackpotId: number, amount: number) => {
+    if (amount <= 0) return;
+    try {
+      await fetch("/api/v1/jackpots/topup", {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({
+          jackpotId,
+          amount,
+          backofficeUser: "sandbox-demo",
+          isSeed: false,
+        }),
+      });
+    } catch {
+      /* non-fatal — poll will resync */
+    }
+  };
+
   // ── Trigger spin ──────────────────────────────────────────────────────────
   const handleSpin = async () => {
     if (!active || spinning) return;
+    const w = Number(wager);
+    if (!Number.isFinite(w) || w <= 0) {
+      setError("Wager must be a positive number");
+      return;
+    }
     setSpinning(true);
     setError(null);
     try {
       if (forceWin) {
         const body = buildConfigBody(active);
         const res = await fetch(
-          "/api/v1/event/simulate-bet?externalRoll=1&wager=1&iterations=1",
+          `/api/v1/event/simulate-bet?externalRoll=1&wager=${w}&iterations=1`,
           { method: "POST", headers: headers(), body: JSON.stringify(body) },
         );
         if (!res.ok) throw new Error(`Simulate HTTP ${res.status}`);
@@ -172,19 +196,22 @@ function SandboxDemoPage() {
           drops?: unknown[];
           winners?: number;
         };
+        const poolAdd = json.contribution?.pool ?? 0;
         setLastSplit({
-          pool: json.contribution?.pool ?? 0,
+          pool: poolAdd,
           seed: json.contribution?.seed ?? 0,
           house: json.contribution?.house ?? 0,
           totalContribution: json.totalContribution ?? 0,
         });
+        setPoolDisplay((p) => p + poolAdd);
+        await persistPoolGrowth(active.id, poolAdd);
         // Forced roll = guaranteed hit
         triggerCelebration();
       } else {
         const res = await fetch("/api/v1/event/bet", {
           method: "POST",
           headers: headers(),
-          body: JSON.stringify({ jackpotId: active.id, wager: 1 }),
+          body: JSON.stringify({ jackpotId: active.id, wager: w }),
         });
         if (!res.ok) throw new Error(`Bet HTTP ${res.status}`);
         const json = (await res.json()) as {
@@ -198,6 +225,8 @@ function SandboxDemoPage() {
           house: json.contribution.house,
           totalContribution: json.totalContribution,
         });
+        setPoolDisplay((p) => p + json.contribution.pool);
+        await persistPoolGrowth(active.id, json.contribution.pool);
         const won = json.tierBreakdown?.some((t) => t.won === true);
         if (won) triggerCelebration();
       }
