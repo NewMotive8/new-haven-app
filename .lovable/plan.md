@@ -1,27 +1,25 @@
-# Seed sandbox admin user
+# Port JackpotCreationForm to the Admin project
 
-Create `dr.loop@gmail.com` directly in the sandbox backend so you can log in with familiar credentials.
+Copy the current `JackpotCreationForm.tsx` (with all recent layout polish — Fixed/Percent pills, Jackpot Contribution placement, 140/200/200 weight table, narrowed Fixed Contribution input, multi-level tier cards, etc.) into the [Admin](/projects/a9c97024-0dfc-4431-909f-455fbd4c43ad) project.
 
-## What gets created
+## What gets copied
 
-- Auth user: `dr.loop@gmail.com`, email pre-confirmed (no verification email)
-- Password: `SandboxLoop123!` (different from production — change after first login if you want)
-- Profile row in `profiles` (auto-created by the existing `handle_new_user` trigger… if the trigger is wired; otherwise inserted explicitly)
-- Role row in `user_roles` with `role = 'admin'` so RLS policies grant full access
+- `src/components/jackpot/JackpotCreationForm.tsx` — full file overwrite
 
-## How
+The Admin project already has:
+- The same TanStack Start + Tailwind + shadcn/ui stack
+- The same `@/components/ui/*` primitives the form imports
+- The same `src/assets/jackpot/*` images the form references
+- An existing `JackpotCreationForm.tsx` at the same path (will be overwritten)
 
-A single SQL migration that:
-1. Inserts into `auth.users` with `encrypted_password = crypt(...)` and `email_confirmed_at = now()`
-2. Inserts matching `profiles` row (idempotent via `ON CONFLICT`)
-3. Inserts `user_roles` row with `admin`
+So no other files need to move — imports resolve as-is.
 
-All wrapped so it's safe to re-run.
+## Out of scope
 
-## After it runs
+- Backend / `src/lib/jackpot/*` helpers — only port if the Admin form complains about a mismatch after the copy. We'll check after.
+- Routes that mount the form — assumed to already exist in Admin since the file is already there.
+- The legacy `src/backoffice/` folder in this repo — not touched.
 
-Log in at `https://sandbox-admin.incentiv8.co/login` with:
-- Email: `dr.loop@gmail.com`
-- Password: `SandboxLoop123!`
+## After porting
 
-If you'd prefer a different password, tell me before approving and I'll swap it in.
+Open the Admin project's `/admin/jackpots/new` route, confirm the Jackpot Contribution section matches the reference (Fixed/Percent pills, narrow Fixed Contribution input, compact 3-column weight table), and adjust if any imports differ.
