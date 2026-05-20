@@ -421,7 +421,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
         </div>
 
 
-        <div className="space-y-2 mb-8" style={{ width: 580 }}>
+        <div className="space-y-2 mb-8" style={{ width: 193 }}>
           <BrightLabel htmlFor="v2-total" className="text-sm font-semibold text-neutral-100">
             {totalContributionType === 'fixed' ? 'Fixed Contribution Amount' : 'Percent of Wager'}
           </BrightLabel>
