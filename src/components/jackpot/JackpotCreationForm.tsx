@@ -184,7 +184,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   const [mustDropPeriod, setMustDropPeriod] = useState<1 | 2 | 3 | 4>(initial?.mustDropPeriod ?? 2);
 
   // --- v2: Engine v2 contribution split + fixed-odds trigger (global jackpot level)
-  const [contributionMode, setContributionMode] = useState<'legacy' | 'split'>(initial?.contributionMode ?? 'legacy');
+  const [contributionMode, setContributionMode] = useState<'legacy' | 'split'>(initial?.contributionMode ?? 'split');
   const [totalContributionAmount, setTotalContributionAmount] = useState<number>(initial?.totalContributionAmount ?? 0.1);
   const [totalContributionType, setTotalContributionType] = useState<'fixed' | 'percentage'>(initial?.totalContributionType ?? 'fixed');
   const [poolWeight, setPoolWeight] = useState<number>(initial?.poolWeight ?? 60);
