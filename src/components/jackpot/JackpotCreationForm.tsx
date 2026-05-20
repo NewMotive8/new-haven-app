@@ -745,29 +745,34 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
           );
         })()}
 
-        {contributionMode === 'split' && (
-          <div className="mt-8 pt-6 border-t border-neutral-800 space-y-2 max-w-xl">
-            <BrightLabel htmlFor="v2-overlap" className="text-sm font-semibold text-neutral-100">
-              Overlapping Jackpot Rule
-            </BrightLabel>
-            <select
-              id="v2-overlap"
-              value={overlappingRule}
-              onChange={(e) => setOverlappingRule(e.target.value as 'split' | 'additive')}
-              className="w-full h-10 rounded-md bg-neutral-900 border border-neutral-700 px-3 text-sm text-neutral-100 tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="split">Split Mode (Divide contribution equally among matching active pools)</option>
-              <option value="additive">Additive Mode (Charge independent contribution fee per active pool / Double-Dip)</option>
-            </select>
-            <p className="text-xs text-neutral-400">
-              When a single spin matches several active jackpots: <strong>Split</strong> divides the configured
-              contribution between them; <strong>Additive</strong> charges this jackpot's full contribution
-              independently of any others (double-dip).
-            </p>
-          </div>
-        )}
 
+      </Card>
+    </section>
+  ) : null;
 
+  const overlappingSection = selectedType !== 'multi_level' && contributionMode === 'split' ? (
+    <section className="scroll-mt-20">
+      <h2 className="text-xl font-semibold mb-6">Overlapping Jackpot Rule</h2>
+      <Card className="p-6 bg-neutral-900/50 border-neutral-800">
+        <div className="space-y-2 max-w-xl">
+          <BrightLabel htmlFor="v2-overlap" className="text-sm font-semibold text-neutral-100">
+            Overlapping Jackpot Rule
+          </BrightLabel>
+          <select
+            id="v2-overlap"
+            value={overlappingRule}
+            onChange={(e) => setOverlappingRule(e.target.value as 'split' | 'additive')}
+            className="w-full h-10 rounded-md bg-neutral-900 border border-neutral-700 px-3 text-sm text-neutral-100 tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="split">Split Mode (Divide contribution equally among matching active pools)</option>
+            <option value="additive">Additive Mode (Charge independent contribution fee per active pool / Double-Dip)</option>
+          </select>
+          <p className="text-xs text-neutral-400">
+            When a single spin matches several active jackpots: <strong>Split</strong> divides the configured
+            contribution between them; <strong>Additive</strong> charges this jackpot's full contribution
+            independently of any others (double-dip).
+          </p>
+        </div>
       </Card>
     </section>
   ) : null;
@@ -1850,9 +1855,6 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
               {jackpotContributionSection}
 
-              {eligibilitySection}
-              {playerTargetingSection}
-
               {/* Pool Setup Section */}
               <section ref={poolSetupRef} className="scroll-mt-20">
                 <h2 className="text-base font-semibold mb-4">Pool</h2>
@@ -2388,6 +2390,10 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                 </div>
               </section>
 
+              {overlappingSection}
+              {eligibilitySection}
+              {playerTargetingSection}
+
               {/* Widget Configuration Section */}
               <section ref={configRef} className="scroll-mt-20">
                 <h2 className="text-xl font-semibold mb-6">Widget Configuration</h2>
@@ -2831,9 +2837,6 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
               </section>
 
               {jackpotContributionSection}
-
-              {eligibilitySection}
-              {playerTargetingSection}
 
               {/* Pool Setup Section */}
               <section ref={poolSetupRef} className="scroll-mt-20">
@@ -3555,6 +3558,10 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                 </div>
               </section>
 
+              {overlappingSection}
+              {eligibilitySection}
+              {playerTargetingSection}
+
               {/* Widget Configuration Section */}
               <section ref={configRef} className="scroll-mt-20">
                 <h2 className="text-xl font-semibold mb-6">Widget Configuration</h2>
@@ -4246,9 +4253,6 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
               {jackpotContributionSection}
 
-              {eligibilitySection}
-              {playerTargetingSection}
-
               {/* Pool Setup Section */}
               <section ref={poolSetupRef} className="scroll-mt-20">
                 <h2 className="text-base font-semibold mb-4">Pool</h2>
@@ -4863,6 +4867,11 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                   </Card>
                 </div>
               </section>
+
+              {overlappingSection}
+              {eligibilitySection}
+              {playerTargetingSection}
+
             </>
           )}
         </div>
