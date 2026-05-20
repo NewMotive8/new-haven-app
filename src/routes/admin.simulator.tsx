@@ -131,50 +131,8 @@ function SimulatorPage() {
     }
   }
 
-  const summary = (() => {
-    if (!result) {
-      return { totalWins: 0, totalPaid: 0, totalRejected: 0, maxWin: 0, rtp: 0 };
-    }
-    const tiers = result.tierResults ?? [];
-    if (tiers.length > 0) {
-      let totalWins = 0;
-      let totalPaid = 0;
-      let totalRejected = 0;
-      let maxWin = 0;
-      for (const t of tiers) {
-        totalWins += t.winCounter || 0;
-        totalPaid += t.winAmountCounter || 0;
-        totalRejected += t.rejectedByGate || 0;
-        if ((t.maxWinAmount || 0) > maxWin) maxWin = t.maxWinAmount || 0;
-      }
-      const totalWagered = result.totalWagered || 0;
-      const rtp = totalWagered > 0 ? (totalPaid / totalWagered) * 100 : 0;
-      return { totalWins, totalPaid, totalRejected, maxWin, rtp };
-    }
-    let maxWin = typeof result.maxWinAmount === "number" ? result.maxWinAmount : 0;
-    if (!maxWin && result.winEvents?.length) {
-      for (const w of result.winEvents) if (w.amount > maxWin) maxWin = w.amount;
-    }
-    return {
-      totalWins: result.winCounter || 0,
-      totalPaid: result.winAmountCounter || 0,
-      totalRejected: result.rejectedByGate ?? 0,
-      maxWin,
-      rtp: result.rtp || 0,
-    };
-  })();
 
-  const tierWins = (() => {
-    if (result?.tierCounts) return result.tierCounts;
-    if (!result?.winEvents?.length) return {} as Record<string, number>;
-    const buckets: Record<string, number> = {};
-    for (const w of result.winEvents) {
-      const mag = Math.floor(Math.log10(Math.max(1, w.amount)));
-      const tier = `1e${mag}-1e${mag + 1}`;
-      buckets[tier] = (buckets[tier] ?? 0) + 1;
-    }
-    return buckets;
-  })();
+
 
   return (
     <div style={{ padding: 28, maxWidth: 1200, margin: "0 auto" }}>
