@@ -1,57 +1,75 @@
-# Fix: `contributionAmount` in saved JSON ignores Split-mode inputs
+# Fix: Simulator shows demo JSON + Back/Save buttons missing
 
 ## What you're seeing
 
-In the saved jackpot JSON, `pool.contributionAmount` is `3` (and seed has a
-similar stale value) even though in the form you used **Split** mode and
-entered, for example, a Fixed Contribution Amount of `0.25` with weights
-60 / 30 / 10.
+After clicking "Test in Simulator" from the creation form:
+- The JSON shows the built-in demo (`"contributionAmount": 2`,
+  `"Demo Jackpot"`) instead of what you entered.
+- The **Back to Editor** and **Save Jackpot** buttons no longer appear.
 
-## Why
+## Root cause (one bug, three symptoms)
 
-`src/lib/jackpot/payload-to-config.ts` maps the JSON like this today:
+The creation form hands the payload to the simulator through TanStack Router
+navigation state:
 
+```ts
+// JackpotCreationForm.tsx
+navigate({
+  to: '/admin/simulator',
+  state: { jackpotConfig: payload } as never,   // ← object form
+});
 ```
-pool.contributionAmount = payload.poolPercentageValue   // legacy field
-seed.contributionAmount = payload.seedPercentageValue   // legacy field
+
+The simulator reads it back with:
+
+```ts
+const incoming = useRouterState({
+  select: (s) => s.location.state as { jackpotConfig?: JackpotSavePayload } | undefined,
+});
 ```
 
-`poolPercentageValue` is initialized to `3` in the form
-(`JackpotCreationForm.tsx`, line 272). When you're in **Split** mode you never
-touch that legacy slider, so it stays at its default and that default is what
-gets written to the JSON. The v2 split inputs
-(`totalContributionAmount`, `poolWeight`, `seedWeight`, `houseWeight`) are
-saved separately under `contribution.*` but are never used to derive
-`pool.contributionAmount` / `seed.contributionAmount`.
+In TanStack Router **v1.168+** (this project uses `^1.168.25`), the
+`state` option on `navigate` is typed and processed as an **updater
+function**, not a plain object. Passing a plain object silently drops the
+custom keys and the simulator sees `state.jackpotConfig === undefined`.
 
-Same problem on multi-level tiers: tier `pool.contributionAmount` falls back
-to the global legacy value when the tier was configured via Split.
+When `incoming.jackpotConfig` is undefined:
+1. `initialConfig` falls back to `DEFAULT_CONFIG` → the textarea shows
+   `"Demo Jackpot"` with `contributionAmount: 2`.
+2. `originalPayloadRef.current` is undefined → `cameFromCreationFlow` is
+   `false` → "Back to Editor" and "Save Jackpot" buttons are hidden.
 
 ## Fix
 
-In `src/lib/jackpot/payload-to-config.ts`, when `contributionMode === "split"`,
-derive the per-bucket amounts from the split inputs instead of the legacy
-percentage fields:
+Use the function form for `state` on both navigate calls.
 
-- `pool.contributionAmount  = totalContributionAmount * poolWeight / 100`
-- `seed.contributionAmount  = totalContributionAmount * seedWeight / 100`
-- `pool.contributionType = seed.contributionType = totalContributionType`
-  (`FIXED` or `PERCENTAGE`)
+**1. `src/components/jackpot/JackpotCreationForm.tsx` (line ~501)**
 
-Use largest-remainder rounding (same approach already used in the form's
-Amount table) so pool + seed + house sum exactly to
-`totalContributionAmount` at the displayed precision — no 0.251-style drift.
+```ts
+navigate({
+  to: '/admin/simulator',
+  state: (prev) => ({ ...prev, jackpotConfig: payload }),
+});
+```
 
-Apply the same rule per tier: when a tier's `contributionMode === "split"`,
-derive `tier.pool.contributionAmount` / `tier.seed.contributionAmount` from
-that tier's split inputs; otherwise keep the current legacy behavior.
+**2. `src/routes/admin.simulator.tsx` (line ~287, "Back to Editor" button)**
 
-Leave `contribution.*` (the v2 block) as-is — it's still the source of truth
-and useful for round-tripping.
+```ts
+navigate({
+  to: '/admin/jackpots/new',
+  state: (prev) => ({ ...prev, jackpotConfig: originalPayloadRef.current }),
+});
+```
+
+That's the only change needed. Once the payload arrives:
+- The textarea will render the mapped config derived from your real inputs
+  (so `contributionAmount` will reflect the `0.15` you entered, allocated
+  per pool/seed/house weights via the existing `splitAllocation` logic).
+- `cameFromCreationFlow` becomes `true` → Back / Save buttons reappear.
 
 ## Out of scope
 
-- Form UI, validation, weight inputs.
-- `buildCreateBody` / `buildTriggerCondition` shape (only the
-  `payload-to-config.ts` mapping changes).
-- Legacy mode behavior — unchanged.
+- Any change to `mapPayloadToConfig` or `splitAllocation` (already correct
+  from the previous fix).
+- Form UI, validation, or the DEFAULT_CONFIG sample (kept as the fallback
+  when the simulator is opened directly from the sidebar).
