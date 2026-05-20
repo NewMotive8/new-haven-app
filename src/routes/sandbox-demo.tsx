@@ -249,6 +249,7 @@ function SandboxDemoPage() {
           processedAt: json.processedAt ?? new Date().toISOString(),
         });
         setPoolDisplay((p) => p + json.contribution.pool);
+        bumpTracker(w, json.contribution.pool, json.contribution.seed, json.contribution.house);
         await persistPoolGrowth(active.id, json.contribution.pool);
         const won = json.tierBreakdown?.some((t) => t.won === true);
         if (won) triggerCelebration();
