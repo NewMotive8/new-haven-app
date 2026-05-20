@@ -36,6 +36,67 @@ const PercentageInput = ({ id, ...props }: React.ComponentProps<typeof Input> & 
   </div>
 );
 
+const formatWeightDraft = (value: number) => (Number.isFinite(value) ? `${value}` : '0');
+
+const WeightDraftInput = ({
+  value,
+  onCommit,
+  className = '',
+}: {
+  value: number;
+  onCommit: (next: number) => void;
+  className?: string;
+}) => {
+  const [draft, setDraft] = useState(formatWeightDraft(value));
+  const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setDraft(formatWeightDraft(value));
+    }
+  }, [value, isEditing]);
+
+  const commit = () => {
+    setIsEditing(false);
+    const raw = draft.trim();
+
+    if (raw === '' || raw === '.') {
+      setDraft('0');
+      onCommit(0);
+      return;
+    }
+
+    const next = Number(raw);
+    if (!Number.isFinite(next)) {
+      setDraft(formatWeightDraft(value));
+      return;
+    }
+
+    onCommit(next);
+  };
+
+  return (
+    <Input
+      type="text"
+      inputMode="decimal"
+      value={draft}
+      onFocus={() => setIsEditing(true)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.currentTarget.blur();
+        }
+      }}
+      onChange={(e) => {
+        const raw = e.target.value;
+        if (!/^\d*\.?\d*$/.test(raw)) return;
+        setDraft(raw);
+      }}
+      className={className}
+    />
+  );
+};
+
 export type PayoutModel = 'fixed' | 'average' | 'maximum';
 export type ContributionType = 'fixed' | 'percentage';
 export type JackpotType = 'classic' | 'must_drop' | 'multi_level' | 'frequency';
