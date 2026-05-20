@@ -352,6 +352,15 @@ function ResultsSummary({
   const totalDrops = isMultiLevel
     ? tiers.reduce((s, t) => s + (t.winCounter || 0), 0)
     : result.winCounter || 0;
+  const totalContributionReceived =
+    (result.walletContributions ?? result.totalContributions ?? 0) +
+    (result.operatorContributions ?? 0) +
+    (result.houseContributions ?? 0);
+  const totalPayout = isMultiLevel
+    ? tiers.reduce((s, t) => s + (t.winAmountCounter || 0), 0)
+    : result.winAmountCounter || 0;
+  const contribPctOfWager = totalWager > 0 ? (totalContributionReceived / totalWager) * 100 : 0;
+  const payoutPctOfWager = totalWager > 0 ? (totalPayout / totalWager) * 100 : 0;
 
   return (
     <>
@@ -359,12 +368,23 @@ function ResultsSummary({
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
         <KpiCard label="Total Wager" value={`€ ${fmt(totalWager)}`} />
         <KpiCard
+          label="Total Contribution Received"
+          value={`€ ${fmt(totalContributionReceived)}`}
+          badge={`${contribPctOfWager.toFixed(2)}% of wager`}
+        />
+        <KpiCard
+          label="Total Payout"
+          value={`€ ${fmt(totalPayout)}`}
+          badge={`${payoutPctOfWager.toFixed(2)}% of wager`}
+        />
+        <KpiCard
           label="House Revenue"
           value={`€ ${fmt(houseRevenue)}`}
           badge={`${housePctActual.toFixed(2)}% of wager`}
         />
         <KpiCard label="Jackpot Number of Drops" value={fmtInt(totalDrops)} />
       </div>
+
 
       {/* 2. Financial Ledger Table(s) */}
       {!isMultiLevel ? (
