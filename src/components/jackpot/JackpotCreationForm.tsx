@@ -235,6 +235,7 @@ export type JackpotSavePayload = {
   poolWeight?: number;
   seedWeight?: number;
   houseWeight?: number;
+  overlappingRule?: 'split' | 'additive';
   triggerOdds?: number;
   previewWager?: number;
 };
@@ -310,6 +311,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   const [poolWeight, setPoolWeight] = useState<number>(initial?.poolWeight ?? 60);
   const [seedWeight, setSeedWeight] = useState<number>(initial?.seedWeight ?? 30);
   const [houseWeight, setHouseWeight] = useState<number>(initial?.houseWeight ?? 10);
+  const [overlappingRule, setOverlappingRule] = useState<'split' | 'additive'>(initial?.overlappingRule ?? 'split');
   const [triggerOdds, setTriggerOdds] = useState<number>(initial?.triggerOdds ?? 0);
   const [previewWager, setPreviewWager] = useState<number>(initial?.previewWager ?? 1.0);
 
@@ -479,6 +481,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       poolWeight,
       seedWeight,
       houseWeight,
+      overlappingRule,
       triggerOdds,
       previewWager,
     };
@@ -621,6 +624,29 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
             </div>
           );
         })()}
+
+        {contributionMode === 'split' && (
+          <div className="mt-8 pt-6 border-t border-neutral-800 space-y-2 max-w-xl">
+            <BrightLabel htmlFor="v2-overlap" className="text-sm font-semibold text-neutral-100">
+              Overlapping Jackpot Rule
+            </BrightLabel>
+            <select
+              id="v2-overlap"
+              value={overlappingRule}
+              onChange={(e) => setOverlappingRule(e.target.value as 'split' | 'additive')}
+              className="w-full h-10 rounded-md bg-neutral-900 border border-neutral-700 px-3 text-sm text-neutral-100 tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="split">Split Mode (Divide contribution equally among matching active pools)</option>
+              <option value="additive">Additive Mode (Charge independent contribution fee per active pool / Double-Dip)</option>
+            </select>
+            <p className="text-xs text-neutral-400">
+              When a single spin matches several active jackpots: <strong>Split</strong> divides the configured
+              contribution between them; <strong>Additive</strong> charges this jackpot's full contribution
+              independently of any others (double-dip).
+            </p>
+          </div>
+        )}
+
 
       </Card>
     </section>
