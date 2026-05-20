@@ -2314,8 +2314,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
               </section>
 
               {eligibilitySection}
-              {playerTargetingSection}
               {overlappingSection}
+              {playerTargetingSection}
 
               {/* Widget Configuration Section */}
               <section ref={configRef} className="scroll-mt-20">
@@ -3482,8 +3482,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
               </section>
 
               {eligibilitySection}
-              {playerTargetingSection}
               {overlappingSection}
+              {playerTargetingSection}
 
               {/* Widget Configuration Section */}
               <section ref={configRef} className="scroll-mt-20">
@@ -4792,8 +4792,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
               </section>
 
               {eligibilitySection}
-              {playerTargetingSection}
               {overlappingSection}
+              {playerTargetingSection}
 
             </>
           )}
