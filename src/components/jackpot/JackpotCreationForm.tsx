@@ -451,7 +451,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
           const sumOk = Math.abs(sum - 100) < 0.05;
           const computed = (w: number) => (base * (w / 100)).toFixed(3);
           const Row = ({ label, k, value }: { label: string; k: 'pool' | 'seed' | 'house'; value: number }) => (
-            <div className="grid grid-cols-[64px_140px_140px] items-center gap-3 py-1.5">
+            <div className="grid grid-cols-[64px_1fr_1fr] items-center gap-3 py-1.5">
               <span className="text-sm text-neutral-400">{label}</span>
               <div className="relative">
                 <Input type="number" min={0} max={100} step={1} value={value}
