@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SandboxDemoRouteImport } from './routes/sandbox-demo'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminRouteImport } from './routes/admin'
@@ -29,6 +30,11 @@ import { Route as ApiV1EventBetRouteImport } from './routes/api/v1/event/bet'
 import { Route as ApiV1JackpotsEnableIdRouteImport } from './routes/api/v1/jackpots/enable.$id'
 import { Route as ApiV1JackpotsDisableIdRouteImport } from './routes/api/v1/jackpots/disable.$id'
 
+const SandboxDemoRoute = SandboxDemoRouteImport.update({
+  id: '/sandbox-demo',
+  path: '/sandbox-demo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
@@ -130,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/sandbox-demo': typeof SandboxDemoRoute
   '/admin/jackpots': typeof AdminJackpotsRouteWithChildren
   '/admin/simulator': typeof AdminSimulatorRoute
   '/admin/users': typeof AdminUsersRoute
@@ -150,6 +157,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/sandbox-demo': typeof SandboxDemoRoute
   '/admin/simulator': typeof AdminSimulatorRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin': typeof AdminIndexRoute
@@ -171,6 +179,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/sandbox-demo': typeof SandboxDemoRoute
   '/admin/jackpots': typeof AdminJackpotsRouteWithChildren
   '/admin/simulator': typeof AdminSimulatorRoute
   '/admin/users': typeof AdminUsersRoute
@@ -194,6 +203,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/login'
     | '/reset-password'
+    | '/sandbox-demo'
     | '/admin/jackpots'
     | '/admin/simulator'
     | '/admin/users'
@@ -214,6 +224,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/reset-password'
+    | '/sandbox-demo'
     | '/admin/simulator'
     | '/admin/users'
     | '/admin'
@@ -234,6 +245,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/login'
     | '/reset-password'
+    | '/sandbox-demo'
     | '/admin/jackpots'
     | '/admin/simulator'
     | '/admin/users'
@@ -256,6 +268,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  SandboxDemoRoute: typeof SandboxDemoRoute
   ApiV1EventBetRoute: typeof ApiV1EventBetRoute
   ApiV1EventSimulateRoute: typeof ApiV1EventSimulateRoute
   ApiV1EventSimulateBetRoute: typeof ApiV1EventSimulateBetRoute
@@ -269,6 +282,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sandbox-demo': {
+      id: '/sandbox-demo'
+      path: '/sandbox-demo'
+      fullPath: '/sandbox-demo'
+      preLoaderRoute: typeof SandboxDemoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reset-password': {
       id: '/reset-password'
       path: '/reset-password'
@@ -440,6 +460,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  SandboxDemoRoute: SandboxDemoRoute,
   ApiV1EventBetRoute: ApiV1EventBetRoute,
   ApiV1EventSimulateRoute: ApiV1EventSimulateRoute,
   ApiV1EventSimulateBetRoute: ApiV1EventSimulateBetRoute,
