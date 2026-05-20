@@ -1,46 +1,32 @@
-# Fix: ledger case-sensitivity drops the v2 split
+# Verify contribution → pool allocation on `/sandbox-demo`
 
-## What's wrong
+The sandbox already shows the **last** spin's Pool / Seed / House split, but there's no way to check that those splits are actually landing in the live pool balance. We'll add a small reconciliation panel so you can watch every contribution flow into the pot and confirm it matches the DB.
 
-After the previous fix, `getJackpot` now carries the full v2 config to the
-bet endpoint, but every spin still shows Pool €0 / Seed €0 / House €0.
+## What you'll see after this change
 
-The blumberg jackpot stores:
+A new **Allocation Tracker** card under "Last Ledger Split", showing:
 
-- `engineV2.totalContributionType: "fixed"` (lowercase)
-- `engineV2.totalContributionAmount: 0.15`
-- weights 60 / 30 / 10
+- **Spins** — number of spins since the tracker was opened/reset
+- **Total wagered** — sum of all wagers
+- **Cumulative split** — running totals for Pool / Seed / House contributed
+- **Reconciliation** row:
+  - `Pool start` — pool balance when tracking started
+  - `+ Cumulative pool` — what we credited via spins
+  - `= Expected` — start + cumulative
+  - `Live pool` — the value coming back from `/api/v1/jackpots` (DB truth)
+  - `Δ` — difference, green if 0, red if drifted
+- A **Reset tracker** button to re-baseline
 
-`src/lib/jackpot/ledger.ts → resolveContributionSlice` compares the type to
-the uppercase literal `"FIXED"`. Because `"fixed" !== "FIXED"`, it falls into
-the percentage branch and computes
-`totalForCalc = 1 × 0.15 / 100 = 0.0015`, then `pool = 0.0015 × 0.6 ≈ €0.001`.
-That rounds to €0.00 in the UI, which is what the user sees.
+So per €1 spin on blumberg (fixed €0.15, 60/30/10), every spin should add `Pool +€0.09`, `Seed +€0.045`, `House +€0.015`, and the Live pool from the DB should track Expected exactly.
 
-The same case mismatch affects the legacy fallback (`pool.contributionType`,
-`seed.contributionType`) and the per-tier path, because the admin form also
-writes these lowercase.
+## Technical notes
 
-## Fix
+In `src/routes/sandbox-demo.tsx`:
 
-Normalize the contribution-type comparison in
-`src/lib/jackpot/ledger.ts`:
+- Add state: `tracker = { startedAt, startPool, spins, totalWager, cumPool, cumSeed, cumHouse }`.
+- Initialize `startPool` from the first poll that returns `active` (lazy init when `tracker === null`).
+- In `handleSpin`, after computing `lastSplit`, also `setTracker(t => ({ ...t, spins+1, totalWager+w, cumPool+pool, cumSeed+seed, cumHouse+house }))`.
+- Render the panel using the current `poolDisplay` (already polled every 2s) as "Live pool".
+- `Reset tracker` button: re-baseline `startPool` to current `poolDisplay`, zero the counters.
 
-- Introduce a small helper `isFixed(type)` that uppercases the value and
-  returns `true` when it equals `"FIXED"`.
-- Use it in all three places: split branch (`totalContributionType`),
-  flat pool fallback, and flat seed fallback.
-
-No change required in `bet.ts` or the admin write path — the helper just
-makes the comparison case-insensitive so both `"fixed"` and `"FIXED"` work.
-
-## Verification
-
-On `/sandbox-demo`, brand 1, with the existing blumberg jackpot, a €1 spin
-should produce: Pool €0.09, Seed €0.045, House €0.015. The pool balance
-should grow by €0.09 per spin (topup already wired).
-
-## Files
-
-- `src/lib/jackpot/ledger.ts` — case-insensitive `FIXED` check in
-  `resolveContributionSlice`.
+No backend changes. Ledger math and the topup call already work — this just exposes the running totals so the allocation is auditable from the UI.
