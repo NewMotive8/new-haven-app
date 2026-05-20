@@ -1087,6 +1087,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                 </div>
               </section>
 
+              {jackpotContributionSection}
+
               {/* Pool Setup Section */}
               <section ref={poolSetupRef} className="scroll-mt-20">
                 <h2 className="text-xl font-semibold mb-6">Pool Setup</h2>
@@ -2144,6 +2146,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                   </Card>
                 </div>
               </section>
+
+              {jackpotContributionSection}
 
               {/* Pool Setup Section */}
               <section ref={poolSetupRef} className="scroll-mt-20">
@@ -3634,6 +3638,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                   </Card>
                 </div>
               </section>
+
+              {jackpotContributionSection}
 
               {/* Pool Setup Section */}
               <section ref={poolSetupRef} className="scroll-mt-20">
