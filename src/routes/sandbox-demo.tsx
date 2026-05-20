@@ -190,6 +190,33 @@ function SandboxDemoPage() {
       /* non-fatal — poll will resync */
     }
   };
+  // ── Allocation tracker helpers ────────────────────────────────────────────
+  const bumpTracker = (wagerAmt: number, pool: number, seed: number, house: number) => {
+    setTracker((t) =>
+      t
+        ? {
+            ...t,
+            spins: t.spins + 1,
+            totalWager: t.totalWager + wagerAmt,
+            cumPool: t.cumPool + pool,
+            cumSeed: t.cumSeed + seed,
+            cumHouse: t.cumHouse + house,
+          }
+        : t,
+    );
+  };
+
+  const resetTracker = () => {
+    setTracker({
+      startPool: poolDisplay,
+      spins: 0,
+      totalWager: 0,
+      cumPool: 0,
+      cumSeed: 0,
+      cumHouse: 0,
+    });
+  };
+
 
   // ── Trigger spin ──────────────────────────────────────────────────────────
   const handleSpin = async () => {
