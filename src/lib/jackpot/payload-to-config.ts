@@ -77,6 +77,7 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
   const seedContributionAmount = jSplit ? jSeedAmt : num(payload.seedPercentageValue, 0);
 
   const reseed = num(payload.reseedingAmount, 0);
+  const initialPool = num(payload.initialPoolAmount, 0);
   const minWin = num(payload.minWinAmount, 0);
   const maxWin = num(payload.maxWinAmount, 0);
   const avgWin = num(payload.averageWinAmount, 0);
@@ -88,7 +89,7 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
   const seedOperatorShare = Math.min(100, Math.max(0, num(payload.seedOperatorContribution, 0)));
 
   const basePool = {
-    currentAmount: reseed,
+    currentAmount: initialPool,
     minimumAmount: reseed,
     maximumAmount: 0,
     minimumWinAmount: minWin,

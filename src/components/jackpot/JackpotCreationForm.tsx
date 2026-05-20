@@ -196,6 +196,7 @@ export type JackpotSavePayload = {
   maxWagerAmount: number;
   reseedingAmount: number;
   maximumSeedAmount: number;
+  initialPoolAmount?: number;
   // --- Optional: MUST_DROP / FREQUENCY virtual lifespan (minutes).
   lifespanMinutes?: number;
   mustDropPeriod?: 1 | 2 | 3 | 4;
@@ -296,6 +297,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   const [maxWagerAmount, setMaxWagerAmount] = useState<number>(initial?.maxWagerAmount ?? 0);
   const [reseedingAmount, setReseedingAmount] = useState<number>(initial?.reseedingAmount ?? 0);
   const [maximumSeedAmount, setMaximumSeedAmount] = useState<number>(initial?.maximumSeedAmount ?? 0);
+  const [initialPoolAmount, setInitialPoolAmount] = useState<number>(initial?.initialPoolAmount ?? 0);
 
   // --- MUST_DROP / FREQUENCY virtual lifespan
   const [lifespanMinutes, setLifespanMinutes] = useState<number>(initial?.lifespanMinutes ?? 1440);
@@ -465,6 +467,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       maxWagerAmount,
       reseedingAmount,
       maximumSeedAmount,
+      initialPoolAmount,
       ...(selectedType === 'must_drop' || selectedType === 'frequency'
         ? { lifespanMinutes, mustDropPeriod }
         : {}),
@@ -1249,7 +1252,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                   id="initial-jackpot"
                                   type="number"
                                   placeholder="0"
-                                  defaultValue="0"
+                                  value={initialPoolAmount}
+                                  onChange={(e) => setInitialPoolAmount(parseFloat(e.target.value) || 0)}
                                   className="bg-neutral-800 border-neutral-700"
                                 />
                               </div>
@@ -1370,6 +1374,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                   id="initial-jackpot-fixed"
                                   type="number"
                                   placeholder="0"
+                                  value={initialPoolAmount}
+                                  onChange={(e) => setInitialPoolAmount(parseFloat(e.target.value) || 0)}
                                   className="bg-neutral-800 border-neutral-700"
                                 />
                               </div>
@@ -2225,7 +2231,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                   id="initial-jackpot"
                                   type="number"
                                   placeholder="0"
-                                  defaultValue="0"
+                                  value={initialPoolAmount}
+                                  onChange={(e) => setInitialPoolAmount(parseFloat(e.target.value) || 0)}
                                   className="bg-neutral-800 border-neutral-700"
                                 />
                               </div>
@@ -2346,6 +2353,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                   id="initial-jackpot-fixed"
                                   type="number"
                                   placeholder="0"
+                                  value={initialPoolAmount}
+                                  onChange={(e) => setInitialPoolAmount(parseFloat(e.target.value) || 0)}
                                   className="bg-neutral-800 border-neutral-700"
                                 />
                               </div>
@@ -3633,7 +3642,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                   id="frequency-initial-jackpot"
                                   type="number"
                                   placeholder="0"
-                                  defaultValue="0"
+                                  value={initialPoolAmount}
+                                  onChange={(e) => setInitialPoolAmount(parseFloat(e.target.value) || 0)}
                                   className="bg-neutral-800 border-neutral-700"
                                 />
                               </div>
@@ -3754,6 +3764,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                   id="frequency-initial-jackpot-fixed"
                                   type="number"
                                   placeholder="0"
+                                  value={initialPoolAmount}
+                                  onChange={(e) => setInitialPoolAmount(parseFloat(e.target.value) || 0)}
                                   className="bg-neutral-800 border-neutral-700"
                                 />
                               </div>

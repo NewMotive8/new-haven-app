@@ -64,6 +64,7 @@ export function buildTriggerCondition(p: JackpotSavePayload): Record<string, unk
       playerContribution: p.playerContribution,
       operatorContribution: p.operatorContribution,
       poolPercentageValue: p.poolPercentageValue,
+      initialPoolAmount: p.initialPoolAmount ?? null,
     },
     seed: {
       seedPlayerContribution: p.seedPlayerContribution,
