@@ -366,12 +366,74 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
     (initial?.eligibility?.sportsbook?.matchIds ?? []).join(', '),
   );
 
+  // --- Player Targeting & Restrictions
+  const [audienceMode, setAudienceMode] = useState<'all' | 'custom'>(
+    initial?.eligibility?.players?.audienceMode ?? 'all',
+  );
+  const [vipTiers, setVipTiers] = useState<string[]>(
+    initial?.eligibility?.players?.vipTiers ?? [],
+  );
+  const [crmSegmentsInclude, setCrmSegmentsInclude] = useState<string[]>(
+    initial?.eligibility?.players?.crmSegmentsInclude ?? [],
+  );
+  const [crmSegmentIncludeDraft, setCrmSegmentIncludeDraft] = useState('');
+  const [crmSegmentsExclude, setCrmSegmentsExclude] = useState<string[]>(
+    initial?.eligibility?.players?.crmSegmentsExclude ?? [],
+  );
+  const [restrictedCountries, setRestrictedCountries] = useState<string[]>(
+    initial?.eligibility?.players?.restrictedCountries ?? [],
+  );
+  const [countrySearch, setCountrySearch] = useState('');
+  const [blacklistedIdsRaw, setBlacklistedIdsRaw] = useState<string>(
+    (initial?.eligibility?.players?.blacklistedPlayerIds ?? []).join(', '),
+  );
+
   const toggleInArray = (arr: string[], value: string): string[] =>
     arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 
+  function buildPlayers(): NonNullable<JackpotSavePayload['eligibility']>['players'] {
+    if (audienceMode === 'all') return { audienceMode: 'all', vipTiers: [], crmSegmentsInclude: [], crmSegmentsExclude: [], restrictedCountries: [], blacklistedPlayerIds: [] };
+    return {
+      audienceMode: 'custom',
+      vipTiers,
+      crmSegmentsInclude,
+      crmSegmentsExclude,
+      restrictedCountries,
+      blacklistedPlayerIds: blacklistedIdsRaw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    };
+  }
+
   function buildEligibility(): JackpotSavePayload['eligibility'] {
+    const base = { players: buildPlayers() };
     if (eligVertical === 'casino') {
       return {
+        ...base,
+        vertical: 'casino',
+        casino: {
+          categories: eligCategories,
+          providers: eligProviders,
+          gameIds: eligGameIds,
+        },
+      };
+    }
+    return {
+      ...base,
+      vertical: 'sportsbook',
+      sportsbook: {
+        betType: eligBetType,
+        sportType: eligSportType,
+        leagues: eligLeagues,
+        matchIds: eligMatchIdsRaw
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      },
+    };
+  }
+
         vertical: 'casino',
         casino: {
           categories: eligCategories,
