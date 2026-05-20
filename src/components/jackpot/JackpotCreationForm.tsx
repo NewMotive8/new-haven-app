@@ -330,6 +330,62 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   const [triggerOdds, setTriggerOdds] = useState<number>(initial?.triggerOdds ?? 0);
   const [previewWager, setPreviewWager] = useState<number>(initial?.previewWager ?? 1.0);
 
+  // --- Eligibility & Rules Engine — vertical-specific targeting
+  const [eligVertical, setEligVertical] = useState<'casino' | 'sportsbook'>(
+    initial?.eligibility?.vertical ?? 'casino',
+  );
+  const [eligCategories, setEligCategories] = useState<string[]>(
+    initial?.eligibility?.casino?.categories ?? [],
+  );
+  const [eligProviders, setEligProviders] = useState<string[]>(
+    initial?.eligibility?.casino?.providers ?? [],
+  );
+  const [eligGameIds, setEligGameIds] = useState<string[]>(
+    initial?.eligibility?.casino?.gameIds ?? [],
+  );
+  const [eligGameIdDraft, setEligGameIdDraft] = useState('');
+  const [eligBetType, setEligBetType] = useState<'live' | 'prematch' | 'all'>(
+    initial?.eligibility?.sportsbook?.betType ?? 'all',
+  );
+  const [eligSportType, setEligSportType] = useState<string>(
+    initial?.eligibility?.sportsbook?.sportType ?? '',
+  );
+  const [eligLeagues, setEligLeagues] = useState<string[]>(
+    initial?.eligibility?.sportsbook?.leagues ?? [],
+  );
+  const [eligLeagueDraft, setEligLeagueDraft] = useState('');
+  const [eligMatchIdsRaw, setEligMatchIdsRaw] = useState<string>(
+    (initial?.eligibility?.sportsbook?.matchIds ?? []).join(', '),
+  );
+
+  const toggleInArray = (arr: string[], value: string): string[] =>
+    arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
+
+  function buildEligibility(): JackpotSavePayload['eligibility'] {
+    if (eligVertical === 'casino') {
+      return {
+        vertical: 'casino',
+        casino: {
+          categories: eligCategories,
+          providers: eligProviders,
+          gameIds: eligGameIds,
+        },
+      };
+    }
+    return {
+      vertical: 'sportsbook',
+      sportsbook: {
+        betType: eligBetType,
+        sportType: eligSportType,
+        leagues: eligLeagues,
+        matchIds: eligMatchIdsRaw
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      },
+    };
+  }
+
   // Update only the edited weight; cap so the trio never exceeds 100. Other two are left alone.
   function setSingleWeight(changed: 'pool' | 'seed' | 'house', nextRaw: number) {
     const others = (['pool', 'seed', 'house'] as const).filter((k) => k !== changed);
