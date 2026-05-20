@@ -477,6 +477,51 @@ function SandboxDemoPage() {
             )}
           </div>
 
+          {tracker && (
+            <div className="border-t border-slate-800 pt-4 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-xs uppercase tracking-wider text-slate-400">
+                  Allocation Tracker
+                </div>
+                <button
+                  onClick={resetTracker}
+                  className="text-[11px] text-slate-400 hover:text-slate-200 underline underline-offset-2"
+                >
+                  Reset
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <Stat label="Spins" value={String(tracker.spins)} />
+                <Stat label="Total wagered" value={fmt(tracker.totalWager)} />
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                <Split label="Σ Pool" value={tracker.cumPool} color="text-emerald-400" />
+                <Split label="Σ Seed" value={tracker.cumSeed} color="text-sky-400" />
+                <Split label="Σ House" value={tracker.cumHouse} color="text-amber-400" />
+              </div>
+              {(() => {
+                const expected = tracker.startPool + tracker.cumPool;
+                const delta = poolDisplay - expected;
+                const ok = Math.abs(delta) < 0.005;
+                return (
+                  <div className="bg-slate-950/60 border border-slate-800 rounded p-2 text-[11px] font-mono space-y-1">
+                    <Row label="Pool start" value={fmt(tracker.startPool)} />
+                    <Row label="+ Σ Pool" value={fmt(tracker.cumPool)} />
+                    <Row label="= Expected" value={fmt(expected)} />
+                    <Row label="Live pool (DB)" value={fmt(poolDisplay)} />
+                    <Row
+                      label="Δ"
+                      value={fmt(delta)}
+                      className={ok ? "text-emerald-400" : "text-rose-400"}
+                    />
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+
+
           {error && (
             <div className="bg-rose-950/60 border border-rose-800 text-rose-200 text-sm rounded p-3">
               {error}
