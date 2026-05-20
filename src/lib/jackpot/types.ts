@@ -146,6 +146,20 @@ export interface WinEventDTO {
   timestamp: string;
   /** Multi-level only — tier rank that produced the win. */
   winningTier?: number;
+  /** Community payout — mirrors Java Win.java fields. */
+  isCommunity?: boolean;
+  communitySize?: number;
+  communityMemberPayOut?: number;
+  triggeringPayout?: number;
+}
+
+export interface CommunityConfigDTO {
+  enabled: boolean;
+  split: number;
+  payoutInterval?: string;
+  payoutIntervalSeconds?: number;
+  maximumWinAmount: number;
+  maximumNumberOfPlayers: number;
 }
 
 /** Per-tier roll-up for MULTI_LEVEL simulations. */

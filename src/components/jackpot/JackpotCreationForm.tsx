@@ -186,6 +186,18 @@ export type JackpotSavePayload = {
   segments: string[];
   isCommunity: boolean;
   communitySplit: number;
+  // Community Win Mechanics — mirrors Java Community.java
+  communityPayoutIntervalSeconds?: number;
+  communityMaxWinAmount?: number;
+  communityMaxPlayers?: number;
+  community?: {
+    enabled: boolean;
+    split: number;
+    payoutInterval: string;
+    payoutIntervalSeconds?: number;
+    maximumWinAmount: number;
+    maximumNumberOfPlayers: number;
+  };
   isTemplate: boolean;
   selectedWidget: string;
   fixedWinAmount: number;
@@ -303,6 +315,9 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   const [segments, setSegments] = useState<string[]>(initial?.segments ?? ['Segment 1']);
   const [isCommunity, setIsCommunity] = useState(initial?.isCommunity ?? false);
   const [communitySplit, setCommunitySplit] = useState([initial?.communitySplit ?? 50]);
+  const [communityPayoutIntervalSeconds, setCommunityPayoutIntervalSeconds] = useState<number>(initial?.communityPayoutIntervalSeconds ?? 0);
+  const [communityMaxWinAmount, setCommunityMaxWinAmount] = useState<number>(initial?.communityMaxWinAmount ?? 0);
+  const [communityMaxPlayers, setCommunityMaxPlayers] = useState<number>(initial?.communityMaxPlayers ?? 0);
   const [payoutInterval, setPayoutInterval] = useState<string>(initial?.payoutInterval ?? 'logged_in');
   const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>(initial?.recurrenceType ?? 'single');
   const [weeklyDay, setWeeklyDay] = useState<string>(initial?.weeklyDay ?? '');
@@ -578,6 +593,17 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       segments,
       isCommunity,
       communitySplit: communitySplit[0],
+      communityPayoutIntervalSeconds,
+      communityMaxWinAmount,
+      communityMaxPlayers,
+      community: {
+        enabled: isCommunity,
+        split: communitySplit[0],
+        payoutInterval,
+        payoutIntervalSeconds: communityPayoutIntervalSeconds || undefined,
+        maximumWinAmount: communityMaxWinAmount,
+        maximumNumberOfPlayers: communityMaxPlayers,
+      },
       isTemplate,
       selectedWidget,
       fixedWinAmount,
@@ -1040,6 +1066,161 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
     if (!q) return true;
     return c.code.toLowerCase().includes(q) || c.name.toLowerCase().includes(q);
   });
+
+  // ── Community Win Mechanics — relocated out of Widget Configuration ──
+  const communityWinSection = (
+    <section className="scroll-mt-20">
+      <h2 className="text-xl font-semibold mb-6">Community Win Mechanics</h2>
+      <Card className="p-6 bg-neutral-900/50 border-neutral-800 mb-6">
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-6">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <BrightLabel className="text-sm font-medium">Community</BrightLabel>
+                <p className="text-xs text-neutral-400 mt-1">
+                  Enable community jackpots where multiple players can share the win
+                </p>
+              </div>
+              <Switch
+                checked={isCommunity}
+                onCheckedChange={setIsCommunity}
+                className="data-[state=checked]:bg-green-500"
+              />
+            </div>
+            <div></div>
+          </div>
+
+          {isCommunity && (
+            <div className="pt-4 space-y-6 border-t border-neutral-800">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <BrightLabel htmlFor="cw-community-split">Community Split</BrightLabel>
+                    <span className="text-sm text-neutral-400">{communitySplit[0]}%</span>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs text-neutral-400 mb-1">
+                      <span>Winner</span>
+                      <span>Community</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-neutral-400">0%</span>
+                      <Slider
+                        id="cw-community-split"
+                        value={communitySplit}
+                        onValueChange={setCommunitySplit}
+                        max={100}
+                        step={1}
+                        className="flex-1"
+                      />
+                      <span className="text-sm text-neutral-400">100%</span>
+                    </div>
+                    <div className="relative h-4">
+                      <span
+                        className="absolute text-xs text-neutral-400 -translate-x-1/2"
+                        style={{ left: `${communitySplit[0]}%` }}
+                      >
+                        {communitySplit[0]}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div></div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <BrightLabel className="text-sm font-medium">Payout Interval</BrightLabel>
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setPayoutInterval('logged_in')}
+                      className={`w-full px-4 py-3 rounded-lg text-sm font-medium text-left transition-all ${
+                        payoutInterval === 'logged_in'
+                          ? 'bg-blue-500/20 text-white border-2 border-blue-500'
+                          : 'bg-neutral-800 text-neutral-400 border-2 border-neutral-700 hover:border-neutral-600'
+                      }`}
+                    >
+                      Currently Logged In
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPayoutInterval('contributed_once')}
+                      className={`w-full px-4 py-3 rounded-lg text-sm font-medium text-left transition-all ${
+                        payoutInterval === 'contributed_once'
+                          ? 'bg-blue-500/20 text-white border-2 border-blue-500'
+                          : 'bg-neutral-800 text-neutral-400 border-2 border-neutral-700 hover:border-neutral-600'
+                      }`}
+                    >
+                      Has Contributed At Least Once To This Jackpot
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPayoutInterval('contributed_within_time')}
+                      className={`w-full px-4 py-3 rounded-lg text-sm font-medium text-left transition-all ${
+                        payoutInterval === 'contributed_within_time'
+                          ? 'bg-blue-500/20 text-white border-2 border-blue-500'
+                          : 'bg-neutral-800 text-neutral-400 border-2 border-neutral-700 hover:border-neutral-600'
+                      }`}
+                    >
+                      Has Contributed Within This Amount Of Time
+                    </button>
+
+                    {payoutInterval === 'contributed_within_time' && (
+                      <div className="pt-2 space-y-2">
+                        <BrightLabel htmlFor="cw-payout-interval-seconds">Activity Lookback Window (Seconds)</BrightLabel>
+                        <Input
+                          id="cw-payout-interval-seconds"
+                          type="number"
+                          placeholder="e.g., 60, 300, 3600"
+                          value={communityPayoutIntervalSeconds || ''}
+                          onChange={(e) => setCommunityPayoutIntervalSeconds(Number(e.target.value) || 0)}
+                          min="0"
+                          className="bg-neutral-800 border-neutral-700 max-w-[240px]"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div></div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <BrightLabel htmlFor="cw-max-win">Maximum Payout Cap Per Member</BrightLabel>
+                  <CurrencyInput
+                    id="cw-max-win"
+                    type="number"
+                    placeholder="0"
+                    value={communityMaxWinAmount || ''}
+                    onChange={(e) => setCommunityMaxWinAmount(Number(e.target.value) || 0)}
+                    className="bg-neutral-800 border-neutral-700"
+                  />
+                </div>
+                <div></div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <BrightLabel htmlFor="cw-max-players">Maximum Qualified Players</BrightLabel>
+                  <Input
+                    id="cw-max-players"
+                    type="number"
+                    placeholder="0"
+                    value={communityMaxPlayers || ''}
+                    onChange={(e) => setCommunityMaxPlayers(Number(e.target.value) || 0)}
+                    min="0"
+                    className="bg-neutral-800 border-neutral-700"
+                  />
+                </div>
+                <div></div>
+              </div>
+            </div>
+          )}
+        </div>
+      </Card>
+    </section>
+  );
 
   const playerTargetingSection = (
     <section className="scroll-mt-20">
@@ -2314,6 +2495,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
               </section>
 
               {eligibilitySection}
+              {communityWinSection}
               {overlappingSection}
               {playerTargetingSection}
 
@@ -2474,145 +2656,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                         </div>
                       </div>
 
-                      {/* Community Section */}
-                      <div className="pt-6 border-t border-neutral-800 space-y-6">
-                        <div className="grid grid-cols-2 gap-6">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <BrightLabel className="text-sm font-medium">Community</BrightLabel>
-                              <p className="text-xs text-neutral-400 mt-1">
-                                Enable community jackpots where multiple players can share the win
-                              </p>
-                            </div>
-                            <Switch
-                              checked={isCommunity}
-                              onCheckedChange={setIsCommunity}
-                              className="data-[state=checked]:bg-green-500"
-                            />
-                          </div>
-                          <div></div>
-                        </div>
-
-                        {isCommunity && (
-                          <div className="pt-4 space-y-6">
-                            <div className="grid grid-cols-2 gap-6">
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <BrightLabel htmlFor="community-split">Community Split</BrightLabel>
-                                  <span className="text-sm text-neutral-400">{communitySplit[0]}%</span>
-                                </div>
-                                <p className="text-xs text-red-400">This is required</p>
-                                <div className="space-y-1">
-                                  <div className="flex items-center justify-between text-xs text-neutral-400 mb-1">
-                                    <span>Winner</span>
-                                    <span>Community</span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm text-neutral-400">0%</span>
-                                    <Slider
-                                      id="community-split"
-                                      value={communitySplit}
-                                      onValueChange={setCommunitySplit}
-                                      max={100}
-                                      step={1}
-                                      className="flex-1"
-                                    />
-                                    <span className="text-sm text-neutral-400">100%</span>
-                                  </div>
-                                  <div className="relative h-4">
-                                    <span
-                                      className="absolute text-xs text-neutral-400 -translate-x-1/2"
-                                      style={{ left: `${communitySplit[0]}%` }}
-                                    >
-                                      {communitySplit[0]}%
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                              <div></div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-6">
-                              <div className="space-y-3">
-                                <BrightLabel className="text-sm font-medium">Payout Interval</BrightLabel>
-                                <div className="space-y-2">
-                                  <button
-                                    onClick={() => setPayoutInterval('logged_in')}
-                                    className={`w-full px-4 py-3 rounded-lg text-sm font-medium text-left transition-all ${
-                                      payoutInterval === 'logged_in'
-                                        ? 'bg-blue-500/20 text-white border-2 border-blue-500'
-                                        : 'bg-neutral-800 text-neutral-400 border-2 border-neutral-700 hover:border-neutral-600'
-                                    }`}
-                                  >
-                                    Currently Logged In
-                                  </button>
-                                  <button
-                                    onClick={() => setPayoutInterval('contributed_once')}
-                                    className={`w-full px-4 py-3 rounded-lg text-sm font-medium text-left transition-all ${
-                                      payoutInterval === 'contributed_once'
-                                        ? 'bg-blue-500/20 text-white border-2 border-blue-500'
-                                        : 'bg-neutral-800 text-neutral-400 border-2 border-neutral-700 hover:border-neutral-600'
-                                    }`}
-                                  >
-                                    Has Contributed At Least Once To This Jackpot
-                                  </button>
-                                  <button
-                                    onClick={() => setPayoutInterval('contributed_within_time')}
-                                    className={`w-full px-4 py-3 rounded-lg text-sm font-medium text-left transition-all ${
-                                      payoutInterval === 'contributed_within_time'
-                                        ? 'bg-blue-500/20 text-white border-2 border-blue-500'
-                                        : 'bg-neutral-800 text-neutral-400 border-2 border-neutral-700 hover:border-neutral-600'
-                                    }`}
-                                  >
-                                    Has Contributed Within This Amount Of Time
-                                  </button>
-
-                                  {payoutInterval === 'contributed_within_time' && (
-                                    <div className="pt-2 space-y-2">
-                                      <BrightLabel htmlFor="payout-interval-minutes">Payout Interval</BrightLabel>
-                                      <Input
-                                        id="payout-interval-minutes"
-                                        type="number"
-                                        placeholder="Enter minutes (e.g., 60, 120, 180)"
-                                        defaultValue="0"
-                                        min="0"
-                                        className="bg-neutral-800 border-neutral-700 max-w-[200px]"
-                                      />
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              <div></div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-6">
-                              <div className="space-y-2">
-                                <BrightLabel htmlFor="community-max-win">Maximum Win Amount</BrightLabel>
-                                <CurrencyInput
-                                  id="community-max-win"
-                                  type="number"
-                                  placeholder="0"
-                                  className="bg-neutral-800 border-neutral-700"
-                                />
-                              </div>
-                              <div></div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-6">
-                              <div className="space-y-2">
-                                <BrightLabel htmlFor="community-max-players">Maximum Number Of Players</BrightLabel>
-                                <Input
-                                  id="community-max-players"
-                                  type="number"
-                                  placeholder="0"
-                                  className="bg-neutral-800 border-neutral-700"
-                                />
-                              </div>
-                              <div></div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                      {/* Community Win Mechanics relocated to its own section above */}
 
                       {/* Save as Template */}
                       <div className="pt-6 border-t border-neutral-800">
@@ -3482,6 +3526,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
               </section>
 
               {eligibilitySection}
+              {communityWinSection}
               {overlappingSection}
               {playerTargetingSection}
 
@@ -3642,145 +3687,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                         </div>
                       </div>
 
-                      {/* Community Section */}
-                      <div className="pt-6 border-t border-neutral-800 space-y-6">
-                        <div className="grid grid-cols-2 gap-6">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <BrightLabel className="text-sm font-medium">Community</BrightLabel>
-                              <p className="text-xs text-neutral-400 mt-1">
-                                Enable community jackpots where multiple players can share the win
-                              </p>
-                            </div>
-                            <Switch
-                              checked={isCommunity}
-                              onCheckedChange={setIsCommunity}
-                              className="data-[state=checked]:bg-green-500"
-                            />
-                          </div>
-                          <div></div>
-                        </div>
-
-                        {isCommunity && (
-                          <div className="pt-4 space-y-6">
-                            <div className="grid grid-cols-2 gap-6">
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <BrightLabel htmlFor="must-drop-community-split">Community Split</BrightLabel>
-                                  <span className="text-sm text-neutral-400">{communitySplit[0]}%</span>
-                                </div>
-                                <p className="text-xs text-red-400">This is required</p>
-                                <div className="space-y-1">
-                                  <div className="flex items-center justify-between text-xs text-neutral-400 mb-1">
-                                    <span>Winner</span>
-                                    <span>Community</span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm text-neutral-400">0%</span>
-                                    <Slider
-                                      id="must-drop-community-split"
-                                      value={communitySplit}
-                                      onValueChange={setCommunitySplit}
-                                      max={100}
-                                      step={1}
-                                      className="flex-1"
-                                    />
-                                    <span className="text-sm text-neutral-400">100%</span>
-                                  </div>
-                                  <div className="relative h-4">
-                                    <span
-                                      className="absolute text-xs text-neutral-400 -translate-x-1/2"
-                                      style={{ left: `${communitySplit[0]}%` }}
-                                    >
-                                      {communitySplit[0]}%
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                              <div></div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-6">
-                              <div className="space-y-3">
-                                <BrightLabel className="text-sm font-medium">Payout Interval</BrightLabel>
-                                <div className="space-y-2">
-                                  <button
-                                    onClick={() => setPayoutInterval('logged_in')}
-                                    className={`w-full px-4 py-3 rounded-lg text-sm font-medium text-left transition-all ${
-                                      payoutInterval === 'logged_in'
-                                        ? 'bg-blue-500/20 text-white border-2 border-blue-500'
-                                        : 'bg-neutral-800 text-neutral-400 border-2 border-neutral-700 hover:border-neutral-600'
-                                    }`}
-                                  >
-                                    Currently Logged In
-                                  </button>
-                                  <button
-                                    onClick={() => setPayoutInterval('contributed_once')}
-                                    className={`w-full px-4 py-3 rounded-lg text-sm font-medium text-left transition-all ${
-                                      payoutInterval === 'contributed_once'
-                                        ? 'bg-blue-500/20 text-white border-2 border-blue-500'
-                                        : 'bg-neutral-800 text-neutral-400 border-2 border-neutral-700 hover:border-neutral-600'
-                                    }`}
-                                  >
-                                    Has Contributed At Least Once To This Jackpot
-                                  </button>
-                                  <button
-                                    onClick={() => setPayoutInterval('contributed_within_time')}
-                                    className={`w-full px-4 py-3 rounded-lg text-sm font-medium text-left transition-all ${
-                                      payoutInterval === 'contributed_within_time'
-                                        ? 'bg-blue-500/20 text-white border-2 border-blue-500'
-                                        : 'bg-neutral-800 text-neutral-400 border-2 border-neutral-700 hover:border-neutral-600'
-                                    }`}
-                                  >
-                                    Has Contributed Within This Amount Of Time
-                                  </button>
-
-                                  {payoutInterval === 'contributed_within_time' && (
-                                    <div className="pt-2 space-y-2">
-                                      <BrightLabel htmlFor="must-drop-payout-interval-minutes">Payout Interval</BrightLabel>
-                                      <Input
-                                        id="must-drop-payout-interval-minutes"
-                                        type="number"
-                                        placeholder="Enter minutes (e.g., 60, 120, 180)"
-                                        defaultValue="0"
-                                        min="0"
-                                        className="bg-neutral-800 border-neutral-700 max-w-[200px]"
-                                      />
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              <div></div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-6">
-                              <div className="space-y-2">
-                                <BrightLabel htmlFor="must-drop-community-max-win">Maximum Win Amount</BrightLabel>
-                                <CurrencyInput
-                                  id="must-drop-community-max-win"
-                                  type="number"
-                                  placeholder="0"
-                                  className="bg-neutral-800 border-neutral-700"
-                                />
-                              </div>
-                              <div></div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-6">
-                              <div className="space-y-2">
-                                <BrightLabel htmlFor="must-drop-community-max-players">Maximum Number Of Players</BrightLabel>
-                                <Input
-                                  id="must-drop-community-max-players"
-                                  type="number"
-                                  placeholder="0"
-                                  className="bg-neutral-800 border-neutral-700"
-                                />
-                              </div>
-                              <div></div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                      {/* Community Win Mechanics relocated to its own section above */}
 
                       {/* Save as Template */}
                       <div className="pt-6 border-t border-neutral-800">
@@ -4792,6 +4699,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
               </section>
 
               {eligibilitySection}
+              {communityWinSection}
               {overlappingSection}
               {playerTargetingSection}
 

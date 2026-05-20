@@ -196,3 +196,60 @@ export function computeMultiCampaignLedger(
     perCampaign,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Community Win Mechanics — mirrors Java Community.java / Win.java
+// ---------------------------------------------------------------------------
+
+export interface CommunityPayoutBreakdown {
+  isCommunity: true;
+  triggeringPayout: number;
+  communityPool: number;
+  communitySize: number;
+  communityMemberPayOut: number;
+  cappedDelta: number;
+}
+
+export interface CommunityPayoutConfig {
+  split: number;                    // 1..100
+  maximumWinAmount: number;         // 0 = uncapped
+  maximumNumberOfPlayers: number;   // upper bound for simulated qualifying group
+}
+
+/**
+ * Pure helper — given a jackpot win amount and a community config, returns
+ * the split between the triggering player and the community pool, plus the
+ * per-member payout after the optional per-member cap is applied.
+ */
+export function applyCommunityPayout(
+  winAmount: number,
+  cfg: CommunityPayoutConfig,
+  rng: () => number = Math.random,
+): CommunityPayoutBreakdown {
+  const win = Math.max(0, Number(winAmount) || 0);
+  const splitPct = Math.min(100, Math.max(0, Number(cfg.split) || 0));
+  const maxCap = Math.max(0, Number(cfg.maximumWinAmount) || 0);
+  const maxPlayers = Math.max(1, Math.floor(Number(cfg.maximumNumberOfPlayers) || 1));
+
+  const communityPool = win * (splitPct / 100);
+  const triggeringPayout = win - communityPool;
+
+  const communitySize = Math.max(1, Math.floor(rng() * maxPlayers) + 1);
+  const rawShare = communitySize > 0 ? communityPool / communitySize : 0;
+
+  let communityMemberPayOut = rawShare;
+  let cappedDelta = 0;
+  if (maxCap > 0 && rawShare > maxCap) {
+    communityMemberPayOut = maxCap;
+    cappedDelta = (rawShare - maxCap) * communitySize;
+  }
+
+  return {
+    isCommunity: true,
+    triggeringPayout,
+    communityPool,
+    communitySize,
+    communityMemberPayOut,
+    cappedDelta,
+  };
+}

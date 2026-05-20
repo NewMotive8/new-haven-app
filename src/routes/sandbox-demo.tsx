@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { applyCommunityPayout, type CommunityPayoutBreakdown } from "@/lib/jackpot/ledger";
 
 export const Route = createFileRoute("/sandbox-demo")({
   component: SandboxDemoPage,
@@ -84,6 +85,7 @@ function SandboxDemoPage() {
     cumHouse: number;
   }>({ spins: 0, totalWager: 0, cumPool: 0, cumSeed: 0, cumHouse: 0 });
   const [celebrating, setCelebrating] = useState(false);
+  const [lastCommunity, setLastCommunity] = useState<CommunityPayoutBreakdown | null>(null);
   const [spinning, setSpinning] = useState(false);
   const widgetHostRef = useRef<HTMLDivElement | null>(null);
 
@@ -236,6 +238,24 @@ function SandboxDemoPage() {
         setPoolDisplays((d) => ({ ...d, [activePool.id]: (d[activePool.id] ?? 0) + poolAdd }));
         bumpTracker(w, poolAdd, seedAdd, houseAdd);
         await persistPoolGrowth(activePool.id, poolAdd);
+
+        // ── Community Win Mechanics — compute split when configured ──────────
+        const cfg = (activePool.config ?? {}) as Record<string, unknown>;
+        const community = cfg.community as
+          | { enabled?: boolean; split?: number; maximumWinAmount?: number; maximumNumberOfPlayers?: number }
+          | null
+          | undefined;
+        if (community && community.enabled && (community.split ?? 0) > 0) {
+          const winAmount = poolDisplays[activePool.id] ?? activePool.poolBalance;
+          const breakdown = applyCommunityPayout(winAmount, {
+            split: Number(community.split) || 0,
+            maximumWinAmount: Number(community.maximumWinAmount) || 0,
+            maximumNumberOfPlayers: Number(community.maximumNumberOfPlayers) || 1,
+          });
+          setLastCommunity(breakdown);
+        } else {
+          setLastCommunity(null);
+        }
         triggerCelebration();
       } else {
         // Multi-pool router: POST { wager } only, no jackpotId.
@@ -446,6 +466,26 @@ function SandboxDemoPage() {
                         className="jooba-win-message"
                         dangerouslySetInnerHTML={{ __html: texts.winMessage }}
                       />
+                      {lastCommunity && (
+                        <div className="mt-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-400/40 text-left text-xs text-emerald-100 max-w-[320px] mx-auto space-y-1">
+                          <div className="inline-block px-2 py-0.5 rounded-full bg-emerald-500 text-emerald-950 font-bold tracking-wider text-[10px] uppercase">
+                            Community Payout Triggered
+                          </div>
+                          <div>
+                            Triggering Winner Payout: <strong>{fmt(lastCommunity.triggeringPayout)}</strong>
+                          </div>
+                          <div>
+                            Community Split: <strong>{fmt(lastCommunity.communityPool)}</strong> distributed among{" "}
+                            <strong>{lastCommunity.communitySize}</strong> active community players{" "}
+                            (<strong>{fmt(lastCommunity.communityMemberPayOut)}</strong> each).
+                          </div>
+                          {lastCommunity.cappedDelta > 0 && (
+                            <div className="text-amber-300">
+                              Per-member cap applied — delta {fmt(lastCommunity.cappedDelta)} returned to house.
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <div className="jooba-confetti">
                         {Array.from({ length: 60 }).map((_, i) => (
                           <span key={i} style={{ ["--i" as never]: i }} />
