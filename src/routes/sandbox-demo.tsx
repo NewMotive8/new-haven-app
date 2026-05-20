@@ -60,6 +60,14 @@ function SandboxDemoPage() {
   const [forceWin, setForceWin] = useState(false);
   const [wager, setWager] = useState<number>(1);
   const [lastSplit, setLastSplit] = useState<LedgerSplit | null>(null);
+  const [tracker, setTracker] = useState<{
+    startPool: number;
+    spins: number;
+    totalWager: number;
+    cumPool: number;
+    cumSeed: number;
+    cumHouse: number;
+  } | null>(null);
   const [celebrating, setCelebrating] = useState(false);
   const [spinning, setSpinning] = useState(false);
   const widgetHostRef = useRef<HTMLDivElement | null>(null);
