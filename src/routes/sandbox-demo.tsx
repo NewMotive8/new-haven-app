@@ -67,21 +67,6 @@ function SandboxDemoPage() {
     const stored = typeof window !== "undefined" ? localStorage.getItem(BRAND_KEY) : null;
     if (stored) setBrandId(stored);
   }, []);
-  const [active, setActive] = useState<Jackpot | null>(null);
-  const [poolDisplay, setPoolDisplay] = useState<number>(0);
-  const [error, setError] = useState<string | null>(null);
-  const [optedIn, setOptedIn] = useState(true);
-  const [forceWin, setForceWin] = useState(false);
-  const [lastSplit, setLastSplit] = useState<LedgerSplit | null>(null);
-  const [celebrating, setCelebrating] = useState(false);
-  const [spinning, setSpinning] = useState(false);
-  const widgetHostRef = useRef<HTMLDivElement | null>(null);
-
-  // ── Brand id bootstrap from localStorage ──────────────────────────────────
-  useEffect(() => {
-    const stored = typeof window !== "undefined" ? localStorage.getItem(BRAND_KEY) : null;
-    if (stored) setBrandId(stored);
-  }, []);
 
   const saveBrand = (v: string) => {
     setBrandId(v);
