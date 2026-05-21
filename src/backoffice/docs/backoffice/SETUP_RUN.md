@@ -1,4 +1,4 @@
-# Engagd Backoffice Setup and Run Guide
+# Incentiv8 Backoffice Setup and Run Guide
 
 Source repo: engagd-backoffice @ f7ad5a4e1abc057c9c67fb766c4d8fd32a6b7659
 
