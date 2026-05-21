@@ -725,15 +725,34 @@ function SandboxDemoPage() {
 
           {/* ── S2S Tester (Phase 1 microservice contract) ──────────────── */}
           <details className="bg-slate-950/40 border border-slate-800 rounded-lg" open>
-            <summary className="cursor-pointer px-3 py-2 text-xs uppercase tracking-wider text-slate-300">
-              S2S Tester
+            <summary className="cursor-pointer px-3 py-2 text-xs uppercase tracking-wider text-slate-300 flex flex-wrap items-center gap-2">
+              <span>S2S Tester</span>
+              {lastHandshake?.status === "ok" ? (
+                <span className="inline-block px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] normal-case tracking-normal">
+                  🔒 SECURE VPC PASSTHROUGH
+                </span>
+              ) : null}
+              {lastHandshake?.status === "blocked" && lastHandshake.httpStatus === 403 ? (
+                <span
+                  className="inline-block px-2 py-0.5 rounded bg-red-500/30 text-red-200 text-[10px] normal-case tracking-normal animate-pulse"
+                  title={lastHandshake.message ?? ""}
+                >
+                  ⚠️ ACCESS BLOCKED (403)
+                  {lastHandshake.code ? ` · ${lastHandshake.code}` : ""}
+                </span>
+              ) : null}
+              {lastHandshake?.status === "blocked" && lastHandshake.httpStatus === 503 ? (
+                <span className="inline-block px-2 py-0.5 rounded bg-amber-500/30 text-amber-200 text-[10px] normal-case tracking-normal">
+                  VPC SECRET NOT CONFIGURED
+                </span>
+              ) : null}
               {lastReplay ? (
-                <span className="ml-2 inline-block px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] normal-case tracking-normal">
+                <span className="inline-block px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] normal-case tracking-normal">
                   idempotent replay
                 </span>
               ) : null}
               {lastRngSource ? (
-                <span className="ml-2 inline-block px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] normal-case tracking-normal">
+                <span className="inline-block px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] normal-case tracking-normal">
                   rng: {lastRngSource}
                 </span>
               ) : null}
