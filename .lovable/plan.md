@@ -1,30 +1,58 @@
-# Rebrand sweep → "Incentiv8"
+# Speed up the Batch Velocity Runner
 
-## Scope assessment
+## Why it's slow today
 
-A full project sweep for `Motive8`, `Engagd`, and `Jooba` shows the main TanStack app (`src/routes/*`, `src/lib/*`, `__root.tsx`, `admin.tsx`, `login.tsx`, `reset-password.tsx`) is **already branded "Incentiv8"** — head titles, og tags, twitter tags, logo alt attributes all read `Incentiv8`. No `Motive8` strings exist anywhere in the repo.
+In `src/routes/sandbox-demo.tsx`, `runBatch` sends every spin one-at-a-time:
 
-The remaining `Engagd` / `jooba` hits fall into two buckets:
+```text
+for i in 0..size:
+  await fetch('/api/v1/event/bet', …)   <-- next request waits for previous
+```
 
-### Safe to rebrand (user-facing copy)
-1. `src/routes/sandbox-demo.tsx:767` — visible chip label `#jooba-container-root · N pools`. Rephrase the **label** to `Player widget host · N pool(s)` (keep the underlying DOM id intact — see guardrails).
-2. `src/backoffice/docs/backoffice/SETUP_RUN.md:1` — doc heading `# Engagd Backoffice Setup and Run Guide` → `# Incentiv8 Backoffice Setup and Run Guide`.
+For a 1,000-spin batch that's 1,000 sequential network round-trips to the bet endpoint. Even at ~50 ms per round-trip, that's ~50 seconds of pure waiting — the endpoint itself is not the bottleneck, the serial `await` in the client loop is.
 
-### Must NOT rebrand (technical identifiers — would break runtime)
-Per the guardrails you set (no breaking handshakes, keep file paths / imports intact):
+## The fix: bounded concurrency
 
-- All `.jooba-*` CSS class names and `id="jooba-*"` DOM identifiers across `src/routes/sandbox-demo.tsx`, `src/Widget/**`, `src/backoffice/**`, and the CDN stylesheets (`src/Widget/cdn/styles/style{1,2,3}.css`, `pridebet-light.css`, `win-animation-default.css`). The live widget SDK mounts onto `#jooba-container-root` and styles itself with the `.jooba-*` selector contract — renaming either side desyncs them.
-- File / directory names containing `jooba` (`jooba-lucky-wheel.css`, `jooba-lw-types.ts`, `public/libs/engagd/*`, `public/libs/jooba/jooba.lw.min.js`) and any imports referencing them.
-- `@keyframes jooba-*` animation names (paired with `animation: jooba-* …` declarations — renaming one side without the other silently kills the animation).
-- npm package names / lockfile entries inside `src/Widget/package.json` and `src/Widget/package-lock.json`.
-- Lottie payload keys, Widget internal model field names, and any SDK init strings inside `src/Widget/src/**` (these are part of the wire-format contract).
+Send N requests in flight at once (a "worker pool"), keep results ordered into the same `stats` accumulator, and keep the existing cancel + progress UX intact.
 
-## Files changed
-1. `src/routes/sandbox-demo.tsx` — one-line label edit on line 767.
-2. `src/backoffice/docs/backoffice/SETUP_RUN.md` — one-line heading edit on line 1.
+Default concurrency: **16** in-flight requests. Tunable constant at the top of `runBatch`. Empirically this is the sweet spot for a single Worker — beyond ~32 you start fighting HTTP/1.1 connection limits in the browser without meaningful gains.
 
-## Out of scope
-No edits to `.env`, `INTERNAL_SERVICE_SECRET`, Supabase config, API endpoint URLs, payload keys, route paths, or any of the auto-generated files (`routeTree.gen.ts`, `dist/**`).
+Expected speedup for 1,000 spins: roughly 10–15× (seconds instead of tens of seconds), bounded by the slowest in-flight request rather than the sum.
 
-## Verification
-After the edit, re-run `grep -rn 'Motive8\|Engagd' src --include='*.tsx' --include='*.ts' --include='*.md'` and confirm no user-facing copy hits remain (only the doc title we just changed, plus the technical `engagd` directory under `public/libs/`, which is a vendor folder path).
+## Scope of change
+
+Single file: `src/routes/sandbox-demo.tsx`, function `runBatch` only.
+
+- Replace the serial `for await` loop with a pool of `CONCURRENCY` async workers all draining a shared counter `next`.
+- Each worker builds its own payload (txn id, auth headers, sysRng) exactly as today — no payload-shape changes.
+- `stats` updates stay synchronous inside each worker; `setBatchProgress` / `setBatchStats({...stats})` still flushes every 25 completions.
+- `cancelRef.current` is still checked at the top of each worker iteration, so Cancel works the same.
+- `performance.now()` timing, `emptyBatchStats`, `finishedAt`, `durationMs`, and the `setBatchRunning(false)` finalizer all stay identical.
+
+## Explicitly NOT touching
+
+- The `/api/v1/event/bet` endpoint, its Zod schemas, idempotency cache, audit ledger, RNG, or community payout logic.
+- The S2S Tester panel, the QA Compliance Test Suite overlay, the Statistical Analysis card, or any other UI.
+- Header auth modes (`safe` / `authorized` / `rogue`) — each spin still picks up `authMode` / `internalSecret` exactly once at batch start, same as today.
+
+## Technical detail
+
+```ts
+const CONCURRENCY = 16;
+let next = 0;
+const worker = async () => {
+  while (true) {
+    if (cancelRef.current) return;
+    const i = next++;
+    if (i >= size) return;
+    // …existing per-spin body: build txn, payload, fetch, accumulate stats…
+    if ((stats.completed % FLUSH === 0) || stats.completed === size) {
+      setBatchProgress(stats.completed);
+      setBatchStats({ ...stats });
+    }
+  }
+};
+await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+```
+
+Result ordering doesn't matter — `stats` is a commutative accumulator (counts and sums), so concurrent updates from workers are safe in JS's single-threaded event loop.
