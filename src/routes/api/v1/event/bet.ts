@@ -287,6 +287,24 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             tierBreakdown: ledger.entries,
             win,
           };
+          appendAudit({
+            loggedAt: new Date().toISOString(),
+            transactionId: body.transactionId,
+            brandId: brand,
+            gameId: body.gameId,
+            playerSegments: body.playerSegments,
+            playerId: body.playerId ?? null,
+            wager,
+            rngSource,
+            contribution: {
+              pool: ledger.totals.pool,
+              seed: ledger.totals.seed,
+              house: ledger.totals.house,
+            },
+            totalContribution: ledger.totalContribution,
+            perJackpot: null,
+            win,
+          });
           rememberTransaction(body.transactionId, response);
           return json(response);
         }
