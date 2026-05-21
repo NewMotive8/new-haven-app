@@ -51,12 +51,70 @@ type PerJackpotEntry = {
 
 const BRAND_KEY = "jackpot-brand-id";
 
+type AuditSlice = { pool: number; seed: number; house: number };
+
+type AuditEntry = {
+  loggedAt: string;
+  transactionId: string;
+  brandId: string;
+  gameId: string;
+  playerSegments: string[];
+  playerId: string | null;
+  wager: number;
+  rngSource: "external" | "local";
+  contribution: AuditSlice;
+  totalContribution: number;
+  perJackpot:
+    | Array<{
+        jackpotId: number;
+        jackpotName: string;
+        routing: "split" | "additive";
+        contribution: AuditSlice;
+        totalContribution: number;
+      }>
+    | null;
+  win: Record<string, unknown> | null;
+};
+
 function fmt(n: number, currency = "EUR") {
   try {
     return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(n);
   } catch {
     return `€${n.toFixed(2)}`;
   }
+}
+
+// High-precision currency formatter for the compliance ledger so a 0.0245
+// slice renders as €0.0245 (not €0.02). Used only in the audit grid.
+function fmtPrecise(n: number, currency = "EUR") {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 6,
+    }).format(n);
+  } catch {
+    return `€${n.toFixed(6)}`;
+  }
+}
+
+function fmtAuditTime(iso: string) {
+  try {
+    const d = new Date(iso);
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    const ss = String(d.getSeconds()).padStart(2, "0");
+    const ms = String(d.getMilliseconds()).padStart(3, "0");
+    return `${hh}:${mm}:${ss}.${ms}`;
+  } catch {
+    return iso;
+  }
+}
+
+function truncMiddle(s: string, head = 6, tail = 4) {
+  if (!s || s.length <= head + tail + 1) return s;
+  return `${s.slice(0, head)}…${s.slice(-tail)}`;
 }
 
 function readOverlappingRule(jp: Jackpot): OverlappingRule {
