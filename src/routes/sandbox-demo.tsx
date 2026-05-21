@@ -265,18 +265,54 @@ function SandboxDemoPage() {
         }
         triggerCelebration();
       } else {
-        // Multi-pool router: POST { wager } only, no jackpotId.
+        // Multi-pool router: structured S2S payload.
+        const segments = playerSegmentsInput
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        const sysRng = systemRngInput.trim() === "" ? undefined : Number(systemRngInput);
+        const transactionId =
+          txnId.trim() ||
+          (typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `txn-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
+        if (!txnId.trim()) setTxnId(transactionId);
+
+        const payload: Record<string, unknown> = {
+          transactionId,
+          wager: w,
+          gameId: gameId.trim() || "sandbox-game",
+          playerSegments: segments,
+        };
+        if (typeof sysRng === "number" && Number.isFinite(sysRng)) {
+          payload.systemRngValue = Math.min(1, Math.max(0, sysRng));
+        }
+
         const res = await fetch("/api/v1/event/bet", {
           method: "POST",
           headers: headers(),
-          body: JSON.stringify({ wager: w }),
+          body: JSON.stringify(payload),
         });
         if (!res.ok) throw new Error(`Bet HTTP ${res.status}`);
         const json = (await res.json()) as {
           contribution?: { pool: number; seed: number; house: number };
           totalContribution?: number;
           perJackpot?: PerJackpotEntry[];
+          idempotentReplay?: boolean;
+          rngSource?: "external" | "local";
+          win?: {
+            jackpotId: number;
+            amount: number;
+            isCommunity: boolean;
+            communitySize?: number;
+            communityMemberPayOut?: number;
+            triggeringPayout?: number;
+            communityPool?: number;
+            cappedDelta?: number;
+          } | null;
         };
+        setLastReplay(!!json.idempotentReplay);
+        setLastRngSource(json.rngSource ?? null);
         const per = json.perJackpot ?? [];
 
         // Aggregate only the slices for pools the user is currently opted into.
@@ -312,6 +348,22 @@ function SandboxDemoPage() {
             persistPoolGrowth(Number(id), add),
           ),
         );
+
+        // Surface server-side win (incl. community breakdown) if returned.
+        if (json.win && json.win.isCommunity) {
+          setLastCommunity({
+            isCommunity: true,
+            triggeringPayout: json.win.triggeringPayout ?? 0,
+            communityPool: json.win.communityPool ?? 0,
+            communitySize: json.win.communitySize ?? 0,
+            communityMemberPayOut: json.win.communityMemberPayOut ?? 0,
+            cappedDelta: json.win.cappedDelta ?? 0,
+          });
+          triggerCelebration();
+        } else if (json.win) {
+          setLastCommunity(null);
+          triggerCelebration();
+        }
       }
     } catch (e) {
       setError((e as Error).message);
