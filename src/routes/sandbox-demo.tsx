@@ -51,12 +51,70 @@ type PerJackpotEntry = {
 
 const BRAND_KEY = "jackpot-brand-id";
 
+type AuditSlice = { pool: number; seed: number; house: number };
+
+type AuditEntry = {
+  loggedAt: string;
+  transactionId: string;
+  brandId: string;
+  gameId: string;
+  playerSegments: string[];
+  playerId: string | null;
+  wager: number;
+  rngSource: "external" | "local";
+  contribution: AuditSlice;
+  totalContribution: number;
+  perJackpot:
+    | Array<{
+        jackpotId: number;
+        jackpotName: string;
+        routing: "split" | "additive";
+        contribution: AuditSlice;
+        totalContribution: number;
+      }>
+    | null;
+  win: Record<string, unknown> | null;
+};
+
 function fmt(n: number, currency = "EUR") {
   try {
     return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(n);
   } catch {
     return `€${n.toFixed(2)}`;
   }
+}
+
+// High-precision currency formatter for the compliance ledger so a 0.0245
+// slice renders as €0.0245 (not €0.02). Used only in the audit grid.
+function fmtPrecise(n: number, currency = "EUR") {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 6,
+    }).format(n);
+  } catch {
+    return `€${n.toFixed(6)}`;
+  }
+}
+
+function fmtAuditTime(iso: string) {
+  try {
+    const d = new Date(iso);
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    const ss = String(d.getSeconds()).padStart(2, "0");
+    const ms = String(d.getMilliseconds()).padStart(3, "0");
+    return `${hh}:${mm}:${ss}.${ms}`;
+  } catch {
+    return iso;
+  }
+}
+
+function truncMiddle(s: string, head = 6, tail = 4) {
+  if (!s || s.length <= head + tail + 1) return s;
+  return `${s.slice(0, head)}…${s.slice(-tail)}`;
 }
 
 function readOverlappingRule(jp: Jackpot): OverlappingRule {
@@ -102,6 +160,11 @@ function SandboxDemoPage() {
     | { status: "blocked"; code?: string; message?: string; httpStatus: number }
     | null
   >(null);
+  // ── Phase 3: Compliance audit ledger (polled, newest-first) ──────────────
+  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
+  const [auditCap, setAuditCap] = useState<number>(200);
+  const newestAuditIdRef = useRef<string | null>(null);
+  const [flashTxnId, setFlashTxnId] = useState<string | null>(null);
   const widgetHostRef = useRef<HTMLDivElement | null>(null);
 
   // ── Brand id bootstrap ───────────────────────────────────────────────────
@@ -158,6 +221,47 @@ function SandboxDemoPage() {
         setError(null);
       } catch (e) {
         if (!cancelled) setError((e as Error).message);
+      }
+    };
+
+    tick();
+    const id = setInterval(tick, 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [brandId, headers]);
+
+  // ── Poll /api/v1/event/bet/ledger every 2s — live compliance grid ────────
+  useEffect(() => {
+    if (!brandId) return;
+    let cancelled = false;
+
+    const tick = async () => {
+      try {
+        const res = await fetch("/api/v1/event/bet/ledger?limit=200", {
+          headers: headers(),
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          entries: AuditEntry[];
+          total: number;
+          cap: number;
+        };
+        if (cancelled) return;
+        const entries = Array.isArray(data.entries) ? data.entries : [];
+        setAuditEntries(entries);
+        if (typeof data.cap === "number") setAuditCap(data.cap);
+        const newestId = entries[0]?.transactionId ?? null;
+        if (newestId && newestId !== newestAuditIdRef.current) {
+          newestAuditIdRef.current = newestId;
+          setFlashTxnId(newestId);
+          window.setTimeout(() => {
+            setFlashTxnId((cur) => (cur === newestId ? null : cur));
+          }, 1100);
+        }
+      } catch {
+        /* non-fatal — next tick retries */
       }
     };
 
@@ -941,6 +1045,139 @@ function SandboxDemoPage() {
           )}
         </section>
       </div>
+
+      {/* ── Phase 3 — Compliance Audit Ledger (GLI-12 Log) ─────────────── */}
+      <section className="max-w-6xl mx-auto mt-6 bg-slate-900/60 border border-slate-800 rounded-xl p-5">
+        <div className="flex flex-wrap items-end justify-between gap-2 mb-3">
+          <div>
+            <h2 className="text-lg font-semibold tracking-wide">
+              Compliance Audit Ledger (GLI-12 Log)
+            </h2>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Append-only in-memory ledger. Every successful S2S bet writes one
+              immutable slice. Newest pinned to top.
+            </p>
+          </div>
+          <div className="text-[11px] tabular-nums text-slate-400">
+            <span className="text-emerald-300 font-semibold">{auditEntries.length}</span>
+            <span className="text-slate-500"> / {auditCap} entries · newest first</span>
+          </div>
+        </div>
+        <div className="overflow-x-auto border border-slate-800 rounded-lg">
+          <table className="w-full text-xs">
+            <thead className="bg-slate-950/80 text-slate-400 uppercase tracking-wider text-[10px]">
+              <tr>
+                <th className="text-left px-2 py-2 font-medium">Time</th>
+                <th className="text-left px-2 py-2 font-medium">Txn ID</th>
+                <th className="text-left px-2 py-2 font-medium">Game</th>
+                <th className="text-left px-2 py-2 font-medium">Segments</th>
+                <th className="text-right px-2 py-2 font-medium">Wager</th>
+                <th className="text-right px-2 py-2 font-medium">Pool Δ</th>
+                <th className="text-right px-2 py-2 font-medium">Seed Δ</th>
+                <th className="text-right px-2 py-2 font-medium">House Δ</th>
+                <th className="text-right px-2 py-2 font-medium">Total</th>
+                <th className="text-left px-2 py-2 font-medium">RNG</th>
+                <th className="text-left px-2 py-2 font-medium">Win</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60">
+              {auditEntries.length === 0 ? (
+                <tr>
+                  <td colSpan={11} className="px-3 py-6 text-center text-slate-500">
+                    No audit slices recorded yet. Trigger an authorized S2S spin to populate the ledger.
+                  </td>
+                </tr>
+              ) : (
+                auditEntries.map((e) => {
+                  const win = e.win as
+                    | { amount?: number; isCommunity?: boolean }
+                    | null;
+                  return (
+                    <tr
+                      key={`${e.transactionId}-${e.loggedAt}`}
+                      className={`transition-colors ${
+                        flashTxnId === e.transactionId
+                          ? "bg-emerald-500/10"
+                          : "hover:bg-slate-950/40"
+                      }`}
+                    >
+                      <td className="px-2 py-1.5 tabular-nums text-slate-300 font-mono">
+                        {fmtAuditTime(e.loggedAt)}
+                      </td>
+                      <td
+                        className="px-2 py-1.5 font-mono text-slate-400"
+                        title={e.transactionId}
+                      >
+                        {truncMiddle(e.transactionId, 8, 4)}
+                      </td>
+                      <td className="px-2 py-1.5 text-slate-300">{e.gameId}</td>
+                      <td className="px-2 py-1.5">
+                        {e.playerSegments.length === 0 ? (
+                          <span className="text-slate-600">—</span>
+                        ) : (
+                          <div className="flex flex-wrap gap-1">
+                            {e.playerSegments.map((s) => (
+                              <span
+                                key={s}
+                                className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px]"
+                              >
+                                {s}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-2 py-1.5 text-right tabular-nums text-slate-200">
+                        {fmtPrecise(e.wager)}
+                      </td>
+                      <td className="px-2 py-1.5 text-right tabular-nums text-emerald-300">
+                        {fmtPrecise(e.contribution.pool)}
+                      </td>
+                      <td className="px-2 py-1.5 text-right tabular-nums text-sky-300">
+                        {fmtPrecise(e.contribution.seed)}
+                      </td>
+                      <td className="px-2 py-1.5 text-right tabular-nums text-amber-300">
+                        {fmtPrecise(e.contribution.house)}
+                      </td>
+                      <td className="px-2 py-1.5 text-right tabular-nums text-slate-200 font-semibold">
+                        {fmtPrecise(e.totalContribution)}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] ${
+                            e.rngSource === "external"
+                              ? "bg-indigo-500/20 text-indigo-200"
+                              : "bg-slate-800 text-slate-400"
+                          }`}
+                        >
+                          {e.rngSource}
+                        </span>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        {win && typeof win.amount === "number" ? (
+                          <span className="inline-flex items-center gap-1">
+                            <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-200 text-[10px] font-semibold tabular-nums">
+                              {fmtPrecise(win.amount)}
+                            </span>
+                            {win.isCommunity ? (
+                              <span className="px-1 py-0.5 rounded bg-pink-500/20 text-pink-200 text-[10px]">
+                                community
+                              </span>
+                            ) : null}
+                          </span>
+                        ) : (
+                          <span className="text-slate-600">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
 
       {/* ── Double-contribution compliance modal ──────────────── */}
       {pendingOptIn && (

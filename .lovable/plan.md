@@ -1,4 +1,4 @@
-# Phase 3 — Immutable Audit Ledger
+Phase 3 — Immutable Audit Ledger
 
 Append every successful S2S bet transaction to an in-memory, capped, read-only audit log and expose it as a live compliance grid in the sandbox dashboard.
 

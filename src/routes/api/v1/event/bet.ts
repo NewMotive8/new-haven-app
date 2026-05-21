@@ -57,6 +57,49 @@ function rememberTransaction(id: string, response: unknown) {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 3 — Append-only audit ledger (in-memory, capped, per-Worker instance).
+// Only successful, non-replay bet transactions append a slice. The buffer is
+// exported so the sibling `bet.ledger.ts` read endpoint can expose it to the
+// sandbox compliance grid.
+// ---------------------------------------------------------------------------
+
+export const AUDIT_MAX = 200;
+
+export type AuditSlice = { pool: number; seed: number; house: number };
+
+export type AuditEntry = {
+  loggedAt: string;
+  transactionId: string;
+  brandId: string;
+  gameId: string;
+  playerSegments: string[];
+  playerId: string | null;
+  wager: number;
+  rngSource: "external" | "local";
+  contribution: AuditSlice;
+  totalContribution: number;
+  perJackpot:
+    | Array<{
+        jackpotId: number;
+        jackpotName: string;
+        routing: "split" | "additive";
+        contribution: AuditSlice;
+        totalContribution: number;
+      }>
+    | null;
+  win: Record<string, unknown> | null;
+};
+
+export const jackpot_ledger_logs: AuditEntry[] = [];
+
+function appendAudit(entry: AuditEntry) {
+  jackpot_ledger_logs.push(entry);
+  if (jackpot_ledger_logs.length > AUDIT_MAX) {
+    jackpot_ledger_logs.splice(0, jackpot_ledger_logs.length - AUDIT_MAX);
+  }
+}
+
+// ---------------------------------------------------------------------------
 
 function inlineConfigFromDto(jp: JackpotDTO): JackpotConfigDTO {
   const cfg = (jp.config ?? {}) as Record<string, unknown>;
@@ -244,6 +287,24 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             tierBreakdown: ledger.entries,
             win,
           };
+          appendAudit({
+            loggedAt: new Date().toISOString(),
+            transactionId: body.transactionId,
+            brandId: brand,
+            gameId: body.gameId,
+            playerSegments: body.playerSegments,
+            playerId: body.playerId ?? null,
+            wager,
+            rngSource,
+            contribution: {
+              pool: ledger.totals.pool,
+              seed: ledger.totals.seed,
+              house: ledger.totals.house,
+            },
+            totalContribution: ledger.totalContribution,
+            perJackpot: null,
+            win,
+          });
           rememberTransaction(body.transactionId, response);
           return json(response);
         }
@@ -341,6 +402,34 @@ export const Route = createFileRoute("/api/v1/event/bet")({
           })),
           win,
         };
+        appendAudit({
+          loggedAt: new Date().toISOString(),
+          transactionId: body.transactionId,
+          brandId: brand,
+          gameId: body.gameId,
+          playerSegments: body.playerSegments,
+          playerId: body.playerId ?? null,
+          wager,
+          rngSource,
+          contribution: {
+            pool: multi.totals.pool,
+            seed: multi.totals.seed,
+            house: multi.totals.house,
+          },
+          totalContribution: multi.totalContribution,
+          perJackpot: multi.perCampaign.map((e) => ({
+            jackpotId: e.jackpotId,
+            jackpotName: e.jackpotName,
+            routing: e.routing,
+            contribution: {
+              pool: e.ledger.totals.pool,
+              seed: e.ledger.totals.seed,
+              house: e.ledger.totals.house,
+            },
+            totalContribution: e.ledger.totalContribution,
+          })),
+          win,
+        });
         rememberTransaction(body.transactionId, response);
         return json(response);
       },
