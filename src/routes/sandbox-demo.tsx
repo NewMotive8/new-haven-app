@@ -94,6 +94,14 @@ function SandboxDemoPage() {
   const [systemRngInput, setSystemRngInput] = useState<string>("");
   const [lastReplay, setLastReplay] = useState<boolean>(false);
   const [lastRngSource, setLastRngSource] = useState<"external" | "local" | null>(null);
+  // ── Phase 2: Internal VPC handshake controls ─────────────────────────────
+  const [authMode, setAuthMode] = useState<"authorized" | "rogue" | "omitted">("authorized");
+  const [internalSecret, setInternalSecret] = useState<string>("");
+  const [lastHandshake, setLastHandshake] = useState<
+    | { status: "ok" }
+    | { status: "blocked"; code?: string; message?: string; httpStatus: number }
+    | null
+  >(null);
   const widgetHostRef = useRef<HTMLDivElement | null>(null);
 
   // ── Brand id bootstrap ───────────────────────────────────────────────────
@@ -288,18 +296,32 @@ function SandboxDemoPage() {
           payload.systemRngValue = Math.min(1, Math.max(0, sysRng));
         }
 
+        const authHeaders: Record<string, string> = {};
+        if (authMode === "authorized") {
+          authHeaders["Authorization"] = `Bearer ${internalSecret}`;
+        } else if (authMode === "rogue") {
+          const rogue =
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+          authHeaders["Authorization"] = `Bearer rogue-${rogue}`;
+        }
+
         const res = await fetch("/api/v1/event/bet", {
           method: "POST",
-          headers: headers(),
+          headers: { ...headers(), ...authHeaders },
           body: JSON.stringify(payload),
         });
-        if (!res.ok) throw new Error(`Bet HTTP ${res.status}`);
-        const json = (await res.json()) as {
+
+        const json = (await res.json().catch(() => ({}))) as {
           contribution?: { pool: number; seed: number; house: number };
           totalContribution?: number;
           perJackpot?: PerJackpotEntry[];
           idempotentReplay?: boolean;
           rngSource?: "external" | "local";
+          code?: string;
+          message?: string;
+          error?: string;
           win?: {
             jackpotId: number;
             amount: number;
@@ -311,6 +333,21 @@ function SandboxDemoPage() {
             cappedDelta?: number;
           } | null;
         };
+
+        if (!res.ok) {
+          setLastHandshake({
+            status: "blocked",
+            code: json.code,
+            message: json.message ?? json.error,
+            httpStatus: res.status,
+          });
+          throw new Error(
+            `Bet HTTP ${res.status}${json.code ? ` (${json.code})` : ""}${
+              json.message ? `: ${json.message}` : ""
+            }`,
+          );
+        }
+        setLastHandshake({ status: "ok" });
         setLastReplay(!!json.idempotentReplay);
         setLastRngSource(json.rngSource ?? null);
         const per = json.perJackpot ?? [];
@@ -688,15 +725,34 @@ function SandboxDemoPage() {
 
           {/* ── S2S Tester (Phase 1 microservice contract) ──────────────── */}
           <details className="bg-slate-950/40 border border-slate-800 rounded-lg" open>
-            <summary className="cursor-pointer px-3 py-2 text-xs uppercase tracking-wider text-slate-300">
-              S2S Tester
+            <summary className="cursor-pointer px-3 py-2 text-xs uppercase tracking-wider text-slate-300 flex flex-wrap items-center gap-2">
+              <span>S2S Tester</span>
+              {lastHandshake?.status === "ok" ? (
+                <span className="inline-block px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] normal-case tracking-normal">
+                  🔒 SECURE VPC PASSTHROUGH
+                </span>
+              ) : null}
+              {lastHandshake?.status === "blocked" && lastHandshake.httpStatus === 403 ? (
+                <span
+                  className="inline-block px-2 py-0.5 rounded bg-red-500/30 text-red-200 text-[10px] normal-case tracking-normal animate-pulse"
+                  title={lastHandshake.message ?? ""}
+                >
+                  ⚠️ ACCESS BLOCKED (403)
+                  {lastHandshake.code ? ` · ${lastHandshake.code}` : ""}
+                </span>
+              ) : null}
+              {lastHandshake?.status === "blocked" && lastHandshake.httpStatus === 503 ? (
+                <span className="inline-block px-2 py-0.5 rounded bg-amber-500/30 text-amber-200 text-[10px] normal-case tracking-normal">
+                  VPC SECRET NOT CONFIGURED
+                </span>
+              ) : null}
               {lastReplay ? (
-                <span className="ml-2 inline-block px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] normal-case tracking-normal">
+                <span className="inline-block px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] normal-case tracking-normal">
                   idempotent replay
                 </span>
               ) : null}
               {lastRngSource ? (
-                <span className="ml-2 inline-block px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] normal-case tracking-normal">
+                <span className="inline-block px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] normal-case tracking-normal">
                   rng: {lastRngSource}
                 </span>
               ) : null}
@@ -751,7 +807,43 @@ function SandboxDemoPage() {
                   placeholder="VIP, HighRoller"
                   className="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs font-mono"
                 />
+              <div className="flex flex-col gap-1 pt-2 mt-1 border-t border-slate-800">
+                <label className="text-[11px] uppercase tracking-wider text-slate-500">
+                  VPC Handshake (Internal Service Secret)
+                </label>
+                <div className="flex flex-col gap-1 text-xs">
+                  {(
+                    [
+                      ["authorized", "Authorized — send valid internal secret"],
+                      ["rogue", "Unauthorized — send rogue / corrupted token"],
+                      ["omitted", "Unauthorized — omit token entirely"],
+                    ] as const
+                  ).map(([val, label]) => (
+                    <label key={val} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="authMode"
+                        value={val}
+                        checked={authMode === val}
+                        onChange={() => setAuthMode(val)}
+                      />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>
+                <input
+                  type="password"
+                  value={internalSecret}
+                  onChange={(e) => setInternalSecret(e.target.value)}
+                  placeholder="paste INTERNAL_SERVICE_SECRET to test the authorized path"
+                  className="mt-1 bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs font-mono"
+                />
+                <span className="text-[10px] text-slate-500">
+                  Sent as <code>Authorization: Bearer &lt;secret&gt;</code>. Stored in
+                  component state only — never logged.
+                </span>
               </div>
+            </div>
               <div className="flex flex-col gap-1">
                 <label className="text-[11px] uppercase tracking-wider text-slate-500">
                   systemRngValue (0..1, optional — forces external RNG)

@@ -10,7 +10,7 @@
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { errorJson, json, preflight, requireBrandId } from "@/lib/jackpot/http";
+import { errorJson, json, preflight, requireBrandId, requireInternalSecret } from "@/lib/jackpot/http";
 import { getJackpot, listJackpots } from "@/lib/jackpot/store.server";
 import {
   applyCommunityPayout,
@@ -137,6 +137,9 @@ export const Route = createFileRoute("/api/v1/event/bet")({
     handlers: {
       OPTIONS: async () => preflight(),
       POST: async ({ request }) => {
+        const blocked = requireInternalSecret(request);
+        if (blocked) return blocked;
+
         const brand = requireBrandId(request);
         if (brand instanceof Response) return brand;
 
