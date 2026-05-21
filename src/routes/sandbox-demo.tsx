@@ -296,18 +296,32 @@ function SandboxDemoPage() {
           payload.systemRngValue = Math.min(1, Math.max(0, sysRng));
         }
 
+        const authHeaders: Record<string, string> = {};
+        if (authMode === "authorized") {
+          authHeaders["Authorization"] = `Bearer ${internalSecret}`;
+        } else if (authMode === "rogue") {
+          const rogue =
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+          authHeaders["Authorization"] = `Bearer rogue-${rogue}`;
+        }
+
         const res = await fetch("/api/v1/event/bet", {
           method: "POST",
-          headers: headers(),
+          headers: { ...headers(), ...authHeaders },
           body: JSON.stringify(payload),
         });
-        if (!res.ok) throw new Error(`Bet HTTP ${res.status}`);
-        const json = (await res.json()) as {
+
+        const json = (await res.json().catch(() => ({}))) as {
           contribution?: { pool: number; seed: number; house: number };
           totalContribution?: number;
           perJackpot?: PerJackpotEntry[];
           idempotentReplay?: boolean;
           rngSource?: "external" | "local";
+          code?: string;
+          message?: string;
+          error?: string;
           win?: {
             jackpotId: number;
             amount: number;
@@ -319,6 +333,21 @@ function SandboxDemoPage() {
             cappedDelta?: number;
           } | null;
         };
+
+        if (!res.ok) {
+          setLastHandshake({
+            status: "blocked",
+            code: json.code,
+            message: json.message ?? json.error,
+            httpStatus: res.status,
+          });
+          throw new Error(
+            `Bet HTTP ${res.status}${json.code ? ` (${json.code})` : ""}${
+              json.message ? `: ${json.message}` : ""
+            }`,
+          );
+        }
+        setLastHandshake({ status: "ok" });
         setLastReplay(!!json.idempotentReplay);
         setLastRngSource(json.rngSource ?? null);
         const per = json.perJackpot ?? [];
