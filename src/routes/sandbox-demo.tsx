@@ -750,15 +750,24 @@ function SandboxDemoPage() {
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6">
       <style>{confettiCss + widgetCss}</style>
 
-      <header className="max-w-6xl mx-auto mb-6">
-        <div className="text-xs uppercase tracking-widest text-emerald-400 mb-1">
-          Hidden · Phase C
+      <header className="max-w-6xl mx-auto mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="text-xs uppercase tracking-widest text-emerald-400 mb-1">
+            Hidden · Phase C
+          </div>
+          <h1 className="text-3xl font-bold">Sandbox Demo — Live Widget Proof</h1>
+          <p className="text-slate-400 text-sm mt-1">
+            Native player widget driven by real <code>/api/v1/jackpots</code> polling and the new
+            multi-campaign <code>/api/v1/event/bet</code> router.
+          </p>
         </div>
-        <h1 className="text-3xl font-bold">Sandbox Demo — Live Widget Proof</h1>
-        <p className="text-slate-400 text-sm mt-1">
-          Native player widget driven by real <code>/api/v1/jackpots</code> polling and the new
-          multi-campaign <code>/api/v1/event/bet</code> router.
-        </p>
+        <button
+          type="button"
+          onClick={() => setShowQaSuite(true)}
+          className="shrink-0 inline-flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 transition px-4 py-2 text-sm font-semibold text-emerald-200 shadow-[0_0_24px_-12px_rgba(16,185,129,0.8)]"
+        >
+          📋 View QA Compliance Test Suite
+        </button>
       </header>
 
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
