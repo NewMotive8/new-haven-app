@@ -175,6 +175,9 @@ function readCommunityConfig(jp: JackpotDTO) {
   };
 }
 
+// GLI-12/19 compliant secure RNG fallback using Web Crypto API.
+const secureRandomFloat = () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
+
 export const Route = createFileRoute("/api/v1/event/bet")({
   server: {
     handlers: {
@@ -224,7 +227,7 @@ export const Route = createFileRoute("/api/v1/event/bet")({
         const rng: () => number =
           typeof body.systemRngValue === "number"
             ? () => body.systemRngValue!
-            : Math.random;
+            : secureRandomFloat;
 
         // -----------------------------------------------------------------
         // Legacy single-jackpot path (back-compat, still supported).
