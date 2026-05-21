@@ -1112,6 +1112,86 @@ function SandboxDemoPage() {
             </div>
           </details>
 
+          {/* ── Phase 4 — Batch Velocity Runner ──────────────────────────── */}
+          <details className="bg-slate-950/40 border border-slate-800 rounded-lg" open>
+            <summary className="cursor-pointer px-3 py-2 text-xs uppercase tracking-wider text-slate-300 flex flex-wrap items-center gap-2">
+              <span>Batch Velocity Runner</span>
+              <span className="inline-block px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-200 text-[10px] normal-case tracking-normal">
+                Monte Carlo · GLI-19
+              </span>
+              {batchRunning ? (
+                <span className="inline-block px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-200 text-[10px] normal-case tracking-normal animate-pulse tabular-nums">
+                  Running… {batchProgress} / {batchSize}
+                </span>
+              ) : null}
+            </summary>
+            <div className="px-3 pb-3 pt-1 flex flex-col gap-2 text-sm">
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] uppercase tracking-wider text-slate-500">
+                  Load Size (automated spins)
+                </label>
+                <div className="flex gap-2">
+                  {([100, 500, 1000] as const).map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      disabled={batchRunning}
+                      onClick={() => setBatchSize(n)}
+                      className={`flex-1 px-2 py-1.5 rounded border text-xs font-mono tabular-nums transition ${
+                        batchSize === n
+                          ? "bg-indigo-500/30 border-indigo-400 text-indigo-100"
+                          : "bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-900"
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {n.toLocaleString()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={runBatch}
+                  disabled={batchRunning}
+                  className="flex-1 py-2 rounded bg-indigo-500 hover:bg-indigo-400 disabled:bg-slate-700 disabled:cursor-not-allowed text-slate-950 font-semibold text-sm transition"
+                >
+                  {batchRunning ? `Running… ${batchProgress} / ${batchSize}` : `Execute Batch (${batchSize.toLocaleString()} spins)`}
+                </button>
+                {batchRunning ? (
+                  <button
+                    type="button"
+                    onClick={cancelBatch}
+                    className="px-3 py-2 rounded bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold"
+                  >
+                    Cancel
+                  </button>
+                ) : null}
+                {!batchRunning && batchStats ? (
+                  <button
+                    type="button"
+                    onClick={() => setBatchStats(null)}
+                    className="px-3 py-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs"
+                  >
+                    Clear
+                  </button>
+                ) : null}
+              </div>
+              {batchRunning || batchStats ? (
+                <progress
+                  value={batchRunning ? batchProgress : batchStats?.completed ?? 0}
+                  max={batchRunning ? batchSize : batchStats?.size ?? 1}
+                  className="w-full h-2"
+                />
+              ) : null}
+              <span className="text-[10px] text-slate-500">
+                Each spin uses a fresh transactionId, the current VPC auth mode, and the
+                same RNG settings as the single-spin tester. Streams into the GLI-12 ledger.
+              </span>
+            </div>
+          </details>
+
+
+
           <button
             onClick={handleSpin}
             disabled={pools.length === 0 || spinning}
