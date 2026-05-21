@@ -57,6 +57,49 @@ function rememberTransaction(id: string, response: unknown) {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 3 — Append-only audit ledger (in-memory, capped, per-Worker instance).
+// Only successful, non-replay bet transactions append a slice. The buffer is
+// exported so the sibling `bet.ledger.ts` read endpoint can expose it to the
+// sandbox compliance grid.
+// ---------------------------------------------------------------------------
+
+export const AUDIT_MAX = 200;
+
+export type AuditSlice = { pool: number; seed: number; house: number };
+
+export type AuditEntry = {
+  loggedAt: string;
+  transactionId: string;
+  brandId: string;
+  gameId: string;
+  playerSegments: string[];
+  playerId: string | null;
+  wager: number;
+  rngSource: "external" | "local";
+  contribution: AuditSlice;
+  totalContribution: number;
+  perJackpot:
+    | Array<{
+        jackpotId: number;
+        jackpotName: string;
+        routing: "split" | "additive";
+        contribution: AuditSlice;
+        totalContribution: number;
+      }>
+    | null;
+  win: Record<string, unknown> | null;
+};
+
+export const jackpot_ledger_logs: AuditEntry[] = [];
+
+function appendAudit(entry: AuditEntry) {
+  jackpot_ledger_logs.push(entry);
+  if (jackpot_ledger_logs.length > AUDIT_MAX) {
+    jackpot_ledger_logs.splice(0, jackpot_ledger_logs.length - AUDIT_MAX);
+  }
+}
+
+// ---------------------------------------------------------------------------
 
 function inlineConfigFromDto(jp: JackpotDTO): JackpotConfigDTO {
   const cfg = (jp.config ?? {}) as Record<string, unknown>;
