@@ -87,6 +87,13 @@ function SandboxDemoPage() {
   const [celebrating, setCelebrating] = useState(false);
   const [lastCommunity, setLastCommunity] = useState<CommunityPayoutBreakdown | null>(null);
   const [spinning, setSpinning] = useState(false);
+  // ── S2S tester inputs (Phase 1 microservice contract) ────────────────────
+  const [txnId, setTxnId] = useState<string>("");
+  const [gameId, setGameId] = useState<string>("sandbox-game");
+  const [playerSegmentsInput, setPlayerSegmentsInput] = useState<string>("");
+  const [systemRngInput, setSystemRngInput] = useState<string>("");
+  const [lastReplay, setLastReplay] = useState<boolean>(false);
+  const [lastRngSource, setLastRngSource] = useState<"external" | "local" | null>(null);
   const widgetHostRef = useRef<HTMLDivElement | null>(null);
 
   // ── Brand id bootstrap ───────────────────────────────────────────────────
