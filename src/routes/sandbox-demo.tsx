@@ -76,6 +76,46 @@ type AuditEntry = {
   win: Record<string, unknown> | null;
 };
 
+type BatchStats = {
+  size: number;
+  completed: number;
+  ok: number;
+  blocked: number;
+  idempotentReplays: number;
+  turnover: number;
+  poolTotal: number;
+  seedTotal: number;
+  houseTotal: number;
+  totalContribution: number;
+  hits: number;
+  communityHits: number;
+  startedAt: string;
+  finishedAt: string | null;
+  durationMs: number;
+  authMode: "authorized" | "rogue" | "omitted";
+};
+
+function emptyBatchStats(size: number, authMode: BatchStats["authMode"]): BatchStats {
+  return {
+    size,
+    completed: 0,
+    ok: 0,
+    blocked: 0,
+    idempotentReplays: 0,
+    turnover: 0,
+    poolTotal: 0,
+    seedTotal: 0,
+    houseTotal: 0,
+    totalContribution: 0,
+    hits: 0,
+    communityHits: 0,
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    durationMs: 0,
+    authMode,
+  };
+}
+
 function fmt(n: number, currency = "EUR") {
   try {
     return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(n);
@@ -165,6 +205,12 @@ function SandboxDemoPage() {
   const [auditCap, setAuditCap] = useState<number>(200);
   const newestAuditIdRef = useRef<string | null>(null);
   const [flashTxnId, setFlashTxnId] = useState<string | null>(null);
+  // ── Phase 4: Batch velocity runner state ─────────────────────────────────
+  const [batchSize, setBatchSize] = useState<100 | 500 | 1000>(100);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState(0);
+  const cancelRef = useRef(false);
+  const [batchStats, setBatchStats] = useState<BatchStats | null>(null);
   const widgetHostRef = useRef<HTMLDivElement | null>(null);
 
   // ── Brand id bootstrap ───────────────────────────────────────────────────
@@ -512,6 +558,103 @@ function SandboxDemoPage() {
       setSpinning(false);
     }
   };
+
+  // ── Phase 4: Headless batch runner ───────────────────────────────────────
+  const runBatch = async () => {
+    if (batchRunning) return;
+    const w = Number(wager);
+    if (!Number.isFinite(w) || w <= 0) {
+      setError("Wager must be a positive number");
+      return;
+    }
+    const size = batchSize;
+    const segments = playerSegmentsInput
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const game = gameId.trim() || "sandbox-game";
+    const sysRng = systemRngInput.trim() === "" ? undefined : Number(systemRngInput);
+    const currentAuthMode = authMode;
+    const currentSecret = internalSecret;
+
+    cancelRef.current = false;
+    setBatchRunning(true);
+    setBatchProgress(0);
+    setError(null);
+    const stats = emptyBatchStats(size, currentAuthMode);
+    setBatchStats(stats);
+    const start = performance.now();
+    const FLUSH = 25;
+
+    for (let i = 0; i < size; i++) {
+      if (cancelRef.current) break;
+      const txn =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `txn-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 10)}`;
+      const payload: Record<string, unknown> = {
+        transactionId: txn,
+        wager: w,
+        gameId: game,
+        playerSegments: segments,
+      };
+      if (typeof sysRng === "number" && Number.isFinite(sysRng)) {
+        payload.systemRngValue = Math.min(1, Math.max(0, sysRng));
+      }
+      const authHeaders: Record<string, string> = {};
+      if (currentAuthMode === "authorized") {
+        authHeaders["Authorization"] = `Bearer ${currentSecret}`;
+      } else if (currentAuthMode === "rogue") {
+        authHeaders["Authorization"] = `Bearer rogue-${txn}`;
+      }
+      try {
+        const res = await fetch("/api/v1/event/bet", {
+          method: "POST",
+          headers: { ...headers(), ...authHeaders },
+          body: JSON.stringify(payload),
+        });
+        const j = (await res.json().catch(() => ({}))) as {
+          contribution?: { pool?: number; seed?: number; house?: number };
+          totalContribution?: number;
+          idempotentReplay?: boolean;
+          win?: { isCommunity?: boolean } | null;
+        };
+        stats.completed++;
+        if (res.ok) {
+          stats.ok++;
+          stats.turnover += w;
+          stats.poolTotal += j.contribution?.pool ?? 0;
+          stats.seedTotal += j.contribution?.seed ?? 0;
+          stats.houseTotal += j.contribution?.house ?? 0;
+          stats.totalContribution += j.totalContribution ?? 0;
+          if (j.idempotentReplay) stats.idempotentReplays++;
+          if (j.win) {
+            stats.hits++;
+            if (j.win.isCommunity) stats.communityHits++;
+          }
+        } else {
+          stats.blocked++;
+        }
+      } catch {
+        stats.completed++;
+        stats.blocked++;
+      }
+      if ((i + 1) % FLUSH === 0 || i + 1 === size) {
+        setBatchProgress(i + 1);
+        setBatchStats({ ...stats });
+      }
+    }
+    stats.finishedAt = new Date().toISOString();
+    stats.durationMs = Math.round(performance.now() - start);
+    setBatchStats({ ...stats });
+    setBatchRunning(false);
+  };
+
+  const cancelBatch = () => {
+    cancelRef.current = true;
+  };
+
+
 
   const triggerCelebration = () => {
     setCelebrating(true);
@@ -969,6 +1112,86 @@ function SandboxDemoPage() {
             </div>
           </details>
 
+          {/* ── Phase 4 — Batch Velocity Runner ──────────────────────────── */}
+          <details className="bg-slate-950/40 border border-slate-800 rounded-lg" open>
+            <summary className="cursor-pointer px-3 py-2 text-xs uppercase tracking-wider text-slate-300 flex flex-wrap items-center gap-2">
+              <span>Batch Velocity Runner</span>
+              <span className="inline-block px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-200 text-[10px] normal-case tracking-normal">
+                Monte Carlo · GLI-19
+              </span>
+              {batchRunning ? (
+                <span className="inline-block px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-200 text-[10px] normal-case tracking-normal animate-pulse tabular-nums">
+                  Running… {batchProgress} / {batchSize}
+                </span>
+              ) : null}
+            </summary>
+            <div className="px-3 pb-3 pt-1 flex flex-col gap-2 text-sm">
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] uppercase tracking-wider text-slate-500">
+                  Load Size (automated spins)
+                </label>
+                <div className="flex gap-2">
+                  {([100, 500, 1000] as const).map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      disabled={batchRunning}
+                      onClick={() => setBatchSize(n)}
+                      className={`flex-1 px-2 py-1.5 rounded border text-xs font-mono tabular-nums transition ${
+                        batchSize === n
+                          ? "bg-indigo-500/30 border-indigo-400 text-indigo-100"
+                          : "bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-900"
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {n.toLocaleString()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={runBatch}
+                  disabled={batchRunning}
+                  className="flex-1 py-2 rounded bg-indigo-500 hover:bg-indigo-400 disabled:bg-slate-700 disabled:cursor-not-allowed text-slate-950 font-semibold text-sm transition"
+                >
+                  {batchRunning ? `Running… ${batchProgress} / ${batchSize}` : `Execute Batch (${batchSize.toLocaleString()} spins)`}
+                </button>
+                {batchRunning ? (
+                  <button
+                    type="button"
+                    onClick={cancelBatch}
+                    className="px-3 py-2 rounded bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold"
+                  >
+                    Cancel
+                  </button>
+                ) : null}
+                {!batchRunning && batchStats ? (
+                  <button
+                    type="button"
+                    onClick={() => setBatchStats(null)}
+                    className="px-3 py-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs"
+                  >
+                    Clear
+                  </button>
+                ) : null}
+              </div>
+              {batchRunning || batchStats ? (
+                <progress
+                  value={batchRunning ? batchProgress : batchStats?.completed ?? 0}
+                  max={batchRunning ? batchSize : batchStats?.size ?? 1}
+                  className="w-full h-2"
+                />
+              ) : null}
+              <span className="text-[10px] text-slate-500">
+                Each spin uses a fresh transactionId, the current VPC auth mode, and the
+                same RNG settings as the single-spin tester. Streams into the GLI-12 ledger.
+              </span>
+            </div>
+          </details>
+
+
+
           <button
             onClick={handleSpin}
             disabled={pools.length === 0 || spinning}
@@ -1178,6 +1401,120 @@ function SandboxDemoPage() {
         </div>
       </section>
 
+      {/* ── Phase 4 — Statistical Analysis (GLI Audit View) ──────────────── */}
+      {batchStats ? (
+        <section className="max-w-6xl mx-auto mt-6 bg-slate-900/60 border border-slate-800 rounded-xl p-5">
+          <div className="flex flex-wrap items-end justify-between gap-2 mb-4">
+            <div>
+              <h2 className="text-lg font-semibold tracking-wide">
+                Statistical Analysis (GLI Audit View)
+              </h2>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Aggregated roll-up of the most recent Monte Carlo batch run.
+              </p>
+            </div>
+            <div className="text-[11px] tabular-nums text-slate-400 text-right">
+              <div>
+                Run:{" "}
+                <span className="text-slate-200 font-semibold">
+                  {batchStats.completed.toLocaleString()}
+                </span>{" "}
+                / {batchStats.size.toLocaleString()} spins ·{" "}
+                <span className="text-slate-200">{(batchStats.durationMs / 1000).toFixed(2)}s</span>
+              </div>
+              <div className="text-slate-500">
+                auth={batchStats.authMode} · started{" "}
+                {new Date(batchStats.startedAt).toLocaleTimeString()}
+                {batchStats.finishedAt
+                  ? ` · finished ${new Date(batchStats.finishedAt).toLocaleTimeString()}`
+                  : " · running…"}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            <StatTile label="Total Simulated Turnover" value={fmtPrecise(batchStats.turnover)} accent="text-slate-100" />
+            <StatTile label="Total Pool Captured" value={fmtPrecise(batchStats.poolTotal)} accent="text-emerald-300" />
+            <StatTile label="Total Seed Captured" value={fmtPrecise(batchStats.seedTotal)} accent="text-sky-300" />
+            <StatTile label="Total House Rake" value={fmtPrecise(batchStats.houseTotal)} accent="text-amber-300" />
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+            <StatTile
+              label="Pool + Seed Return %"
+              value={
+                batchStats.turnover > 0
+                  ? `${(((batchStats.poolTotal + batchStats.seedTotal) / batchStats.turnover) * 100).toFixed(4)}%`
+                  : "—"
+              }
+              accent="text-emerald-300"
+            />
+            <StatTile
+              label="House Edge %"
+              value={
+                batchStats.turnover > 0
+                  ? `${((batchStats.houseTotal / batchStats.turnover) * 100).toFixed(4)}%`
+                  : "—"
+              }
+              accent="text-amber-300"
+            />
+            <StatTile
+              label="Σ Total Contribution"
+              value={fmtPrecise(batchStats.totalContribution)}
+              accent="text-slate-100"
+            />
+          </div>
+
+          <div>
+            <div className="text-xs uppercase tracking-wider text-slate-400 mb-2">
+              Hit Frequency Checklist
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <StatTile
+                label="Jackpot Drops Triggered"
+                value={batchStats.hits.toLocaleString()}
+                accent="text-emerald-300"
+              />
+              <StatTile
+                label="Community Drops"
+                value={batchStats.communityHits.toLocaleString()}
+                accent="text-pink-300"
+              />
+              <StatTile
+                label="Hit Frequency"
+                value={
+                  batchStats.hits > 0
+                    ? `1 in ${Math.round(batchStats.ok / batchStats.hits).toLocaleString()} · ${(
+                        (batchStats.hits / Math.max(batchStats.ok, 1)) *
+                        100
+                      ).toFixed(3)}%`
+                    : "—"
+                }
+                accent="text-slate-100"
+              />
+              <StatTile
+                label="Idempotent Replays"
+                value={batchStats.idempotentReplays.toLocaleString()}
+                accent={batchStats.idempotentReplays === 0 ? "text-slate-300" : "text-rose-300"}
+              />
+              <StatTile
+                label="Blocked Responses"
+                value={batchStats.blocked.toLocaleString()}
+                accent={
+                  batchStats.authMode === "authorized"
+                    ? batchStats.blocked === 0
+                      ? "text-slate-300"
+                      : "text-rose-300"
+                    : "text-amber-300"
+                }
+              />
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+
+
 
       {/* ── Double-contribution compliance modal ──────────────── */}
       {pendingOptIn && (
@@ -1224,6 +1561,15 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div className="bg-slate-950/60 border border-slate-800 rounded p-2 flex items-center justify-between">
       <span className="text-slate-500 uppercase text-[10px]">{label}</span>
       <span className="font-semibold tabular-nums text-slate-200">{value}</span>
+    </div>
+  );
+}
+
+function StatTile({ label, value, accent }: { label: string; value: string; accent: string }) {
+  return (
+    <div className="bg-slate-950/60 border border-slate-800 rounded-lg p-3">
+      <div className="text-[10px] uppercase tracking-wider text-slate-500">{label}</div>
+      <div className={`mt-1 font-semibold tabular-nums text-base ${accent}`}>{value}</div>
     </div>
   );
 }
