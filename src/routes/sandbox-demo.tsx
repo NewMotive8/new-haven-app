@@ -164,6 +164,58 @@ function readOverlappingRule(jp: Jackpot): OverlappingRule {
   return rule === "additive" ? "additive" : "split";
 }
 
+type QaTestCase = { id: number; title: string; input: string; result: string };
+
+const QA_TEST_CASES: QaTestCase[] = [
+  {
+    id: 1,
+    title: "Zero-Trust Security Perimeter",
+    input:
+      "Locate 'VPC Handshake' subsection. Toggle between 'Omitted', 'Rogue', or 'Authorized' with secret passphrase. Click 'Fire Single Bet'.",
+    result:
+      "Inspect the telemetry badges. Look for the pulsing red '⚠️ ACCESS BLOCKED (403)' or the green '🔒 SECURE VPC PASSTHROUGH (200)' status along with matching toast messages.",
+  },
+  {
+    id: 2,
+    title: "Cryptographically Secure Internal RNG",
+    input:
+      "In the single-bet form, completely clear out the 'External RNG Value (systemRngValue)' field. Click 'Fire Single Bet'.",
+    result:
+      "Read the response payload or audit table row attributes. Look for 'rngSource' to output exactly \"local\", driven by native hardware-backed Web Crypto entropy blocks.",
+  },
+  {
+    id: 3,
+    title: "High-Precision Financial Audit Ledger",
+    input: "Adjust the wager value to '€0.10' and click 'Fire Single Bet'.",
+    result:
+      "Look down at the 'Compliance Audit Ledger (GLI-12 Log)' grid. Verify the top row flashes emerald on real-time polling updates and displays Pool, Seed, and House deltas precisely out to 6 decimal digits (e.g., €0.002500) without rounding clipping.",
+  },
+  {
+    id: 4,
+    title: "High-Velocity Monte Carlo Stress Loop",
+    input:
+      "Locate the 'Batch Velocity Runner' section. Toggle the control to 100, 500, or 1000 wagers and click 'Execute Batch'.",
+    result:
+      "Look at the sequential progress bar filling smoothly. Once completed, look directly at the new 'Statistical Analysis (GLI Audit View)' card displaying macro-turnover calculations, hit frequency ratios (1 in N), and zeroed error margins.",
+  },
+  {
+    id: 5,
+    title: "Idempotency Replay Attack Mitigation",
+    input:
+      "Copy a 'transactionId' from a successful log row, paste it back into the Transaction ID input field manually, and click 'Fire Single Bet'.",
+    result:
+      "Verify the engine issues a cache bypass shortcut. Look for the replay alert banner and verify that the progressive balances do not alter and no duplicate rows append to the ledger table.",
+  },
+  {
+    id: 6,
+    title: "Mathematical Models & Payout Logic Validation",
+    input:
+      "Navigate to the Jackpot Creator Form. Configure a test campaign choosing a specific Jackpot Type (Classic, Must-Drop, Multi-Level, or Frequency) and a Win Payout Model (Fixed, Average, or Maximum). Next, go to the Batch Velocity Runner, select 1000 spins, and click 'Execute Batch'.",
+    result:
+      "Look directly at the 'Statistical Analysis (GLI Audit View)' card. Verify that the 'Pool+Seed Return %' and 'House Edge %' align perfectly with the theoretical configurations. For Must-Drop setups, observe the hit checklist to confirm the threshold distribution adjusts dynamically as the batch approaches bounds.",
+  },
+];
+
 function SandboxDemoPage() {
   const [brandId, setBrandId] = useState<string>("1");
   const [pools, setPools] = useState<Jackpot[]>([]);
@@ -211,6 +263,7 @@ function SandboxDemoPage() {
   const [batchProgress, setBatchProgress] = useState(0);
   const cancelRef = useRef(false);
   const [batchStats, setBatchStats] = useState<BatchStats | null>(null);
+  const [showQaSuite, setShowQaSuite] = useState(false);
   const widgetHostRef = useRef<HTMLDivElement | null>(null);
 
   // ── Brand id bootstrap ───────────────────────────────────────────────────
@@ -749,15 +802,24 @@ function SandboxDemoPage() {
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6">
       <style>{confettiCss + widgetCss}</style>
 
-      <header className="max-w-6xl mx-auto mb-6">
-        <div className="text-xs uppercase tracking-widest text-emerald-400 mb-1">
-          Hidden · Phase C
+      <header className="max-w-6xl mx-auto mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="text-xs uppercase tracking-widest text-emerald-400 mb-1">
+            Hidden · Phase C
+          </div>
+          <h1 className="text-3xl font-bold">Sandbox Demo — Live Widget Proof</h1>
+          <p className="text-slate-400 text-sm mt-1">
+            Native player widget driven by real <code>/api/v1/jackpots</code> polling and the new
+            multi-campaign <code>/api/v1/event/bet</code> router.
+          </p>
         </div>
-        <h1 className="text-3xl font-bold">Sandbox Demo — Live Widget Proof</h1>
-        <p className="text-slate-400 text-sm mt-1">
-          Native player widget driven by real <code>/api/v1/jackpots</code> polling and the new
-          multi-campaign <code>/api/v1/event/bet</code> router.
-        </p>
+        <button
+          type="button"
+          onClick={() => setShowQaSuite(true)}
+          className="shrink-0 inline-flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 transition px-4 py-2 text-sm font-semibold text-emerald-200 shadow-[0_0_24px_-12px_rgba(16,185,129,0.8)]"
+        >
+          📋 View QA Compliance Test Suite
+        </button>
       </header>
 
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1547,6 +1609,92 @@ function SandboxDemoPage() {
                 onClick={confirmPendingOptIn}
               >
                 Agree &amp; Join Both
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showQaSuite && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="QA Compliance Test Suite"
+          className="fixed inset-0 z-[1000] bg-slate-950/80 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowQaSuite(false);
+          }}
+        >
+          <div className="my-8 w-full max-w-4xl bg-slate-900 border border-emerald-500/30 rounded-2xl shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 px-6 py-4 border-b border-slate-800 bg-slate-900/95 backdrop-blur rounded-t-2xl">
+              <div>
+                <div className="text-[10px] uppercase tracking-widest text-emerald-400">
+                  GLI-12 / GLI-19 · Operator Guide
+                </div>
+                <h2 className="text-xl font-bold text-slate-100">
+                  📋 QA Compliance Test Suite Overview
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Six certifiable scenarios. Each card shows ➜ where to act and 🔍 where the
+                  evidence will land.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQaSuite(false)}
+                className="shrink-0 rounded-md border border-slate-700 hover:border-slate-500 hover:bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200"
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {QA_TEST_CASES.map((tc) => (
+                <article
+                  key={tc.id}
+                  className="bg-slate-950/60 border border-slate-800 hover:border-emerald-500/40 transition rounded-xl p-4 flex flex-col gap-3"
+                >
+                  <header className="flex items-start gap-3">
+                    <span className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500/15 text-emerald-300 text-sm font-bold border border-emerald-500/30">
+                      {tc.id}
+                    </span>
+                    <div>
+                      <div className="text-[10px] uppercase tracking-widest text-emerald-400/80">
+                        Test Case {tc.id}
+                      </div>
+                      <h3 className="text-sm font-semibold text-slate-100 leading-snug">
+                        {tc.title}
+                      </h3>
+                    </div>
+                  </header>
+
+                  <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3">
+                    <div className="text-[10px] uppercase tracking-wider text-sky-300 font-semibold mb-1">
+                      ➜ Input Direction
+                    </div>
+                    <p className="text-xs text-slate-300 leading-relaxed">{tc.input}</p>
+                  </div>
+
+                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+                    <div className="text-[10px] uppercase tracking-wider text-amber-300 font-semibold mb-1">
+                      🔍 Where To Look For Results
+                    </div>
+                    <p className="text-xs text-slate-300 leading-relaxed">{tc.result}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-800 flex items-center justify-between gap-3 text-[11px] text-slate-500">
+              <span>
+                Tip: keep this panel open on a second monitor while running the suite.
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowQaSuite(false)}
+                className="rounded-md bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 px-3 py-1.5 text-xs font-semibold text-emerald-200"
+              >
+                Got it — Close
               </button>
             </div>
           </div>
