@@ -165,6 +165,12 @@ function SandboxDemoPage() {
   const [auditCap, setAuditCap] = useState<number>(200);
   const newestAuditIdRef = useRef<string | null>(null);
   const [flashTxnId, setFlashTxnId] = useState<string | null>(null);
+  // ── Phase 4: Batch velocity runner state ─────────────────────────────────
+  const [batchSize, setBatchSize] = useState<100 | 500 | 1000>(100);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState(0);
+  const cancelRef = useRef(false);
+  const [batchStats, setBatchStats] = useState<BatchStats | null>(null);
   const widgetHostRef = useRef<HTMLDivElement | null>(null);
 
   // ── Brand id bootstrap ───────────────────────────────────────────────────
