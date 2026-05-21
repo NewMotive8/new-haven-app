@@ -189,7 +189,7 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             | undefined;
           let jpDto: JackpotDTO | null = null;
           if (!cfg && body.jackpotId != null) {
-            jpDto = await getJackpot(brand, Number(body.jackpotId));
+            jpDto = (await getJackpot(brand, Number(body.jackpotId))) ?? null;
             if (!jpDto)
               return errorJson(`Jackpot ${body.jackpotId} not found`, 404);
             cfg = inlineConfigFromDto(jpDto);
