@@ -76,6 +76,46 @@ type AuditEntry = {
   win: Record<string, unknown> | null;
 };
 
+type BatchStats = {
+  size: number;
+  completed: number;
+  ok: number;
+  blocked: number;
+  idempotentReplays: number;
+  turnover: number;
+  poolTotal: number;
+  seedTotal: number;
+  houseTotal: number;
+  totalContribution: number;
+  hits: number;
+  communityHits: number;
+  startedAt: string;
+  finishedAt: string | null;
+  durationMs: number;
+  authMode: "authorized" | "rogue" | "omitted";
+};
+
+function emptyBatchStats(size: number, authMode: BatchStats["authMode"]): BatchStats {
+  return {
+    size,
+    completed: 0,
+    ok: 0,
+    blocked: 0,
+    idempotentReplays: 0,
+    turnover: 0,
+    poolTotal: 0,
+    seedTotal: 0,
+    houseTotal: 0,
+    totalContribution: 0,
+    hits: 0,
+    communityHits: 0,
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    durationMs: 0,
+    authMode,
+  };
+}
+
 function fmt(n: number, currency = "EUR") {
   try {
     return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(n);
