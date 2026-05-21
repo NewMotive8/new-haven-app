@@ -232,6 +232,47 @@ function SandboxDemoPage() {
     };
   }, [brandId, headers]);
 
+  // ── Poll /api/v1/event/bet/ledger every 2s — live compliance grid ────────
+  useEffect(() => {
+    if (!brandId) return;
+    let cancelled = false;
+
+    const tick = async () => {
+      try {
+        const res = await fetch("/api/v1/event/bet/ledger?limit=200", {
+          headers: headers(),
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          entries: AuditEntry[];
+          total: number;
+          cap: number;
+        };
+        if (cancelled) return;
+        const entries = Array.isArray(data.entries) ? data.entries : [];
+        setAuditEntries(entries);
+        if (typeof data.cap === "number") setAuditCap(data.cap);
+        const newestId = entries[0]?.transactionId ?? null;
+        if (newestId && newestId !== newestAuditIdRef.current) {
+          newestAuditIdRef.current = newestId;
+          setFlashTxnId(newestId);
+          window.setTimeout(() => {
+            setFlashTxnId((cur) => (cur === newestId ? null : cur));
+          }, 1100);
+        }
+      } catch {
+        /* non-fatal — next tick retries */
+      }
+    };
+
+    tick();
+    const id = setInterval(tick, 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [brandId, headers]);
+
   const activePool: Jackpot | null = pools[activeIndex] ?? null;
   const activeRule: OverlappingRule | null = activePool ? readOverlappingRule(activePool) : null;
   const activeOptedIn = activePool ? !!optIns[activePool.id] : false;
