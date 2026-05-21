@@ -807,7 +807,43 @@ function SandboxDemoPage() {
                   placeholder="VIP, HighRoller"
                   className="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs font-mono"
                 />
+              <div className="flex flex-col gap-1 pt-2 mt-1 border-t border-slate-800">
+                <label className="text-[11px] uppercase tracking-wider text-slate-500">
+                  VPC Handshake (Internal Service Secret)
+                </label>
+                <div className="flex flex-col gap-1 text-xs">
+                  {(
+                    [
+                      ["authorized", "Authorized — send valid internal secret"],
+                      ["rogue", "Unauthorized — send rogue / corrupted token"],
+                      ["omitted", "Unauthorized — omit token entirely"],
+                    ] as const
+                  ).map(([val, label]) => (
+                    <label key={val} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="authMode"
+                        value={val}
+                        checked={authMode === val}
+                        onChange={() => setAuthMode(val)}
+                      />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>
+                <input
+                  type="password"
+                  value={internalSecret}
+                  onChange={(e) => setInternalSecret(e.target.value)}
+                  placeholder="paste INTERNAL_SERVICE_SECRET to test the authorized path"
+                  className="mt-1 bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs font-mono"
+                />
+                <span className="text-[10px] text-slate-500">
+                  Sent as <code>Authorization: Bearer &lt;secret&gt;</code>. Stored in
+                  component state only — never logged.
+                </span>
               </div>
+            </div>
               <div className="flex flex-col gap-1">
                 <label className="text-[11px] uppercase tracking-wider text-slate-500">
                   systemRngValue (0..1, optional — forces external RNG)
