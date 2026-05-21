@@ -1,86 +1,121 @@
-# Community Payout / Shared Win — End-to-End
+# Phase 1 — Headless S2S Microservice Engine
 
-Reuse the existing Community panel UI (toggle → Community Split slider with Winner/Community labels → Payout Interval segmented options → Maximum Win Amount → Maximum Number Of Players) as-is. Lift it out of the Widget Configuration panel into a dedicated "Community Win Mechanics" section directly below the asset eligibility panel, then wire persistence, the ledger split math, and the sandbox win UI on top of it.
+Transform `/api/v1/event/bet` from a loose wager intake into a structured server-to-server transaction endpoint with idempotency, external RNG passthrough, and community-payout-aware win evaluation. Surface the new fields in `/sandbox-demo` so testers can drive the engine the same way a real S2S caller will.
 
-## 1. Creator Form — relocate the existing Community panel
+## Scope
 
-In `src/components/jackpot/JackpotCreationForm.tsx`:
+1. **Ingestion schema** — `/api/v1/event/bet` accepts a typed S2S payload.
+2. **Idempotency cache** — in-memory rolling cache of `transactionId`s with replayed result.
+3. **External RNG abstraction** — `systemRngValue` (0..1) bypasses the local RNG when present.
+4. **Community payout math** — win evaluation routes through `applyCommunityPayout` when the campaign has community mode enabled.
+5. **Sandbox UI** — new tester inputs for `transactionId`, `gameId`, `playerSegments`, and `systemRngValue`.
 
-- Extract the existing Community block (currently nested inside Widget Configuration around lines ~2480–2620 for classic / ~3650–3790 for must-drop) into a shared `communityWinSection` JSX const, keeping all current controls, classes, and state bindings (`isCommunity`, `communitySplit`, `payoutInterval`, plus the existing Maximum Win Amount and Maximum Number Of Players inputs).
-- Render `{communityWinSection}` immediately after `{eligibilitySection}` and before `{overlappingSection}` in all three render paths (classic, must-drop, frequency).
-- Remove the now-duplicated copies from inside the Widget Configuration panels so it appears in exactly one place.
-- Header label for the new section wrapper: "Community Win Mechanics" (uses the same panel chrome as the neighbouring eligibility/overlapping sections).
+## Files to touch
 
-No new UI controls are introduced; the existing Community panel from the screenshot is the canonical UI.
+- `src/routes/api/v1/event/bet.ts` — schema, dedupe, RNG, community wiring.
+- `src/lib/jackpot/ledger.ts` — add a thin `evaluateWin` helper that accepts an injected RNG and emits community breakdown via the existing `applyCommunityPayout`.
+- `src/lib/jackpot/types.ts` — add `BetEventRequestDTO` / `BetEventResponseDTO` types so callers + sandbox share one contract.
+- `src/routes/sandbox-demo.tsx` — add the four tester inputs and include them in the `/api/v1/event/bet` POST body.
 
-## 2. Payload + sessionStorage
+No DB migration, no new dependencies, no changes to the simulator engine or creator form.
 
-Extend `JackpotSavePayload` with an explicit `community` block sourced from the existing state:
+## Technical detail
+
+### 1. Request schema
+
+Validate with a small Zod schema inside `bet.ts` (Zod is already used elsewhere). Reject with `400` on shape errors.
 
 ```ts
-community: {
-  enabled: boolean;              // isCommunity
-  split: number;                 // communitySplit[0]
-  payoutInterval: string;        // existing value (logged_in | contributed_once | contributed_within_time)
-  payoutIntervalSeconds?: number;// existing time-window input when payoutInterval === 'contributed_within_time'
-  maximumWinAmount: number;      // existing Maximum Win Amount input
-  maximumNumberOfPlayers: number;// existing Maximum Number Of Players input
+const BetEventSchema = z.object({
+  transactionId: z.string().min(1).max(128),
+  wager: z.number().positive().finite(),
+  gameId: z.string().min(1).max(128),
+  playerSegments: z.array(z.string().min(1).max(64)).max(32).default([]),
+  systemRngValue: z.number().min(0).max(1).optional(),
+  // Back-compat optional fields preserved:
+  jackpotId: z.number().int().optional(),
+  playerId: z.string().optional(),
+  eventId: z.string().optional(),
+  config: JackpotConfigSchema.optional(),
+  configs: z.array(JackpotConfigSchema).optional(),
+});
+```
+
+`gameId` and `playerSegments` are accepted and echoed back on the response; eligibility filtering against campaign targets is left as a no-op stub for this phase (logged in response under `matchedBy`) — full segment/game matching lands in a later phase.
+
+### 2. Idempotency filter
+
+Module-scope state inside `bet.ts`:
+
+```ts
+const DEDUPE_MAX = 1000;
+const processedTransactions = new Map<string, { at: number; response: unknown }>();
+```
+
+On each request:
+- If `processedTransactions.has(transactionId)`: return the cached response body verbatim with header `X-Idempotent-Replay: true` and HTTP `200`.
+- Else compute the response, `set()` it, and if `size > DEDUPE_MAX` evict the oldest insertion-order entry (Map preserves insertion order).
+
+Note for the user: this is per-Worker-instance memory; it satisfies the "rolling cache" requirement for sandbox/S2S verification but is not a cluster-wide guarantee. Documented in a code comment.
+
+### 3. External RNG abstraction
+
+Add an optional `rng?: () => number` argument to the new `evaluateWin` helper. In `bet.ts`:
+
+```ts
+const rng = typeof body.systemRngValue === "number"
+  ? () => body.systemRngValue!     // deterministic single-shot
+  : Math.random;
+```
+
+The win-trigger comparison consumes one `rng()` call per evaluation. When `systemRngValue` is provided we mark `rngSource: "external"` in the response so the sandbox can show it; otherwise `rngSource: "local"`.
+
+### 4. Community payout in the ledger
+
+`evaluateWin(cfg, ledgerEntry, rng)` returns `{ triggered: boolean; winAmount: number; community?: CommunityPayoutBreakdown }`. When `triggered` and `cfg.config.community?.enabled`, call the existing `applyCommunityPayout(winAmount, cfg.config.community, rng)` and include `isCommunity`, `communitySize`, `communityMemberPayOut`, `triggeringPayout`, `communityPool`, `cappedDelta` in the response.
+
+Per-member cap math is already handled inside `applyCommunityPayout` (no duplication).
+
+### 5. Response shape
+
+```ts
+{
+  transactionId,
+  idempotentReplay: false,
+  rngSource: "external" | "local",
+  processedAt,
+  wager,
+  gameId,
+  playerSegments,
+  contribution: { pool, seed, house },
+  totalContribution,
+  perJackpot: [...],         // unchanged multi-campaign breakdown
+  win: null | {
+    jackpotId,
+    amount,
+    isCommunity,
+    communitySize?,
+    communityMemberPayOut?,
+    triggeringPayout?,
+    communityPool?,
+    cappedDelta?,
+  }
 }
 ```
 
-In `src/lib/jackpot/build-create-body.ts`, attach this block as `config.community` inside `buildTriggerCondition`. Rehydrate the same fields from `sessionStorage` (`jackpot:pendingPayload`) alongside the ledger / weight / eligibility blocks already persisted.
+### 6. Sandbox UI
 
-## 3. Engine — community distribution on win
+In `/sandbox-demo`, next to the existing wager controls add a collapsible "S2S Tester" panel with:
+- `transactionId` text input + "Generate" button (uses `crypto.randomUUID()`).
+- `gameId` text input (default `"sandbox-game"`).
+- `playerSegments` comma-separated text input.
+- `systemRngValue` numeric input (`step=0.000001`, optional, placeholder `auto`).
 
-Add a pure helper in `src/lib/jackpot/ledger.ts`:
+These values are sent on every POST to `/api/v1/event/bet`. Render a small badge when the response sets `idempotentReplay: true`, and surface `rngSource` + the community breakdown (reusing the existing community celebration component already added in the previous phase).
 
-```ts
-export interface CommunityPayoutBreakdown {
-  isCommunity: true;
-  triggeringPayout: number;
-  communityPool: number;
-  communitySize: number;
-  communityMemberPayOut: number;
-  cappedDelta: number;
-}
+## Out of scope (deferred to later phases)
 
-export function applyCommunityPayout(
-  winAmount: number,
-  cfg: { split: number; maximumWinAmount: number; maximumNumberOfPlayers: number },
-  rng?: () => number,
-): CommunityPayoutBreakdown
-```
-
-Math:
-- `communityPool = winAmount * split / 100`
-- `triggeringPayout = winAmount - communityPool`
-- `communitySize = max(1, floor(rng() * maximumNumberOfPlayers) + 1)`
-- `rawShare = communityPool / communitySize`
-- If `maximumWinAmount > 0` and `rawShare > maximumWinAmount`: cap `communityMemberPayOut = maximumWinAmount`, `cappedDelta = (rawShare - maximumWinAmount) * communitySize`.
-
-Hook this helper into the win path used by the sandbox/forced-drop flow (the `forceWin` branch in `src/routes/sandbox-demo.tsx`) so the resulting ledger entry carries `isCommunity`, `communitySize`, `communityMemberPayOut`, `triggeringPayout`. Non-community wins are untouched.
-
-## 4. Win schema alignment
-
-`WinEventDTO` (and the response from `/simulate-bet` force-win path) gain optional fields mirroring `Win.java`: `isCommunity`, `communitySize`, `communityMemberPayOut`. Existing consumers ignore them when absent.
-
-## 5. Sandbox win UI
-
-In `src/routes/sandbox-demo.tsx`, inside the celebration overlay (around `jooba-celebration`), when the latest win carries `isCommunity`, render:
-- Badge: `COMMUNITY PAYOUT TRIGGERED`
-- Lines:
-  - `Triggering Winner Payout: €X.XX`
-  - `Community Split: €Y.YY distributed among Z active community players (€W.WW each)`
-
-Uses existing token classes; no new design tokens.
-
-## Technical details
-
-- Files touched:
-  - `src/components/jackpot/JackpotCreationForm.tsx` — extract & relocate the existing Community panel, extend save payload.
-  - `src/lib/jackpot/build-create-body.ts` — surface `config.community`.
-  - `src/lib/jackpot/types.ts` — `CommunityConfigDTO` + optional fields on `WinEventDTO`.
-  - `src/lib/jackpot/ledger.ts` — `applyCommunityPayout` helper.
-  - `src/routes/sandbox-demo.tsx` — wire forced-win community branch + celebration UI.
-- No DB migration: data lives in the JSONB `config` blob on `jackpots.trigger_condition`.
-- No new dependencies.
+- Persisted dedupe (Durable Object / DB-backed).
+- Real game/segment eligibility filtering against campaign targets.
+- Cluster-aware RNG audit trail.
+- Auth on the S2S endpoint (HMAC signature, etc.).
