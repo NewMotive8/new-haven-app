@@ -1,140 +1,146 @@
-Phase 3 — Immutable Audit Ledger
+Phase 4 — High-Velocity Compliance Testing & Monte Carlo Verification
 
-Append every successful S2S bet transaction to an in-memory, capped, read-only audit log and expose it as a live compliance grid in the sandbox dashboard.
+Add a headless batch runner to the S2S Tester that fires N bets back-to-back through the existing `POST /api/v1/event/bet` endpoint, then renders a GLI-style statistical roll-up of the run.
 
 ## Approach
 
-A single ring-buffer `jackpot_ledger_logs: AuditEntry[]` lives at module scope in `src/routes/api/v1/event/bet.ts`. It is only mutated by the `POST /api/v1/event/bet` handler, only on a successful run (after the Phase 2 handshake passes, the body validates, and a non-replay response is produced). A new `GET /api/v1/event/bet/ledger` handler on the same file route exposes the most recent entries to the sandbox (public read, no internal-secret gate, consistent with the "public widget read paths stay unauthenticated" decision from Phase 2). The sandbox polls it every 2s and pins newest rows to the top.
-
-The append is a single push + slice — never an in-place edit of prior entries — so the log behaves as append-only from the caller's perspective.
+This is a frontend-only phase. The backend is untouched: every batch spin uses the same authenticated S2S route added in Phase 2 and naturally streams into the Phase 3 ring buffer. We extract the existing single-bet POST logic into a reusable helper inside `sandbox-demo.tsx`, then drive it from a batch controller that owns its own React state (size, progress, totals, cancel flag).
 
 ## Files to touch
 
-- `src/routes/api/v1/event/bet.ts` — define `AuditEntry`, the capped buffer, an `appendAudit()` helper, the `GET .../ledger` handler, and wire `appendAudit` into both success branches (single-jackpot + multi-campaign router) right before each `rememberTransaction(...)` / `return json(response)`. Idempotent replays are NOT re-logged (the original entry is the canonical record).
-- `src/routes/sandbox-demo.tsx` — add a "Compliance Audit Ledger (GLI-12 Log)" section under the existing tester output, polling `/api/v1/event/bet/ledger` every 2s, rendering a scannable table with newest-first ordering.
+- `src/routes/sandbox-demo.tsx` — only file. Add batch state, extract `fireOneBet()` from `handleFireBet()`, add the "Batch Velocity Runner" controls inside the S2S Tester card, and add the "Statistical Analysis (GLI Audit View)" summary card below it.
 
-Out of scope: `simulate.ts`, `simulate-bet.ts`, `/jackpots/*`, the ledger module, the creator form, persistence (DB-backed audit trail is a later phase).
+Out of scope: backend routes, ledger schema, simulator, creator form, persistence.
 
 ## Technical detail
 
-### 1. Audit entry shape
+### 1. Extracted single-bet helper
+
+Pull the body construction + `fetch("/api/v1/event/bet", …)` + response parsing out of `handleFireBet()`'s multi-pool branch into:
 
 ```ts
-type AuditSlice = { pool: number; seed: number; house: number };
-
-type AuditEntry = {
-  loggedAt: string;            // ISO timestamp, server-side
-  transactionId: string;
-  brandId: string;
-  gameId: string;
-  playerSegments: string[];
-  playerId: string | null;
+async function fireOneBet(opts: {
   wager: number;
-  rngSource: "external" | "local";
-  // Aggregated contribution slice (sum across all matched campaigns
-  // for the multi-router; the single-campaign slice for the legacy path).
-  contribution: AuditSlice;
+  gameId: string;
+  segments: string[];
+  systemRngValue?: number;
+}): Promise<{
+  ok: boolean;
+  httpStatus: number;
+  idempotentReplay: boolean;
+  totals: { pool: number; seed: number; house: number };
   totalContribution: number;
-  // Per-jackpot breakdown when the multi-campaign router ran; null for
-  // the legacy single-config path so the auditor can see routing detail.
-  perJackpot:
-    | Array<{
-        jackpotId: number;
-        jackpotName: string;
-        routing: "split" | "additive";
-        contribution: AuditSlice;
-        totalContribution: number;
-      }>
-    | null;
-  // Inline win object when a drop triggered; null otherwise.
-  win: Record<string, unknown> | null;
+  win: { jackpotId: number; amount: number; isCommunity: boolean } | null;
+  error?: { code?: string; message?: string };
+}>
+```
+
+It generates a fresh `transactionId` per call (crypto.randomUUID with fallback), respects the existing `authMode` + `internalSecret` selection (so a tester can intentionally batch-fire unauthorized loads and watch every row 403), and returns a normalised summary the batch loop can aggregate. The existing `handleFireBet()` keeps its single-spin UI side effects (celebration, `lastHandshake`, `lastReplay`, pool deltas) by calling `fireOneBet` and then doing the same post-processing it does today.
+
+### 2. Batch state
+
+New module-local state inside the component:
+
+```ts
+const [batchSize, setBatchSize] = useState<100 | 500 | 1000>(100);
+const [batchRunning, setBatchRunning] = useState(false);
+const [batchProgress, setBatchProgress] = useState(0);
+const cancelRef = useRef(false);
+const [batchStats, setBatchStats] = useState<BatchStats | null>(null);
+
+type BatchStats = {
+  size: number;
+  completed: number;
+  ok: number;
+  blocked: number;          // 403 / 503 / other non-2xx
+  idempotentReplays: number;
+  turnover: number;         // Σ wager (only counted on ok responses)
+  poolTotal: number;        // Σ contribution.pool
+  seedTotal: number;        // Σ contribution.seed
+  houseTotal: number;       // Σ contribution.house
+  totalContribution: number;
+  hits: number;             // win !== null count
+  communityHits: number;
+  hitFrequency: number;     // hits / ok  (guard divide-by-zero)
+  rtpPoolPlusSeed: number;  // (poolTotal + seedTotal) / turnover
+  rakePct: number;          // houseTotal / turnover
+  startedAt: string;
+  finishedAt: string | null;
+  durationMs: number;
 };
 ```
 
-### 2. Capped append-only buffer
+### 3. Execution loop
 
-```ts
-const AUDIT_MAX = 200;
-const jackpot_ledger_logs: AuditEntry[] = [];
+A single async `runBatch()` function:
 
-function appendAudit(entry: AuditEntry) {
-  jackpot_ledger_logs.push(entry);
-  if (jackpot_ledger_logs.length > AUDIT_MAX) {
-    jackpot_ledger_logs.splice(0, jackpot_ledger_logs.length - AUDIT_MAX);
-  }
-}
+```text
+1. Validate wager + gameId; bail with a toast if invalid.
+2. Reset batchStats to a zeroed object, set batchRunning=true, cancelRef=false.
+3. for (i = 0; i < batchSize; i++):
+     if (cancelRef.current) break;
+     const res = await fireOneBet({ wager, gameId, segments, systemRngValue });
+     accumulate into a local stats object;
+     setBatchProgress(i + 1) and setBatchStats(snapshot) every BATCH_FLUSH (e.g. 25 spins)
+       so React doesn't re-render 1,000 times.
+4. Finalise stats (finishedAt, durationMs, derived ratios), setBatchRunning(false).
 ```
 
-Module-scope, per-Worker-instance. Same caveat as the dedupe cache: not cluster-wide. Acceptable for the sandbox; flagged for a future DB-backed phase.
+Spins run sequentially (await per spin) so each transaction respects idempotency, the ring buffer ordering stays deterministic, and we never thunder the Worker with 1,000 in-flight requests. A 1,000-spin batch at ~5-20ms/spin completes in a few seconds — acceptable for the sandbox.
 
-### 3. Wiring into `bet.ts`
+A "Cancel" button flips `cancelRef.current = true` and the loop exits at the next iteration; partial stats remain visible.
 
-In each of the two success branches, immediately before `rememberTransaction(body.transactionId, response)` and the final `return json(response)`:
+### 4. UI — Batch Velocity Runner (inside the S2S Tester card)
 
-```ts
-appendAudit({
-  loggedAt: new Date().toISOString(),
-  transactionId: body.transactionId,
-  brandId: brand,
-  gameId: body.gameId,
-  playerSegments: body.playerSegments,
-  playerId: body.playerId ?? null,
-  wager,
-  rngSource,
-  contribution: {
-    pool: /* response.contribution.pool */,
-    seed: /* response.contribution.seed */,
-    house: /* response.contribution.house ?? response.house */,
-  },
-  totalContribution: /* response.totalContribution */,
-  perJackpot: /* multi-path: mapped slim view; single-path: null */,
-  win: response.win,
-});
-```
+Sits below the existing single-spin controls, separated by a divider:
 
-The empty-multi response (no matched campaigns) is NOT logged — there is no pool movement to audit.
+- Segmented control: `100 · 500 · 1,000` (disabled while running).
+- Primary button: "Execute Batch" → green `Running… 347 / 1000` while active.
+- Secondary button: "Cancel" (only while running).
+- Progress bar: `<progress value={batchProgress} max={batchSize}>` styled with the existing token palette.
+- Inline meta: "Auth mode: Authorized · RNG: local" so the tester knows what regime the batch ran under.
 
-Idempotent replays return early without calling `appendAudit`, so the log stays append-only and free of duplicate rows.
+The same `authMode` selector already in the card governs the batch — a tester can flip to "Rogue" and watch every row 403 to verify Phase 2 holds under load.
 
-### 4. Read endpoint
+### 5. UI — "Statistical Analysis (GLI Audit View)"
 
-```ts
-GET: async ({ request }) => {
-  const blockedBrand = requireBrandId(request);
-  if (blockedBrand instanceof Response) return blockedBrand;
-  const url = new URL(request.url);
-  const limit = Math.min(
-    Math.max(parseInt(url.searchParams.get("limit") ?? "200", 10) || 200, 1),
-    AUDIT_MAX,
-  );
-  const entries = jackpot_ledger_logs
-    .filter((e) => e.brandId === blockedBrand)
-    .slice(-limit)
-    .reverse(); // newest first
-  return json({ entries, total: entries.length, cap: AUDIT_MAX });
-},
-```
+New card directly below the Compliance Audit Ledger section (or beside it on wide screens), only rendered when `batchStats` is non-null.
 
-Brand-scoped read (re-uses `requireBrandId`) so a sandbox running brand "1" can't see other brands' rows. No internal-secret gate — matches the "public ticker / widget reads stay unauthenticated" rule.
+Layout: a 4-column grid of stat tiles on top, a secondary "Hit Frequency Checklist" row below.
 
-Mounted as a sibling file route `src/routes/api/v1/event/bet.ledger.ts` (TanStack flat dot routing → `/api/v1/event/bet/ledger`). Keeping it in its own file avoids tangling GET/POST handlers on the same route file and keeps the buffer importable from one place: the new file imports `jackpot_ledger_logs` and `AUDIT_MAX` exported from `bet.ts`.
+Tile group A — Financial Totals (uses `fmtPrecise` so micro-fractions are visible):
 
-### 5. Sandbox UI
+- Total Simulated Turnover — `Σ wager`
+- Total Pool Captured — `Σ contribution.pool`
+- Total Seed Captured — `Σ contribution.seed`
+- Total House Rake — `Σ contribution.house`
 
-New section under the existing Tester output, above or beside the response preview:
+Tile group B — Derived Ratios:
 
-- Heading: "Compliance Audit Ledger (GLI-12 Log)"
-- Sub-line: live count vs cap, e.g. `27 / 200 entries · newest first`
-- Table columns: Time (HH:MM:SS.mmm) · Txn ID (mono, truncated middle, full on hover) · Game · Segments · Wager · Pool Δ · Seed Δ · House Δ · Total · Win
-- Currency formatting uses `Intl.NumberFormat("en-EU", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 6 })` so a 0.0245 slice renders as `€0.0245`, not `€0.02`. No rounding for display.
-- Win column shows `—` when null, otherwise a small badge with the amount + a `community` chip when `isCommunity`. Hover/expand reveals the per-jackpot breakdown for that row.
-- Polling: `useEffect` interval at 2000ms hitting `/api/v1/event/bet/ledger?limit=200` with the existing `headers()` helper. Cleared on unmount and brand-id change.
-- Newest row gets a one-second `bg-emerald-500/10` flash class via `useRef` + comparing the most recent `transactionId` across polls — purely visual, no business logic.
+- Pool+Seed Return % — `(pool+seed) / turnover * 100`
+- House Edge % — `house / turnover * 100`
+- Total Contribution — `Σ totalContribution` (sanity-check: must equal pool+seed+house within float epsilon)
+
+Hit Frequency Checklist row (always rendered, even if 0 hits):
+
+- Jackpot Drops Triggered: `hits`
+- Community Drops: `communityHits`
+- Hit Frequency: `hits / ok` rendered as `1 in N` (e.g. "1 in 487") plus the raw percentage
+- Idempotent Replays: `idempotentReplays` (expected to be 0 — flagged red if not)
+- Blocked Responses: `blocked` (expected 0 in Authorized mode; expected = size in Rogue mode)
+
+Footer line: `Run: 1,000 spins · 4.2s · started 13:42:08 · finished 13:42:12 · auth=Authorized`.
+
+A small "Clear" button resets `batchStats` to null and hides the card.
+
+### 6. Interaction with Phase 3 ledger
+
+No special wiring needed. Every successful spin is a fresh `transactionId`, so each row is appended to `jackpot_ledger_logs` and the 2s poll naturally fills the grid. The 200-row cap means a 1,000-spin batch shows only the last 200 rows in the grid — that is the correct behaviour for a ring buffer, and the batch summary card is exactly what compensates for it by holding the run's full aggregates client-side.
 
 ## Out of scope
 
-- DB-backed durable audit storage (separate phase).
-- Cryptographic chaining / hash-linked rows (a real GLI-12 implementation would; flagged for future work).
-- CSV / JSON export from the UI.
-- Filtering or full-text search in the grid (basic chronological view only).
-- Auth on the ledger read endpoint beyond brand scoping.
+- Server-side batch endpoint (would skip per-request HTTP overhead but defeats the point of exercising the real S2S path).
+- Concurrent / parallel spin dispatch (would break ledger ordering determinism).
+- CSV/JSON export of batch results.
+- Persistence of past batch runs.
+- Chi-square / variance / confidence-interval analysis (a full GLI-19 report would; flagged for a later phase).
