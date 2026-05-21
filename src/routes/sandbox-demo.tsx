@@ -686,6 +686,93 @@ function SandboxDemoPage() {
             />
           </div>
 
+          {/* ── S2S Tester (Phase 1 microservice contract) ──────────────── */}
+          <details className="bg-slate-950/40 border border-slate-800 rounded-lg" open>
+            <summary className="cursor-pointer px-3 py-2 text-xs uppercase tracking-wider text-slate-300">
+              S2S Tester
+              {lastReplay ? (
+                <span className="ml-2 inline-block px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] normal-case tracking-normal">
+                  idempotent replay
+                </span>
+              ) : null}
+              {lastRngSource ? (
+                <span className="ml-2 inline-block px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] normal-case tracking-normal">
+                  rng: {lastRngSource}
+                </span>
+              ) : null}
+            </summary>
+            <div className="px-3 pb-3 pt-1 flex flex-col gap-2 text-sm">
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] uppercase tracking-wider text-slate-500">
+                  transactionId
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={txnId}
+                    onChange={(e) => setTxnId(e.target.value)}
+                    placeholder="auto (generated on spin)"
+                    className="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setTxnId(
+                        typeof crypto !== "undefined" && "randomUUID" in crypto
+                          ? crypto.randomUUID()
+                          : `txn-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+                      )
+                    }
+                    className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs"
+                  >
+                    Generate
+                  </button>
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] uppercase tracking-wider text-slate-500">
+                  gameId
+                </label>
+                <input
+                  type="text"
+                  value={gameId}
+                  onChange={(e) => setGameId(e.target.value)}
+                  className="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs font-mono"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] uppercase tracking-wider text-slate-500">
+                  playerSegments (comma-separated)
+                </label>
+                <input
+                  type="text"
+                  value={playerSegmentsInput}
+                  onChange={(e) => setPlayerSegmentsInput(e.target.value)}
+                  placeholder="VIP, HighRoller"
+                  className="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs font-mono"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] uppercase tracking-wider text-slate-500">
+                  systemRngValue (0..1, optional — forces external RNG)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.000001}
+                  value={systemRngInput}
+                  onChange={(e) => setSystemRngInput(e.target.value)}
+                  placeholder="auto (local PRNG)"
+                  className="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs font-mono"
+                />
+                <span className="text-[10px] text-slate-500">
+                  Try <code>0.000001</code> to force an instant win evaluation.
+                </span>
+              </div>
+            </div>
+          </details>
+
           <button
             onClick={handleSpin}
             disabled={pools.length === 0 || spinning}
