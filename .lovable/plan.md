@@ -1,121 +1,89 @@
-# Phase 1 — Headless S2S Microservice Engine
+# Phase 2 — Internal Zero-Trust Security Filter
 
-Transform `/api/v1/event/bet` from a loose wager intake into a structured server-to-server transaction endpoint with idempotency, external RNG passthrough, and community-payout-aware win evaluation. Surface the new fields in `/sandbox-demo` so testers can drive the engine the same way a real S2S caller will.
+Simulate a private-VPC handshake on transactional write endpoints while keeping public read endpoints (widget tickers, jackpot listings) open.
 
-## Scope
+## Approach
 
-1. **Ingestion schema** — `/api/v1/event/bet` accepts a typed S2S payload.
-2. **Idempotency cache** — in-memory rolling cache of `transactionId`s with replayed result.
-3. **External RNG abstraction** — `systemRngValue` (0..1) bypasses the local RNG when present.
-4. **Community payout math** — win evaluation routes through `applyCommunityPayout` when the campaign has community mode enabled.
-5. **Sandbox UI** — new tester inputs for `transactionId`, `gameId`, `playerSegments`, and `systemRngValue`.
+Add a single shared middleware-style helper, `requireInternalSecret(request)`, in `src/lib/jackpot/http.ts`. It checks an `X-Internal-Token` header against `process.env.INTERNAL_VPC_SECRET` and returns a structured `403 Forbidden` response when it does not match. We reuse the existing `requireBrandId` pattern (call at the top of a handler, bail if a `Response` comes back) so no global middleware wiring is needed and public routes stay untouched.
+
+The shared secret is stored as a Lovable Cloud runtime secret (`INTERNAL_VPC_SECRET`) — requested via `add_secret` before the code change ships.
 
 ## Files to touch
 
-- `src/routes/api/v1/event/bet.ts` — schema, dedupe, RNG, community wiring.
-- `src/lib/jackpot/ledger.ts` — add a thin `evaluateWin` helper that accepts an injected RNG and emits community breakdown via the existing `applyCommunityPayout`.
-- `src/lib/jackpot/types.ts` — add `BetEventRequestDTO` / `BetEventResponseDTO` types so callers + sandbox share one contract.
-- `src/routes/sandbox-demo.tsx` — add the four tester inputs and include them in the `/api/v1/event/bet` POST body.
+- `src/lib/jackpot/http.ts` — add `requireInternalSecret()` + extend `CORS_HEADERS` to allow the `X-Internal-Token` header on preflight.
+- `src/routes/api/v1/event/bet.ts` — gate the `POST` handler (idempotency check runs only after the handshake passes).
+- `src/routes/api/v1/event/simulate-bet.ts` — gate `POST` (forced-win / deterministic RNG drops).
+- `src/routes/api/v1/jackpots/topup.ts` — gate `POST` (pool write).
+- `src/routes/api/v1/jackpots/enable.$id.ts`, `disable.$id.ts` — gate `POST` (campaign state writes).
+- `src/routes/sandbox-demo.tsx` — extend the S2S Tester panel with an Authorization toggle + token field; surface success/failure visually.
 
-No DB migration, no new dependencies, no changes to the simulator engine or creator form.
+Public/read endpoints stay open and are explicitly **not** modified: `GET /api/v1/jackpots`, `GET /api/v1/jackpots/$id`, `GET /api/v2/jackpots`, `OPTIONS *`, and the public widget/ticker reads.
 
 ## Technical detail
 
-### 1. Request schema
-
-Validate with a small Zod schema inside `bet.ts` (Zod is already used elsewhere). Reject with `400` on shape errors.
+### 1. Shared helper
 
 ```ts
-const BetEventSchema = z.object({
-  transactionId: z.string().min(1).max(128),
-  wager: z.number().positive().finite(),
-  gameId: z.string().min(1).max(128),
-  playerSegments: z.array(z.string().min(1).max(64)).max(32).default([]),
-  systemRngValue: z.number().min(0).max(1).optional(),
-  // Back-compat optional fields preserved:
-  jackpotId: z.number().int().optional(),
-  playerId: z.string().optional(),
-  eventId: z.string().optional(),
-  config: JackpotConfigSchema.optional(),
-  configs: z.array(JackpotConfigSchema).optional(),
-});
-```
-
-`gameId` and `playerSegments` are accepted and echoed back on the response; eligibility filtering against campaign targets is left as a no-op stub for this phase (logged in response under `matchedBy`) — full segment/game matching lands in a later phase.
-
-### 2. Idempotency filter
-
-Module-scope state inside `bet.ts`:
-
-```ts
-const DEDUPE_MAX = 1000;
-const processedTransactions = new Map<string, { at: number; response: unknown }>();
-```
-
-On each request:
-- If `processedTransactions.has(transactionId)`: return the cached response body verbatim with header `X-Idempotent-Replay: true` and HTTP `200`.
-- Else compute the response, `set()` it, and if `size > DEDUPE_MAX` evict the oldest insertion-order entry (Map preserves insertion order).
-
-Note for the user: this is per-Worker-instance memory; it satisfies the "rolling cache" requirement for sandbox/S2S verification but is not a cluster-wide guarantee. Documented in a code comment.
-
-### 3. External RNG abstraction
-
-Add an optional `rng?: () => number` argument to the new `evaluateWin` helper. In `bet.ts`:
-
-```ts
-const rng = typeof body.systemRngValue === "number"
-  ? () => body.systemRngValue!     // deterministic single-shot
-  : Math.random;
-```
-
-The win-trigger comparison consumes one `rng()` call per evaluation. When `systemRngValue` is provided we mark `rngSource: "external"` in the response so the sandbox can show it; otherwise `rngSource: "local"`.
-
-### 4. Community payout in the ledger
-
-`evaluateWin(cfg, ledgerEntry, rng)` returns `{ triggered: boolean; winAmount: number; community?: CommunityPayoutBreakdown }`. When `triggered` and `cfg.config.community?.enabled`, call the existing `applyCommunityPayout(winAmount, cfg.config.community, rng)` and include `isCommunity`, `communitySize`, `communityMemberPayOut`, `triggeringPayout`, `communityPool`, `cappedDelta` in the response.
-
-Per-member cap math is already handled inside `applyCommunityPayout` (no duplication).
-
-### 5. Response shape
-
-```ts
-{
-  transactionId,
-  idempotentReplay: false,
-  rngSource: "external" | "local",
-  processedAt,
-  wager,
-  gameId,
-  playerSegments,
-  contribution: { pool, seed, house },
-  totalContribution,
-  perJackpot: [...],         // unchanged multi-campaign breakdown
-  win: null | {
-    jackpotId,
-    amount,
-    isCommunity,
-    communitySize?,
-    communityMemberPayOut?,
-    triggeringPayout?,
-    communityPool?,
-    cappedDelta?,
+// src/lib/jackpot/http.ts
+export function requireInternalSecret(request: Request): Response | null {
+  const expected = process.env.INTERNAL_VPC_SECRET;
+  if (!expected) {
+    return errorJson(
+      "Internal VPC secret is not configured on this environment",
+      503,
+    );
   }
+  const provided = request.headers.get("x-internal-token");
+  if (!provided || provided !== expected) {
+    return json(
+      {
+        error: "Forbidden",
+        code: "INTERNAL_HANDSHAKE_FAILED",
+        message:
+          "This endpoint is restricted to internal VPC callers. " +
+          "A valid X-Internal-Token header is required.",
+        status: 403,
+      },
+      { status: 403 },
+    );
+  }
+  return null;
 }
 ```
 
-### 6. Sandbox UI
+Usage at the top of each protected handler, before any work:
 
-In `/sandbox-demo`, next to the existing wager controls add a collapsible "S2S Tester" panel with:
-- `transactionId` text input + "Generate" button (uses `crypto.randomUUID()`).
-- `gameId` text input (default `"sandbox-game"`).
-- `playerSegments` comma-separated text input.
-- `systemRngValue` numeric input (`step=0.000001`, optional, placeholder `auto`).
+```ts
+const blocked = requireInternalSecret(request);
+if (blocked) return blocked;
+```
 
-These values are sent on every POST to `/api/v1/event/bet`. Render a small badge when the response sets `idempotentReplay: true`, and surface `rngSource` + the community breakdown (reusing the existing community celebration component already added in the previous phase).
+Order in `bet.ts`: brand check → internal secret check → JSON parse → idempotency cache → ledger. The idempotency cache is only touched on authorized calls, so unauthorized replays cannot poison it.
 
-## Out of scope (deferred to later phases)
+`CORS_HEADERS["Access-Control-Allow-Headers"]` gains `X-Internal-Token` so the sandbox preflight succeeds.
 
-- Persisted dedupe (Durable Object / DB-backed).
-- Real game/segment eligibility filtering against campaign targets.
-- Cluster-aware RNG audit trail.
-- Auth on the S2S endpoint (HMAC signature, etc.).
+### 2. Sandbox S2S Tester additions
+
+In `/sandbox-demo`, inside the existing S2S Tester `<details>` panel, add:
+
+- `<Switch>` "Send internal VPC token" (default ON).
+- Text input for the token value (default to a placeholder like `"set-in-cloud-secrets"`; remembered per session via `useState`).
+- When the toggle is ON, the `fetch` call to `/api/v1/event/bet` sends `X-Internal-Token: <value>`. When OFF, the header is omitted so the operator can reproduce a real blocked call.
+
+UI feedback on response:
+- HTTP 403 with `code: "INTERNAL_HANDSHAKE_FAILED"` → red `<Badge variant="destructive">HANDSHAKE BLOCKED (403)</Badge>` next to the response panel + `toast.error("Internal handshake rejected — request blocked at the VPC boundary.")`.
+- HTTP 200 with the token present → green badge `HANDSHAKE OK` + subtle `toast.success("Internal handshake verified.")` (only on the first authorized call per session to avoid noise).
+- HTTP 503 (secret not configured) → amber badge `VPC SECRET NOT CONFIGURED` + actionable toast pointing the user to backend secrets.
+
+The existing `idempotentReplay` / `rngSource` badges remain.
+
+### 3. Secret provisioning
+
+Before the implementation lands, request `INTERNAL_VPC_SECRET` via `add_secret`. The sandbox token field defaults to empty; the operator pastes the same value locally to exercise the authorized path. Documented inline in the S2S Tester panel with a one-liner help text.
+
+## Out of scope
+
+- Real mTLS / IP allow-listing (this is a simulated handshake for the sandbox).
+- Per-caller key rotation, HMAC request signing, replay-window enforcement.
+- Auth on `GET` read endpoints — intentionally public per the brief.
+- Rate limiting (separate phase).
