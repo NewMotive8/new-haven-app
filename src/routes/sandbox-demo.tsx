@@ -1562,6 +1562,92 @@ function SandboxDemoPage() {
           </div>
         </div>
       )}
+
+      {showQaSuite && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="QA Compliance Test Suite"
+          className="fixed inset-0 z-[1000] bg-slate-950/80 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowQaSuite(false);
+          }}
+        >
+          <div className="my-8 w-full max-w-4xl bg-slate-900 border border-emerald-500/30 rounded-2xl shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 px-6 py-4 border-b border-slate-800 bg-slate-900/95 backdrop-blur rounded-t-2xl">
+              <div>
+                <div className="text-[10px] uppercase tracking-widest text-emerald-400">
+                  GLI-12 / GLI-19 · Operator Guide
+                </div>
+                <h2 className="text-xl font-bold text-slate-100">
+                  📋 QA Compliance Test Suite Overview
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Six certifiable scenarios. Each card shows ➜ where to act and 🔍 where the
+                  evidence will land.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQaSuite(false)}
+                className="shrink-0 rounded-md border border-slate-700 hover:border-slate-500 hover:bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200"
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {QA_TEST_CASES.map((tc) => (
+                <article
+                  key={tc.id}
+                  className="bg-slate-950/60 border border-slate-800 hover:border-emerald-500/40 transition rounded-xl p-4 flex flex-col gap-3"
+                >
+                  <header className="flex items-start gap-3">
+                    <span className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500/15 text-emerald-300 text-sm font-bold border border-emerald-500/30">
+                      {tc.id}
+                    </span>
+                    <div>
+                      <div className="text-[10px] uppercase tracking-widest text-emerald-400/80">
+                        Test Case {tc.id}
+                      </div>
+                      <h3 className="text-sm font-semibold text-slate-100 leading-snug">
+                        {tc.title}
+                      </h3>
+                    </div>
+                  </header>
+
+                  <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3">
+                    <div className="text-[10px] uppercase tracking-wider text-sky-300 font-semibold mb-1">
+                      ➜ Input Direction
+                    </div>
+                    <p className="text-xs text-slate-300 leading-relaxed">{tc.input}</p>
+                  </div>
+
+                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+                    <div className="text-[10px] uppercase tracking-wider text-amber-300 font-semibold mb-1">
+                      🔍 Where To Look For Results
+                    </div>
+                    <p className="text-xs text-slate-300 leading-relaxed">{tc.result}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-800 flex items-center justify-between gap-3 text-[11px] text-slate-500">
+              <span>
+                Tip: keep this panel open on a second monitor while running the suite.
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowQaSuite(false)}
+                className="rounded-md bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 px-3 py-1.5 text-xs font-semibold text-emerald-200"
+              >
+                Got it — Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
