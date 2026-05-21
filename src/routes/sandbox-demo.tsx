@@ -559,6 +559,103 @@ function SandboxDemoPage() {
     }
   };
 
+  // ── Phase 4: Headless batch runner ───────────────────────────────────────
+  const runBatch = async () => {
+    if (batchRunning) return;
+    const w = Number(wager);
+    if (!Number.isFinite(w) || w <= 0) {
+      setError("Wager must be a positive number");
+      return;
+    }
+    const size = batchSize;
+    const segments = playerSegmentsInput
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const game = gameId.trim() || "sandbox-game";
+    const sysRng = systemRngInput.trim() === "" ? undefined : Number(systemRngInput);
+    const currentAuthMode = authMode;
+    const currentSecret = internalSecret;
+
+    cancelRef.current = false;
+    setBatchRunning(true);
+    setBatchProgress(0);
+    setError(null);
+    const stats = emptyBatchStats(size, currentAuthMode);
+    setBatchStats(stats);
+    const start = performance.now();
+    const FLUSH = 25;
+
+    for (let i = 0; i < size; i++) {
+      if (cancelRef.current) break;
+      const txn =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `txn-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 10)}`;
+      const payload: Record<string, unknown> = {
+        transactionId: txn,
+        wager: w,
+        gameId: game,
+        playerSegments: segments,
+      };
+      if (typeof sysRng === "number" && Number.isFinite(sysRng)) {
+        payload.systemRngValue = Math.min(1, Math.max(0, sysRng));
+      }
+      const authHeaders: Record<string, string> = {};
+      if (currentAuthMode === "authorized") {
+        authHeaders["Authorization"] = `Bearer ${currentSecret}`;
+      } else if (currentAuthMode === "rogue") {
+        authHeaders["Authorization"] = `Bearer rogue-${txn}`;
+      }
+      try {
+        const res = await fetch("/api/v1/event/bet", {
+          method: "POST",
+          headers: { ...headers(), ...authHeaders },
+          body: JSON.stringify(payload),
+        });
+        const j = (await res.json().catch(() => ({}))) as {
+          contribution?: { pool?: number; seed?: number; house?: number };
+          totalContribution?: number;
+          idempotentReplay?: boolean;
+          win?: { isCommunity?: boolean } | null;
+        };
+        stats.completed++;
+        if (res.ok) {
+          stats.ok++;
+          stats.turnover += w;
+          stats.poolTotal += j.contribution?.pool ?? 0;
+          stats.seedTotal += j.contribution?.seed ?? 0;
+          stats.houseTotal += j.contribution?.house ?? 0;
+          stats.totalContribution += j.totalContribution ?? 0;
+          if (j.idempotentReplay) stats.idempotentReplays++;
+          if (j.win) {
+            stats.hits++;
+            if (j.win.isCommunity) stats.communityHits++;
+          }
+        } else {
+          stats.blocked++;
+        }
+      } catch {
+        stats.completed++;
+        stats.blocked++;
+      }
+      if ((i + 1) % FLUSH === 0 || i + 1 === size) {
+        setBatchProgress(i + 1);
+        setBatchStats({ ...stats });
+      }
+    }
+    stats.finishedAt = new Date().toISOString();
+    stats.durationMs = Math.round(performance.now() - start);
+    setBatchStats({ ...stats });
+    setBatchRunning(false);
+  };
+
+  const cancelBatch = () => {
+    cancelRef.current = true;
+  };
+
+
+
   const triggerCelebration = () => {
     setCelebrating(true);
     setTimeout(() => setCelebrating(false), 4500);
