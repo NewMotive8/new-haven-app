@@ -1,20 +1,64 @@
 /**
- * Live real-money bet event route.
+ * Live real-money bet event route — Phase 1 S2S microservice contract.
  *
- * Distinct from the simulator loops: this endpoint accepts a single accepted
- * wager, resolves the three-way Pool / Seed / House split via the production
- * ledger helper, and returns the breakdown so third-party wallets can debit
- * the operator rake (House slice) in lock-step with pool/seed credits.
+ * Accepts a fully structured server-to-server transaction payload, applies
+ * an in-memory idempotency (deduplication) filter keyed by `transactionId`,
+ * and optionally consumes a caller-supplied certified RNG float
+ * (`systemRngValue`) instead of the local PRNG when evaluating jackpot
+ * win triggers. When a campaign has community payout enabled, the win
+ * branch routes through the existing `applyCommunityPayout` helper.
  */
 import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
 import { errorJson, json, preflight, requireBrandId } from "@/lib/jackpot/http";
 import { getJackpot, listJackpots } from "@/lib/jackpot/store.server";
-import { computeBetLedger, computeMultiCampaignLedger } from "@/lib/jackpot/ledger";
+import {
+  applyCommunityPayout,
+  computeBetLedger,
+  computeMultiCampaignLedger,
+} from "@/lib/jackpot/ledger";
 import type { JackpotConfigDTO, JackpotDTO } from "@/lib/jackpot/types";
 
+// ---------------------------------------------------------------------------
+// Request schema
+// ---------------------------------------------------------------------------
+
+const BetEventSchema = z.object({
+  transactionId: z.string().min(1).max(128),
+  wager: z.number().positive().finite(),
+  gameId: z.string().min(1).max(128),
+  playerSegments: z.array(z.string().min(1).max(64)).max(64).default([]),
+  systemRngValue: z.number().min(0).max(1).optional(),
+  // Optional back-compat / routing hints
+  jackpotId: z.number().int().optional(),
+  playerId: z.string().max(128).optional(),
+  eventId: z.string().max(128).optional(),
+  config: z.any().optional(),
+  configs: z.array(z.any()).optional(),
+});
+
+type BetEventBody = z.infer<typeof BetEventSchema>;
+
+// ---------------------------------------------------------------------------
+// In-memory idempotency cache (per-Worker-instance; sufficient for sandbox /
+// S2S verification, not a cluster-wide guarantee).
+// ---------------------------------------------------------------------------
+
+const DEDUPE_MAX = 1000;
+const processedTransactions = new Map<string, { at: number; response: unknown }>();
+
+function rememberTransaction(id: string, response: unknown) {
+  processedTransactions.set(id, { at: Date.now(), response });
+  while (processedTransactions.size > DEDUPE_MAX) {
+    const oldest = processedTransactions.keys().next().value;
+    if (oldest === undefined) break;
+    processedTransactions.delete(oldest);
+  }
+}
+
+// ---------------------------------------------------------------------------
+
 function inlineConfigFromDto(jp: JackpotDTO): JackpotConfigDTO {
-  // Read v2 split + tier metadata back out of the persisted trigger_condition
-  // so the ledger sees the exact contract the operator saved.
   const cfg = (jp.config ?? {}) as Record<string, unknown>;
   const v2 = (cfg.engineV2 ?? {}) as Record<string, unknown>;
   const tiers = (cfg.tiers as JackpotConfigDTO["tiers"]) ?? undefined;
@@ -46,13 +90,45 @@ function inlineConfigFromDto(jp: JackpotDTO): JackpotConfigDTO {
         ? {
             mode: "split",
             totalContributionAmount: Number(v2.totalContributionAmount) || 0,
-            totalContributionType: (v2.totalContributionType as "FIXED" | "PERCENTAGE") ?? "FIXED",
+            totalContributionType:
+              (v2.totalContributionType as "FIXED" | "PERCENTAGE") ?? "FIXED",
             poolWeight: Number(v2.poolWeight) || 0,
             seedWeight: Number(v2.seedWeight) || 0,
             houseWeight: Number(v2.houseWeight) || 0,
-            overlappingRule: (v2.overlappingRule as "split" | "additive") ?? "split",
+            overlappingRule:
+              (v2.overlappingRule as "split" | "additive") ?? "split",
           }
         : undefined,
+  };
+}
+
+// Read trigger odds (probability per spin) out of the persisted config blob.
+// Falls back to contributionRate as a coarse heuristic so the win branch is
+// always exercisable in the sandbox.
+function readTriggerProbability(jp: JackpotDTO): number {
+  const cfg = (jp.config ?? {}) as Record<string, unknown>;
+  const odds = Number(cfg.triggerOdds);
+  if (Number.isFinite(odds) && odds > 0) return 1 / odds;
+  const rate = Number(jp.contributionRate);
+  if (Number.isFinite(rate) && rate > 0) return Math.min(rate, 0.05);
+  return 0.001;
+}
+
+function readCommunityConfig(jp: JackpotDTO) {
+  const cfg = (jp.config ?? {}) as Record<string, unknown>;
+  const c = cfg.community as
+    | {
+        enabled?: boolean;
+        split?: number;
+        maximumWinAmount?: number;
+        maximumNumberOfPlayers?: number;
+      }
+    | undefined;
+  if (!c || !c.enabled) return null;
+  return {
+    split: Number(c.split) || 0,
+    maximumWinAmount: Number(c.maximumWinAmount) || 0,
+    maximumNumberOfPlayers: Number(c.maximumNumberOfPlayers) || 1,
   };
 }
 
@@ -64,38 +140,96 @@ export const Route = createFileRoute("/api/v1/event/bet")({
         const brand = requireBrandId(request);
         if (brand instanceof Response) return brand;
 
-        let body: {
-          jackpotId?: number;
-          wager?: number;
-          config?: JackpotConfigDTO;
-          configs?: JackpotConfigDTO[];
-          playerId?: string;
-          eventId?: string;
-        };
+        let raw: unknown;
         try {
-          body = (await request.json()) as typeof body;
+          raw = await request.json();
         } catch {
           return errorJson("Invalid JSON body", 400);
         }
 
-        const wager = Number(body.wager) || 0;
-        if (wager <= 0) return errorJson("wager must be a positive number", 400);
+        const parsed = BetEventSchema.safeParse(raw);
+        if (!parsed.success) {
+          return errorJson(
+            `Invalid bet event payload: ${parsed.error.issues
+              .map((i) => `${i.path.join(".")}: ${i.message}`)
+              .join("; ")}`,
+            400,
+          );
+        }
+        const body: BetEventBody = parsed.data;
 
         // -----------------------------------------------------------------
-        // Legacy single-jackpot path (back-compat).
+        // Idempotency filter
+        // -----------------------------------------------------------------
+        const cached = processedTransactions.get(body.transactionId);
+        if (cached) {
+          return json(
+            {
+              ...(cached.response as Record<string, unknown>),
+              idempotentReplay: true,
+            },
+            { headers: { "X-Idempotent-Replay": "true" } },
+          );
+        }
+
+        const wager = body.wager;
+        const rngSource: "external" | "local" =
+          typeof body.systemRngValue === "number" ? "external" : "local";
+        const rng: () => number =
+          typeof body.systemRngValue === "number"
+            ? () => body.systemRngValue!
+            : Math.random;
+
+        // -----------------------------------------------------------------
+        // Legacy single-jackpot path (back-compat, still supported).
         // -----------------------------------------------------------------
         if (body.config || body.jackpotId != null) {
-          let cfg: JackpotConfigDTO | undefined = body.config;
+          let cfg: JackpotConfigDTO | undefined = body.config as
+            | JackpotConfigDTO
+            | undefined;
+          let jpDto: JackpotDTO | null = null;
           if (!cfg && body.jackpotId != null) {
-            const jp = await getJackpot(brand, Number(body.jackpotId));
-            if (!jp) return errorJson(`Jackpot ${body.jackpotId} not found`, 404);
-            cfg = inlineConfigFromDto(jp);
+            jpDto = (await getJackpot(brand, Number(body.jackpotId))) ?? null;
+            if (!jpDto)
+              return errorJson(`Jackpot ${body.jackpotId} not found`, 404);
+            cfg = inlineConfigFromDto(jpDto);
           }
           if (!cfg) return errorJson("Body must include `config` or `jackpotId`", 400);
 
           const ledger = computeBetLedger(cfg, wager);
-          return json({
+
+          // Win evaluation against injected RNG.
+          let win: Record<string, unknown> | null = null;
+          if (jpDto) {
+            const p = readTriggerProbability(jpDto);
+            if (rng() < p) {
+              const winAmount = Number(jpDto.poolBalance) || 0;
+              const community = readCommunityConfig(jpDto);
+              if (community && community.split > 0) {
+                const breakdown = applyCommunityPayout(winAmount, community, rng);
+                win = {
+                  jackpotId: jpDto.id,
+                  amount: winAmount,
+                  isCommunity: true,
+                  communitySize: breakdown.communitySize,
+                  communityMemberPayOut: breakdown.communityMemberPayOut,
+                  triggeringPayout: breakdown.triggeringPayout,
+                  communityPool: breakdown.communityPool,
+                  cappedDelta: breakdown.cappedDelta,
+                };
+              } else {
+                win = { jackpotId: jpDto.id, amount: winAmount, isCommunity: false };
+              }
+            }
+          }
+
+          const response = {
             brandId: brand,
+            transactionId: body.transactionId,
+            idempotentReplay: false,
+            rngSource,
+            gameId: body.gameId,
+            playerSegments: body.playerSegments,
             jackpotId: cfg.id,
             eventId: body.eventId ?? null,
             playerId: body.playerId ?? null,
@@ -105,24 +239,33 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             house: ledger.totals.house,
             totalContribution: ledger.totalContribution,
             tierBreakdown: ledger.entries,
-          });
+            win,
+          };
+          rememberTransaction(body.transactionId, response);
+          return json(response);
         }
 
         // -----------------------------------------------------------------
-        // Multi-campaign router. Matches every enabled jackpot for the brand
-        // and routes each one through split / additive math per spec.
+        // Multi-campaign router.
         // -----------------------------------------------------------------
         let configs: JackpotConfigDTO[];
+        let dtos: JackpotDTO[] = [];
         if (Array.isArray(body.configs) && body.configs.length > 0) {
-          configs = body.configs;
+          configs = body.configs as JackpotConfigDTO[];
         } else {
           const all = await listJackpots(brand);
-          configs = all.filter((j) => j.enabled).map(inlineConfigFromDto);
+          dtos = all.filter((j) => j.enabled);
+          configs = dtos.map(inlineConfigFromDto);
         }
 
         if (configs.length === 0) {
-          return json({
+          const empty = {
             brandId: brand,
+            transactionId: body.transactionId,
+            idempotentReplay: false,
+            rngSource,
+            gameId: body.gameId,
+            playerSegments: body.playerSegments,
             eventId: body.eventId ?? null,
             playerId: body.playerId ?? null,
             processedAt: new Date().toISOString(),
@@ -133,12 +276,47 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             house: 0,
             totalContribution: 0,
             perJackpot: [],
-          });
+            win: null as Record<string, unknown> | null,
+          };
+          rememberTransaction(body.transactionId, empty);
+          return json(empty);
         }
 
         const multi = computeMultiCampaignLedger(configs, wager);
-        return json({
+
+        // First-match win evaluation across active DTOs (sandbox-style).
+        let win: Record<string, unknown> | null = null;
+        for (const jpDto of dtos) {
+          const p = readTriggerProbability(jpDto);
+          if (rng() < p) {
+            const winAmount = Number(jpDto.poolBalance) || 0;
+            const community = readCommunityConfig(jpDto);
+            if (community && community.split > 0) {
+              const breakdown = applyCommunityPayout(winAmount, community, rng);
+              win = {
+                jackpotId: jpDto.id,
+                amount: winAmount,
+                isCommunity: true,
+                communitySize: breakdown.communitySize,
+                communityMemberPayOut: breakdown.communityMemberPayOut,
+                triggeringPayout: breakdown.triggeringPayout,
+                communityPool: breakdown.communityPool,
+                cappedDelta: breakdown.cappedDelta,
+              };
+            } else {
+              win = { jackpotId: jpDto.id, amount: winAmount, isCommunity: false };
+            }
+            break;
+          }
+        }
+
+        const response = {
           brandId: brand,
+          transactionId: body.transactionId,
+          idempotentReplay: false,
+          rngSource,
+          gameId: body.gameId,
+          playerSegments: body.playerSegments,
           eventId: body.eventId ?? null,
           playerId: body.playerId ?? null,
           processedAt: new Date().toISOString(),
@@ -158,7 +336,10 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             totalContribution: e.ledger.totalContribution,
             tierBreakdown: e.ledger.entries,
           })),
-        });
+          win,
+        };
+        rememberTransaction(body.transactionId, response);
+        return json(response);
       },
     },
   },
