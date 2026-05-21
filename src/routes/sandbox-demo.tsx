@@ -1565,6 +1565,15 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+function StatTile({ label, value, accent }: { label: string; value: string; accent: string }) {
+  return (
+    <div className="bg-slate-950/60 border border-slate-800 rounded-lg p-3">
+      <div className="text-[10px] uppercase tracking-wider text-slate-500">{label}</div>
+      <div className={`mt-1 font-semibold tabular-nums text-base ${accent}`}>{value}</div>
+    </div>
+  );
+}
+
 function Split({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div className="bg-slate-950/60 border border-slate-800 rounded p-2 text-center">
