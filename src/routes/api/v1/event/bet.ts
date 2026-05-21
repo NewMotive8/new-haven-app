@@ -402,6 +402,34 @@ export const Route = createFileRoute("/api/v1/event/bet")({
           })),
           win,
         };
+        appendAudit({
+          loggedAt: new Date().toISOString(),
+          transactionId: body.transactionId,
+          brandId: brand,
+          gameId: body.gameId,
+          playerSegments: body.playerSegments,
+          playerId: body.playerId ?? null,
+          wager,
+          rngSource,
+          contribution: {
+            pool: multi.totals.pool,
+            seed: multi.totals.seed,
+            house: multi.totals.house,
+          },
+          totalContribution: multi.totalContribution,
+          perJackpot: multi.perCampaign.map((e) => ({
+            jackpotId: e.jackpotId,
+            jackpotName: e.jackpotName,
+            routing: e.routing,
+            contribution: {
+              pool: e.ledger.totals.pool,
+              seed: e.ledger.totals.seed,
+              house: e.ledger.totals.house,
+            },
+            totalContribution: e.ledger.totalContribution,
+          })),
+          win,
+        });
         rememberTransaction(body.transactionId, response);
         return json(response);
       },
