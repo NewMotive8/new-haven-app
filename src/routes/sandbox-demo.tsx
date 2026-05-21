@@ -1401,6 +1401,120 @@ function SandboxDemoPage() {
         </div>
       </section>
 
+      {/* ── Phase 4 — Statistical Analysis (GLI Audit View) ──────────────── */}
+      {batchStats ? (
+        <section className="max-w-6xl mx-auto mt-6 bg-slate-900/60 border border-slate-800 rounded-xl p-5">
+          <div className="flex flex-wrap items-end justify-between gap-2 mb-4">
+            <div>
+              <h2 className="text-lg font-semibold tracking-wide">
+                Statistical Analysis (GLI Audit View)
+              </h2>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Aggregated roll-up of the most recent Monte Carlo batch run.
+              </p>
+            </div>
+            <div className="text-[11px] tabular-nums text-slate-400 text-right">
+              <div>
+                Run:{" "}
+                <span className="text-slate-200 font-semibold">
+                  {batchStats.completed.toLocaleString()}
+                </span>{" "}
+                / {batchStats.size.toLocaleString()} spins ·{" "}
+                <span className="text-slate-200">{(batchStats.durationMs / 1000).toFixed(2)}s</span>
+              </div>
+              <div className="text-slate-500">
+                auth={batchStats.authMode} · started{" "}
+                {new Date(batchStats.startedAt).toLocaleTimeString()}
+                {batchStats.finishedAt
+                  ? ` · finished ${new Date(batchStats.finishedAt).toLocaleTimeString()}`
+                  : " · running…"}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            <StatTile label="Total Simulated Turnover" value={fmtPrecise(batchStats.turnover)} accent="text-slate-100" />
+            <StatTile label="Total Pool Captured" value={fmtPrecise(batchStats.poolTotal)} accent="text-emerald-300" />
+            <StatTile label="Total Seed Captured" value={fmtPrecise(batchStats.seedTotal)} accent="text-sky-300" />
+            <StatTile label="Total House Rake" value={fmtPrecise(batchStats.houseTotal)} accent="text-amber-300" />
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+            <StatTile
+              label="Pool + Seed Return %"
+              value={
+                batchStats.turnover > 0
+                  ? `${(((batchStats.poolTotal + batchStats.seedTotal) / batchStats.turnover) * 100).toFixed(4)}%`
+                  : "—"
+              }
+              accent="text-emerald-300"
+            />
+            <StatTile
+              label="House Edge %"
+              value={
+                batchStats.turnover > 0
+                  ? `${((batchStats.houseTotal / batchStats.turnover) * 100).toFixed(4)}%`
+                  : "—"
+              }
+              accent="text-amber-300"
+            />
+            <StatTile
+              label="Σ Total Contribution"
+              value={fmtPrecise(batchStats.totalContribution)}
+              accent="text-slate-100"
+            />
+          </div>
+
+          <div>
+            <div className="text-xs uppercase tracking-wider text-slate-400 mb-2">
+              Hit Frequency Checklist
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <StatTile
+                label="Jackpot Drops Triggered"
+                value={batchStats.hits.toLocaleString()}
+                accent="text-emerald-300"
+              />
+              <StatTile
+                label="Community Drops"
+                value={batchStats.communityHits.toLocaleString()}
+                accent="text-pink-300"
+              />
+              <StatTile
+                label="Hit Frequency"
+                value={
+                  batchStats.hits > 0
+                    ? `1 in ${Math.round(batchStats.ok / batchStats.hits).toLocaleString()} · ${(
+                        (batchStats.hits / Math.max(batchStats.ok, 1)) *
+                        100
+                      ).toFixed(3)}%`
+                    : "—"
+                }
+                accent="text-slate-100"
+              />
+              <StatTile
+                label="Idempotent Replays"
+                value={batchStats.idempotentReplays.toLocaleString()}
+                accent={batchStats.idempotentReplays === 0 ? "text-slate-300" : "text-rose-300"}
+              />
+              <StatTile
+                label="Blocked Responses"
+                value={batchStats.blocked.toLocaleString()}
+                accent={
+                  batchStats.authMode === "authorized"
+                    ? batchStats.blocked === 0
+                      ? "text-slate-300"
+                      : "text-rose-300"
+                    : "text-amber-300"
+                }
+              />
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+
+
 
       {/* ── Double-contribution compliance modal ──────────────── */}
       {pendingOptIn && (
