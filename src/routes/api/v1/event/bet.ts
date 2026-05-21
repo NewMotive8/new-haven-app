@@ -137,6 +137,9 @@ export const Route = createFileRoute("/api/v1/event/bet")({
     handlers: {
       OPTIONS: async () => preflight(),
       POST: async ({ request }) => {
+        const blocked = requireInternalSecret(request);
+        if (blocked) return blocked;
+
         const brand = requireBrandId(request);
         if (brand instanceof Response) return brand;
 
