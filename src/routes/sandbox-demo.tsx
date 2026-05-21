@@ -94,6 +94,14 @@ function SandboxDemoPage() {
   const [systemRngInput, setSystemRngInput] = useState<string>("");
   const [lastReplay, setLastReplay] = useState<boolean>(false);
   const [lastRngSource, setLastRngSource] = useState<"external" | "local" | null>(null);
+  // ── Phase 2: Internal VPC handshake controls ─────────────────────────────
+  const [authMode, setAuthMode] = useState<"authorized" | "rogue" | "omitted">("authorized");
+  const [internalSecret, setInternalSecret] = useState<string>("");
+  const [lastHandshake, setLastHandshake] = useState<
+    | { status: "ok" }
+    | { status: "blocked"; code?: string; message?: string; httpStatus: number }
+    | null
+  >(null);
   const widgetHostRef = useRef<HTMLDivElement | null>(null);
 
   // ── Brand id bootstrap ───────────────────────────────────────────────────
