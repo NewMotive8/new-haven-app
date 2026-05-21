@@ -164,6 +164,58 @@ function readOverlappingRule(jp: Jackpot): OverlappingRule {
   return rule === "additive" ? "additive" : "split";
 }
 
+type QaTestCase = { id: number; title: string; input: string; result: string };
+
+const QA_TEST_CASES: QaTestCase[] = [
+  {
+    id: 1,
+    title: "Zero-Trust Security Perimeter",
+    input:
+      "Locate 'VPC Handshake' subsection. Toggle between 'Omitted', 'Rogue', or 'Authorized' with secret passphrase. Click 'Fire Single Bet'.",
+    result:
+      "Inspect the telemetry badges. Look for the pulsing red '⚠️ ACCESS BLOCKED (403)' or the green '🔒 SECURE VPC PASSTHROUGH (200)' status along with matching toast messages.",
+  },
+  {
+    id: 2,
+    title: "Cryptographically Secure Internal RNG",
+    input:
+      "In the single-bet form, completely clear out the 'External RNG Value (systemRngValue)' field. Click 'Fire Single Bet'.",
+    result:
+      "Read the response payload or audit table row attributes. Look for 'rngSource' to output exactly \"local\", driven by native hardware-backed Web Crypto entropy blocks.",
+  },
+  {
+    id: 3,
+    title: "High-Precision Financial Audit Ledger",
+    input: "Adjust the wager value to '€0.10' and click 'Fire Single Bet'.",
+    result:
+      "Look down at the 'Compliance Audit Ledger (GLI-12 Log)' grid. Verify the top row flashes emerald on real-time polling updates and displays Pool, Seed, and House deltas precisely out to 6 decimal digits (e.g., €0.002500) without rounding clipping.",
+  },
+  {
+    id: 4,
+    title: "High-Velocity Monte Carlo Stress Loop",
+    input:
+      "Locate the 'Batch Velocity Runner' section. Toggle the control to 100, 500, or 1000 wagers and click 'Execute Batch'.",
+    result:
+      "Look at the sequential progress bar filling smoothly. Once completed, look directly at the new 'Statistical Analysis (GLI Audit View)' card displaying macro-turnover calculations, hit frequency ratios (1 in N), and zeroed error margins.",
+  },
+  {
+    id: 5,
+    title: "Idempotency Replay Attack Mitigation",
+    input:
+      "Copy a 'transactionId' from a successful log row, paste it back into the Transaction ID input field manually, and click 'Fire Single Bet'.",
+    result:
+      "Verify the engine issues a cache bypass shortcut. Look for the replay alert banner and verify that the progressive balances do not alter and no duplicate rows append to the ledger table.",
+  },
+  {
+    id: 6,
+    title: "Mathematical Models & Payout Logic Validation",
+    input:
+      "Navigate to the Jackpot Creator Form. Configure a test campaign choosing a specific Jackpot Type (Classic, Must-Drop, Multi-Level, or Frequency) and a Win Payout Model (Fixed, Average, or Maximum). Next, go to the Batch Velocity Runner, select 1000 spins, and click 'Execute Batch'.",
+    result:
+      "Look directly at the 'Statistical Analysis (GLI Audit View)' card. Verify that the 'Pool+Seed Return %' and 'House Edge %' align perfectly with the theoretical configurations. For Must-Drop setups, observe the hit checklist to confirm the threshold distribution adjusts dynamically as the batch approaches bounds.",
+  },
+];
+
 function SandboxDemoPage() {
   const [brandId, setBrandId] = useState<string>("1");
   const [pools, setPools] = useState<Jackpot[]>([]);
