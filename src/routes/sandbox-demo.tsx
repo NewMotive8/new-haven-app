@@ -211,6 +211,7 @@ function SandboxDemoPage() {
   const [batchProgress, setBatchProgress] = useState(0);
   const cancelRef = useRef(false);
   const [batchStats, setBatchStats] = useState<BatchStats | null>(null);
+  const [showQaSuite, setShowQaSuite] = useState(false);
   const widgetHostRef = useRef<HTMLDivElement | null>(null);
 
   // ── Brand id bootstrap ───────────────────────────────────────────────────
