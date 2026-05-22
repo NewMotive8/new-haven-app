@@ -746,10 +746,18 @@ export async function getGroupForBet(
 /**
  * Status-gated profile edit. Reads current status first and throws a friendly
  * GroupConflictError when the group is `active`; the DB trigger backstops.
+ * When master funding fields change, recomputes every child's derived
+ * `contribution_percentage` in the same call.
  */
 export async function updateGroupProfile(
   groupId: string | number,
-  patch: { name?: string; overlappingRule?: string },
+  patch: {
+    name?: string;
+    overlappingRule?: string;
+    contributionSource?: ContributionSource;
+    contributionType?: GroupContributionType;
+    masterContributionValue?: number;
+  },
 ): Promise<JackpotGroupDTO | undefined> {
   const id = Number(groupId);
   const { data: current, error: rErr } = await supabaseAdmin
@@ -767,6 +775,13 @@ export async function updateGroupProfile(
   if (patch.name !== undefined) update.name = patch.name;
   if (patch.overlappingRule !== undefined)
     update.overlapping_rule = patch.overlappingRule;
+  if (patch.contributionSource !== undefined)
+    update.contribution_source = patch.contributionSource;
+  if (patch.contributionType !== undefined)
+    update.contribution_type = patch.contributionType;
+  if (patch.masterContributionValue !== undefined)
+    update.master_contribution_value = Number(patch.masterContributionValue);
+
   if (Object.keys(update).length === 0) {
     const { data } = await supabaseAdmin
       .from("jackpot_groups" as any)
@@ -788,8 +803,30 @@ export async function updateGroupProfile(
     }
     throw new Error(error.message);
   }
-  return groupRowToDTO(data as unknown as GroupRow);
+  const dto = groupRowToDTO(data as unknown as GroupRow);
+
+  // If master value changed, recompute every child's derived rate.
+  if (patch.masterContributionValue !== undefined) {
+    const { data: childRows } = await supabaseAdmin
+      .from("jackpots")
+      .select("id, split_share")
+      .eq("group_id", id);
+    const newMaster = dto.masterContributionValue;
+    for (const row of (childRows as Array<{ id: number; split_share: number | null }> | null) ?? []) {
+      const share = Number(row.split_share ?? 0);
+      const { error: uErr } = await supabaseAdmin
+        .from("jackpots")
+        .update({
+          contribution_percentage: deriveContributionRate(newMaster, share),
+        } as any)
+        .eq("id", row.id);
+      if (uErr) throw new Error(uErr.message);
+    }
+  }
+
+  return dto;
 }
+
 
 /**
  * Persist a group bet via the atomic `apply_group_bet` Postgres function.
