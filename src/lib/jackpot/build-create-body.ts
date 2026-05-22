@@ -68,16 +68,22 @@ export function buildCreateBody(payload: JackpotSavePayload) {
   }
   validateJackpotPayload(payload);
 
-
-  const seedAmount = 1000;
+  // Derive seed / pool / trigger threshold from the wizard payload instead of
+  // a hardcoded constant. `reseedingAmount` is the operator-facing seed/reseed
+  // floor; `initialPoolAmount` is the starting pool (defaults to the seed).
+  const reseed = Number(payload.reseedingAmount) || 0;
+  const initialPool = Number(payload.initialPoolAmount) || 0;
+  const seedAmount = reseed > 0 ? reseed : initialPool;
+  const poolBalance = initialPool > 0 ? initialPool : seedAmount;
+  const triggerThreshold = Math.max(poolBalance * 2, seedAmount * 2);
   const contributionRate = payload.poolPercentageValue / 100;
   return {
     name: payload.name,
     enabled: true,
     contributionRate,
     seedAmount,
-    poolBalance: seedAmount,
-    triggerThreshold: seedAmount * 2,
+    poolBalance,
+    triggerThreshold,
     volatility: payload.volatility,
     jackpotType: payload.type,
     config: buildTriggerCondition(payload),
