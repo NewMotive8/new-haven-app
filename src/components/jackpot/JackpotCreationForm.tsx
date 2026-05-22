@@ -522,6 +522,24 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
     return () => clearInterval(timer);
   }, []);
 
+  // ── Must-Drop: auto-map operator-friendly recurrence → engine lifespan/period.
+  //    Hides raw "Virtual Lifespan (minutes)" + "Must-Drop Period" from the UI
+  //    while keeping the backend payload contract intact.
+  useEffect(() => {
+    if (selectedType !== 'must_drop') return;
+    const map: Record<RecurrenceType, { minutes: number; period: 1 | 2 | 3 | 4 }> = {
+      single:  { minutes: 1440,  period: 1 },
+      daily:   { minutes: 1440,  period: 2 },
+      weekly:  { minutes: 10080, period: 3 },
+      monthly: { minutes: 43200, period: 4 },
+    };
+    const next = map[recurrenceType];
+    if (next) {
+      setLifespanMinutes(next.minutes);
+      setMustDropPeriod(next.period);
+    }
+  }, [selectedType, recurrenceType]);
+
   useEffect(() => {
     const handleScroll = () => {
       const sections = [
