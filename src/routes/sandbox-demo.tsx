@@ -878,7 +878,7 @@ function SandboxDemoPage() {
     };
   };
 
-  const multi = pools.length > 1;
+  const multi = displayPools.length > 1;
   const optedInCount = optedInPools.length;
 
   return (
