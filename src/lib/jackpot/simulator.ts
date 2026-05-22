@@ -251,14 +251,15 @@ function simulateClassic(
     const target = useFixedTarget ? cdfTarget : rt.poolCurrent;
     let won: boolean;
     if (triggerOdds > 0) {
-      const safeTarget = Math.max(target, 2.0);
-      const hitChance = fixedOddsHitChance(triggerOdds, mathContribution);
-      won = rollAgainstHitChance(rng, hitChance, safeTarget);
+      // Fixed-odds override: pure Bernoulli at p = 1/triggerOdds per spin.
+      // Do NOT scale by contribution or target — see fixedOddsHitChance().
+      won = rng() < fixedOddsHitChance(triggerOdds);
     } else if (isAverage) {
       won = calculateAverageWin(rt.poolCurrent, target, mathContribution, volatility, rng);
     } else {
       won = calculateMaximumWin(rt.poolCurrent, target, mathContribution, volatility, rng);
     }
+
     if (!won) continue;
 
     if (rt.minimumWinAmount > 0 && rt.poolCurrent < rt.minimumWinAmount) {
@@ -508,7 +509,8 @@ function simulateTimed(
 
     let maximumHitChance: number;
     if (triggerOdds > 0) {
-      maximumHitChance = fixedOddsHitChance(triggerOdds, mathContribution);
+      maximumHitChance = fixedOddsHitChance(triggerOdds);
+
     } else {
       const currentAmount = Math.max(1, rt.poolCurrent);
       const logValue = Math.log(currentAmount) / Math.log(logTarget);
