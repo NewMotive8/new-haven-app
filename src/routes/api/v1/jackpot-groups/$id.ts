@@ -5,7 +5,6 @@ import {
   json,
   preflight,
   requireBrandId,
-  requireInternalSecret,
 } from "@/lib/jackpot/http";
 import {
   getGroup,
@@ -27,8 +26,6 @@ export const Route = createFileRoute("/api/v1/jackpot-groups/$id")({
     handlers: {
       OPTIONS: async () => preflight(),
       GET: async ({ request, params }) => {
-        const blocked = requireInternalSecret(request);
-        if (blocked) return blocked;
         const brand = requireBrandId(request);
         if (brand instanceof Response) return brand;
         const grp = await getGroup(params.id);
@@ -39,8 +36,6 @@ export const Route = createFileRoute("/api/v1/jackpot-groups/$id")({
         return json(grp);
       },
       PATCH: async ({ request, params }) => {
-        const blocked = requireInternalSecret(request);
-        if (blocked) return blocked;
         const brand = requireBrandId(request);
         if (brand instanceof Response) return brand;
         let raw: unknown;

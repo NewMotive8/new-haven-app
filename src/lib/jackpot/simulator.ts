@@ -24,7 +24,6 @@ const MAX_WIN_EVENTS_RETAINED = 500;
  *
  * Dispatches on structuralType:
  *   CLASSIC     → single pool/seed, AVERAGE or MAXIMUM math (unchanged).
- *   MULTI_LEVEL → tiered pools, contribution split by weight, reverse-rank RNG cascade.
  *   MUST_DROP / FREQUENCY → virtual clock; hitChance = maximumHitChance + timedChance.
  *
  * Across ALL branches we keep:
@@ -34,12 +33,12 @@ const MAX_WIN_EVENTS_RETAINED = 500;
  *   - AVERAGE reset-to-min reseed vs MAXIMUM subtract-then-top-up.
  *
  * Engine v2 additions (opt-in, back-compat):
- *   - 3-way contribution split (Pool / Seed / House) via jackpot.contribution
- *     or tier.contribution. When absent, legacy pool.contributionAmount /
- *     seed.contributionAmount are used as before.
- *   - Fixed-odds trigger probability override (jackpot.triggerOdds /
- *     tier.triggerOdds). When > 0, replaces AVERAGE/MAXIMUM curve in CLASSIC
- *     + MULTI_LEVEL, and replaces maximumHitChance baseline in the timed loop.
+ *   - 3-way contribution split (Pool / Seed / House) via jackpot.contribution.
+ *     When absent, legacy pool.contributionAmount / seed.contributionAmount
+ *     are used as before.
+ *   - Fixed-odds trigger probability override (jackpot.triggerOdds). When > 0,
+ *     replaces AVERAGE/MAXIMUM curve in CLASSIC, and replaces maximumHitChance
+ *     baseline in the timed loop.
  *   - External RNG injection: top-level simulate functions accept an optional
  *     `rng: RngSource` that flows through every win-evaluation call.
  */

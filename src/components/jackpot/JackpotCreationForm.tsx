@@ -1560,25 +1560,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                   </div>
                 </button>
 
-                <button
-                  onClick={() => setSelectedType('multi_level')}
-                  className={`relative flex flex-col p-6 rounded-lg border-2 transition-all ${
-                    selectedType === 'multi_level'
-                      ? 'border-blue-500 bg-blue-500/10'
-                      : 'border-neutral-700 bg-neutral-800/30 hover:border-neutral-600'
-                  }`}
-                >
-                  {selectedType === 'multi_level' && (
-                    <div className="absolute top-4 right-4 w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
-                      <div className="w-2 h-2 rounded-full bg-white" />
-                    </div>
-                  )}
-                  <div className="text-3xl mb-3">🏆</div>
-                  <div className="font-medium text-white mb-2">Multi-Level</div>
-                  <div className="text-xs text-neutral-400">
-                    Multiple jackpot tiers with different prize pools
-                  </div>
-                </button>
+                {/* Multi-Level type picker removed — MultiJackpots are now configured via the relational group wizard at /admin/jackpots/new → "MultiJackpot" tab. */}
+
 
                 <button
                   onClick={() => setSelectedType('frequency')}
