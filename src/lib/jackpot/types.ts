@@ -1,5 +1,5 @@
 // Java BigDecimal / Long -> number, Instant / ZonedDateTime -> ISO-8601 string
-export type JackpotKind = "classic" | "frequency" | "must_drop" | "multi_level";
+export type JackpotKind = "classic" | "frequency" | "must_drop";
 
 export interface JackpotDTO {
   id: number;
