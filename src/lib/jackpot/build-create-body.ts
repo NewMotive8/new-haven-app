@@ -131,6 +131,7 @@ export function buildCreateBody(payload: JackpotSavePayload) {
     );
   }
   validateSplitWeights(payload);
+  validateModeExclusivity(payload);
 
   const seedAmount = 1000;
   const contributionRate = payload.poolPercentageValue / 100;
