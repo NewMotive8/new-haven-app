@@ -1667,8 +1667,8 @@ function LaunchGate({
           value={group.contributionType === "percentage" ? "Percentage" : "Fixed"}
         />
         <SummaryStat
-          label="Weights · Pool / Seed / House"
-          value={`${group.poolWeight.toFixed(0)}% / ${group.seedWeight.toFixed(0)}% / ${group.houseWeight.toFixed(0)}%`}
+          label="Source"
+          value={group.contributionSource === "operator" ? "Operator-funded" : "Player-funded"}
         />
       </div>
 
