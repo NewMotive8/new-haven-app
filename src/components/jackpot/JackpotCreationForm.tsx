@@ -610,7 +610,9 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
     // Wager limits only apply when contributionType === 'percentage'.
     const isClassic = selectedType === 'classic';
     const isMustDrop = selectedType === 'must_drop';
-    const isPercentage = contributionType === 'percentage';
+    const isPercentage =
+      (contributionMode === 'split' ? totalContributionType : contributionType) === 'percentage';
+
 
     return {
       name: name.trim(),
