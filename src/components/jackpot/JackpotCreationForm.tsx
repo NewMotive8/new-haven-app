@@ -2521,80 +2521,203 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                 </div>
               </section>
 
-              {/* Win Boundaries & Drop Pacing Section */}
-              <section ref={modelRef} className="scroll-mt-20">
-                <h2 className="text-xl font-semibold mb-6">Win Boundaries &amp; Drop Pacing</h2>
-
+              {/* 1. Jackpot Recurrence & Timing — first in the Must-Drop flow. */}
+              <section ref={recurrenceRef} className="scroll-mt-20">
+                <h2 className="text-xl font-semibold mb-6">Jackpot Recurrence &amp; Timing</h2>
                 <div className="grid gap-6">
                   <Card className="p-6 bg-neutral-900/50 border-neutral-800">
                     <div className="space-y-6">
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <BrightLabel htmlFor="min-win-must-drop">Minimum Win Amount</BrightLabel>
-                          <CurrencyInput
-                            id="min-win-must-drop"
-                            type="number"
-                            placeholder="0"
-                            value={minWinAmount || ''}
-                            onChange={(e) => setMinWinAmount(parseFloat(e.target.value) || 0)}
-                            className="bg-neutral-800 border-neutral-700"
-                          />
-                          <p className="text-[11px] text-neutral-500">
-                            Lower threshold — the jackpot cannot drop before the pool reaches this value.
-                          </p>
-                        </div>
-                        <div className="space-y-2">
-                          <BrightLabel htmlFor="max-win-must-drop">Maximum Win Amount</BrightLabel>
-                          <CurrencyInput
-                            id="max-win-must-drop"
-                            type="number"
-                            placeholder="0"
-                            value={maxWinAmount || ''}
-                            onChange={(e) => setMaxWinAmount(parseFloat(e.target.value) || 0)}
-                            className="bg-neutral-800 border-neutral-700"
-                          />
-                          <p className="text-[11px] text-neutral-500">
-                            Absolute target — the jackpot is mathematically guaranteed to drop at or before this value.
-                          </p>
+                      {/* Recurrence Type Buttons */}
+                      <div>
+                        <BrightLabel className="mb-3 block">Recurrence Type</BrightLabel>
+                        <div className="flex gap-3">
+                          {(['single', 'daily', 'weekly', 'monthly'] as const).map((rt) => (
+                            <button
+                              key={rt}
+                              type="button"
+                              onClick={() => setRecurrenceType(rt)}
+                              className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all capitalize ${
+                                recurrenceType === rt
+                                  ? 'bg-white text-neutral-900'
+                                  : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200'
+                              }`}
+                            >
+                              {rt}
+                            </button>
+                          ))}
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <BrightLabel htmlFor="drop-pacing-must-drop">Drop Pacing</BrightLabel>
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-neutral-400">1</span>
-                              <Slider
-                                id="drop-pacing-must-drop"
-                                value={volatility}
-                                onValueChange={setVolatility}
-                                min={1}
-                                max={10}
-                                step={1}
-                                className="flex-1"
-                              />
-                              <span className="text-sm text-neutral-400">10</span>
-                            </div>
-                            <div className="flex justify-center">
-                              <span className="text-sm text-neutral-400">{volatility[0]}</span>
-                            </div>
-                          </div>
-                          <p className="text-[11px] text-neutral-400 leading-relaxed">
-                            Lower settings distribute triggers evenly across the timeline / value window.
-                            Higher settings create high suspense by holding back triggers until the end
-                            of the drop cycle is reached.
-                          </p>
-                        </div>
-                        <div></div>
+                      {/* Start / End Date — present for every recurrence type */}
+                      <div className="space-y-2">
+                        <BrightLabel htmlFor="must-drop-startDate">Start Date &amp; Time</BrightLabel>
+                        <Input
+                          id="must-drop-startDate"
+                          type="datetime-local"
+                          className="bg-neutral-800 border-neutral-700 max-w-[400px]"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <BrightLabel htmlFor="must-drop-endDate">End Date &amp; Time</BrightLabel>
+                        <Input
+                          id="must-drop-endDate"
+                          type="datetime-local"
+                          className="bg-neutral-800 border-neutral-700 max-w-[400px]"
+                        />
                       </div>
 
-                      {/* Wager limits moved to unified "Wager Eligibility Limits" block in Jackpot Contribution card. */}
-
+                      {recurrenceType === 'weekly' && (
+                        <div className="space-y-2">
+                          <BrightLabel htmlFor="frequency-day-mustDrop">Frequency Day Must Drop</BrightLabel>
+                          <Select value={weeklyDay} onValueChange={setWeeklyDay}>
+                            <SelectTrigger id="frequency-day-mustDrop" className="bg-neutral-800 border-neutral-700 max-w-[400px] text-white">
+                              <SelectValue placeholder="Select..." />
+                            </SelectTrigger>
+                            <SelectContent className="bg-neutral-800 border-neutral-700 text-white">
+                              {['monday','tuesday','wednesday','thursday','friday','saturday','sunday'].map((d) => (
+                                <SelectItem key={d} value={d} className="text-white capitalize">{d}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      {recurrenceType === 'monthly' && (
+                        <div className="space-y-2">
+                          <BrightLabel htmlFor="frequency-day-mustDrop-monthly">Frequency Day Must Drop</BrightLabel>
+                          <Select value={monthlyDay} onValueChange={setMonthlyDay}>
+                            <SelectTrigger id="frequency-day-mustDrop-monthly" className="bg-neutral-800 border-neutral-700 max-w-[400px] text-white">
+                              <SelectValue placeholder="Select..." />
+                            </SelectTrigger>
+                            <SelectContent className="bg-neutral-800 border-neutral-700 text-white max-h-[300px]">
+                              {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                                <SelectItem key={day} value={day.toString()} className="text-white">{day}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                     </div>
                   </Card>
                 </div>
               </section>
+
+              {/* 2. Win Boundaries */}
+              <section ref={modelRef} className="scroll-mt-20">
+                <h2 className="text-xl font-semibold mb-6">Win Boundaries</h2>
+                <div className="grid gap-6">
+                  <Card className="p-6 bg-neutral-900/50 border-neutral-800">
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <BrightLabel htmlFor="min-win-must-drop">Minimum Win Amount</BrightLabel>
+                        <CurrencyInput
+                          id="min-win-must-drop"
+                          type="number"
+                          placeholder="0"
+                          value={minWinAmount || ''}
+                          onChange={(e) => setMinWinAmount(parseFloat(e.target.value) || 0)}
+                          className="bg-neutral-800 border-neutral-700"
+                        />
+                        <p className="text-[11px] text-neutral-500">
+                          Lower threshold — the jackpot cannot drop before the pool reaches this value.
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <BrightLabel htmlFor="max-win-must-drop">Maximum Win Amount</BrightLabel>
+                        <CurrencyInput
+                          id="max-win-must-drop"
+                          type="number"
+                          placeholder="0"
+                          value={maxWinAmount || ''}
+                          onChange={(e) => setMaxWinAmount(parseFloat(e.target.value) || 0)}
+                          className="bg-neutral-800 border-neutral-700"
+                        />
+                        <p className="text-[11px] text-neutral-500">
+                          Absolute target — the jackpot is mathematically guaranteed to drop at or before this value.
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              </section>
+
+              {/* 3. Drop Pacing */}
+              <section className="scroll-mt-20">
+                <h2 className="text-xl font-semibold mb-6">Drop Pacing</h2>
+                <div className="grid gap-6">
+                  <Card className="p-6 bg-neutral-900/50 border-neutral-800">
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <BrightLabel htmlFor="drop-pacing-must-drop">Drop Pacing</BrightLabel>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-neutral-400">1</span>
+                            <Slider
+                              id="drop-pacing-must-drop"
+                              value={volatility}
+                              onValueChange={setVolatility}
+                              min={1}
+                              max={10}
+                              step={1}
+                              className="flex-1"
+                            />
+                            <span className="text-sm text-neutral-400">10</span>
+                          </div>
+                          <div className="flex justify-center">
+                            <span className="text-sm text-neutral-400">{volatility[0]}</span>
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-neutral-400 leading-relaxed">
+                          Lower settings distribute triggers evenly across the timeline / value window.
+                          Higher settings create high suspense by holding back triggers until the end
+                          of the drop cycle is reached.
+                        </p>
+                      </div>
+                      <div></div>
+                    </div>
+                  </Card>
+                </div>
+              </section>
+
+              {/* 4. Operation Safeguards — consolidated global caps. */}
+              <section className="scroll-mt-20">
+                <h2 className="text-xl font-semibold mb-6">Operation Safeguards</h2>
+                <div className="grid gap-6">
+                  <Card className="p-6 bg-neutral-900/50 border-neutral-800">
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <BrightLabel htmlFor="op-max-number-wins">Maximum Number of Wins</BrightLabel>
+                        <Input
+                          id="op-max-number-wins"
+                          type="number"
+                          placeholder="0"
+                          value={maxNumberOfWins || ''}
+                          onChange={(e) => setMaxNumberOfWins(parseInt(e.target.value) || 0)}
+                          className="bg-neutral-800 border-neutral-700"
+                        />
+                        <p className="text-[11px] text-neutral-500">
+                          Hard cap on total drops for the jackpot's lifetime. 0 = unlimited.
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <BrightLabel htmlFor="op-max-total-payout">Max Total Payout</BrightLabel>
+                        <CurrencyInput
+                          id="op-max-total-payout"
+                          type="number"
+                          placeholder="0"
+                          value={maxTotalPayout || ''}
+                          onChange={(e) => setMaxTotalPayout(parseFloat(e.target.value) || 0)}
+                          className="bg-neutral-800 border-neutral-700"
+                        />
+                        <p className="text-[11px] text-neutral-500">
+                          Aggregate payout ceiling across all wins. 0 = unlimited.
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              </section>
+
+
 
 
               {jackpotContributionSection}
