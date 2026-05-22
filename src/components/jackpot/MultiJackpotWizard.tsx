@@ -39,6 +39,33 @@ type ContributionType = "percentage" | "fixed";
 type TriggerModel = "pure_chance" | "hype_curve" | "happy_hour";
 type FreqInterval = "DAILY" | "WEEKLY" | "MONTHLY";
 
+type TierType = "classic" | "must_drop" | "happy_hour";
+
+// ── UI-only blocks ported from Single Jackpot form ──────────────────
+export interface EligibilityValue {
+  vertical: "casino" | "sportsbook";
+  casino: { categories: string[]; providers: string[]; gameIds: string[] };
+  sportsbook: { betType: "live" | "prematch" | "all"; sportType: string; leagues: string[]; matchIdsRaw: string };
+}
+
+export interface PlayerTargetingValue {
+  audienceMode: "all" | "custom";
+  vipTiers: string[];
+  crmSegmentsInclude: string[];
+  crmSegmentsExclude: string[];
+  restrictedCountries: string[];
+  blacklistedIdsRaw: string;
+}
+
+export interface CommunityValue {
+  enabled: boolean;
+  split: number; // 0..100
+  payoutInterval: "logged_in" | "contributed_once" | "contributed_within_time";
+  payoutIntervalSeconds: number;
+  maxWinAmount: number;
+  maxPlayers: number;
+}
+
 interface GroupDTO {
   id: number;
   name: string;
@@ -49,28 +76,33 @@ interface GroupDTO {
   masterContributionValue: number;
   // UI-only mirror of the Single-Jackpot Contribution card.
   // Persisted via masterContributionValue; these extras live in wizard memory.
-  poolWeight: number;
-  seedWeight: number;
-  houseWeight: number;
   minWagerAmount: number;
   maxWagerAmount: number;
   assignedCategories?: string[];
   assignedGameIds?: number[];
+  // UI-only master config — not yet persisted on jackpot_groups columns.
+  eligibility?: EligibilityValue;
+  playerTargeting?: PlayerTargetingValue;
+  community?: CommunityValue;
 }
 
 interface ChildDraft {
   uid: string;
   tierName: string;
   tierRank: string;
+  // Tier type — drives which trigger fields are visible.
+  tierType: TierType;
   // Allocation & Fuel
-  seedAmount: string;
+  seedAmount: string;       // Initial Pool Amount
   reseedingAmount: string;
   splitShare: string;
-  // Drop style
-  triggerModel: TriggerModel;
-  // Pure Chance Roll — interval in spins; we store the integer N where p = 1/N
+  // Per-tier contribution weight grid (Pool / Seed / House — sum = 100)
+  poolWeight: number;
+  seedWeight: number;
+  houseWeight: number;
+  // Classic — 1 in N spins
   spinsInterval: string;
-  // Hype Curve Engine — must-drop boundaries (currency)
+  // Must Drop (Hype Curve) — boundaries
   minBoundary: string;
   maxBoundary: string;
   dropPacing: "fast" | "balanced" | "slow";
@@ -82,6 +114,10 @@ interface ChildDraft {
   winStartTime: string;
   winEndTime: string;
   cloneContribToWin: boolean;
+  // Per-tier extras
+  volatility: number;        // 1..10
+  maxWinAmount: string;      // hard payout cap
+  fixedWinAmount: string;    // locked prize value
   // Tier Safeguards
   maxNumberOfWins: string;
   maxTotalPayout: string;
@@ -92,12 +128,18 @@ interface SavedChild {
   tierRank: number;
   jackpotName: string;
   tierName: string;
+  tierType: TierType;
   splitShare: number;
   seedAmount: number;
   reseedingAmount: number;
-  triggerModel: TriggerModel;
+  poolWeight: number;
+  seedWeight: number;
+  houseWeight: number;
   triggerSummary: string;
   probability: number;
+  volatility: number;
+  maxWinAmount?: number;
+  fixedWinAmount?: number;
   maxNumberOfWins?: number;
   maxTotalPayout?: number;
 }
@@ -109,10 +151,13 @@ function newChildDraft(rank: number): ChildDraft {
     uid: crypto.randomUUID(),
     tierName: "",
     tierRank: String(rank),
+    tierType: "classic",
     seedAmount: "100.00",
     reseedingAmount: "100.00",
     splitShare: "0.00",
-    triggerModel: "pure_chance",
+    poolWeight: 60,
+    seedWeight: 30,
+    houseWeight: 10,
     spinsInterval: "50000",
     minBoundary: "500.00",
     maxBoundary: "5000.00",
@@ -124,8 +169,40 @@ function newChildDraft(rank: number): ChildDraft {
     winStartTime: "18:00",
     winEndTime: "22:00",
     cloneContribToWin: true,
+    volatility: 5,
+    maxWinAmount: "",
+    fixedWinAmount: "",
     maxNumberOfWins: "",
     maxTotalPayout: "",
+  };
+}
+
+// Default UI-only blocks for the master.
+function defaultEligibility(): EligibilityValue {
+  return {
+    vertical: "casino",
+    casino: { categories: [], providers: [], gameIds: [] },
+    sportsbook: { betType: "all", sportType: "", leagues: [], matchIdsRaw: "" },
+  };
+}
+function defaultPlayerTargeting(): PlayerTargetingValue {
+  return {
+    audienceMode: "all",
+    vipTiers: [],
+    crmSegmentsInclude: [],
+    crmSegmentsExclude: [],
+    restrictedCountries: [],
+    blacklistedIdsRaw: "",
+  };
+}
+function defaultCommunity(): CommunityValue {
+  return {
+    enabled: false,
+    split: 50,
+    payoutInterval: "logged_in",
+    payoutIntervalSeconds: 0,
+    maxWinAmount: 0,
+    maxPlayers: 0,
   };
 }
 
@@ -250,17 +327,19 @@ function pickPureChanceVibe(spins: number) {
 /* Trigger condition assembly + summary                               */
 /* ────────────────────────────────────────────────────────────────── */
 function buildTriggerCondition(d: ChildDraft): Record<string, unknown> {
-  if (d.triggerModel === "pure_chance") {
+  if (d.tierType === "classic") {
     const n = Math.max(1, Math.trunc(Number(d.spinsInterval) || 1));
     return {
       triggerModel: "pure_chance",
+      tierType: "classic",
       spinsInterval: n,
       triggerOdds: n,
     };
   }
-  if (d.triggerModel === "hype_curve") {
+  if (d.tierType === "must_drop") {
     return {
       triggerModel: "hype_curve",
+      tierType: "must_drop",
       mustDrop: {
         minBoundary: Number(d.minBoundary) || 0,
         maxBoundary: Number(d.maxBoundary) || 0,
@@ -283,6 +362,7 @@ function buildTriggerCondition(d: ChildDraft): Record<string, unknown> {
     });
   return {
     triggerModel: "happy_hour",
+    tierType: "happy_hour",
     contributionFrequency: window(cs, ce),
     winFrequency: window(ws, we),
     freqInterval: d.freqInterval,
@@ -296,12 +376,12 @@ function buildTriggerCondition(d: ChildDraft): Record<string, unknown> {
 }
 
 function triggerSummary(d: ChildDraft): string {
-  if (d.triggerModel === "pure_chance") {
+  if (d.tierType === "classic") {
     const n = Math.max(1, Math.trunc(Number(d.spinsInterval) || 1));
-    return `Pure Chance · 1 in ${n.toLocaleString()} spins`;
+    return `Classic · 1 in ${n.toLocaleString()} spins`;
   }
-  if (d.triggerModel === "hype_curve") {
-    return `Hype Curve · ${Number(d.minBoundary || 0).toLocaleString()} – ${Number(
+  if (d.tierType === "must_drop") {
+    return `Must Drop · ${Number(d.minBoundary || 0).toLocaleString()} – ${Number(
       d.maxBoundary || 0,
     ).toLocaleString()} (${d.dropPacing})`;
   }
@@ -310,11 +390,25 @@ function triggerSummary(d: ChildDraft): string {
 }
 
 function probabilityFromDraft(d: ChildDraft): number {
-  if (d.triggerModel === "pure_chance") {
+  if (d.tierType === "classic") {
     const n = Math.max(1, Math.trunc(Number(d.spinsInterval) || 1));
     return 1 / n;
   }
-  return 0; // must-drop / happy-hour are time-gated, not fixed-odds
+  return 0; // must_drop / happy_hour are time-gated, not fixed-odds
+}
+
+// Shared 3-way weight allocator — used in the Tier Card. Updates the edited
+// weight and caps so the trio never exceeds 100.
+function clampedSingleWeight(
+  current: { pool: number; seed: number; house: number },
+  changed: "pool" | "seed" | "house",
+  nextRaw: number,
+): { pool: number; seed: number; house: number } {
+  const others = (["pool", "seed", "house"] as const).filter((k) => k !== changed);
+  const otherSum = current[others[0]] + current[others[1]];
+  const max = Math.max(0, 100 - otherSum);
+  const next = Math.max(0, Math.min(max, Number(nextRaw) || 0));
+  return { ...current, [changed]: next };
 }
 
 /* ────────────────────────────────────────────────────────────────── */
@@ -331,36 +425,17 @@ export function MultiJackpotWizard() {
     React.useState<ContributionType>("fixed");
   const [totalContributionAmount, setTotalContributionAmount] =
     React.useState<number>(0.1);
-  const [poolWeight, setPoolWeight] = React.useState<number>(60);
-  const [seedWeight, setSeedWeight] = React.useState<number>(30);
-  const [houseWeight, setHouseWeight] = React.useState<number>(10);
   const [minWagerAmount, setMinWagerAmount] = React.useState<number>(0);
   const [maxWagerAmount, setMaxWagerAmount] = React.useState<number>(0);
   const [assignment, setAssignment] = React.useState<GameAssignmentValue>({
     assignedCategories: [],
     assignedGameIds: [],
   });
+  // UI-only master config (Eligibility / Targeting / Community).
+  const [eligibility, setEligibility] = React.useState<EligibilityValue>(defaultEligibility);
+  const [playerTargeting, setPlayerTargeting] = React.useState<PlayerTargetingValue>(defaultPlayerTargeting);
+  const [community, setCommunity] = React.useState<CommunityValue>(defaultCommunity);
   const [group, setGroup] = React.useState<GroupDTO | null>(null);
-
-  // Update only the edited weight; cap so the trio never exceeds 100.
-  function setSingleWeight(
-    changed: "pool" | "seed" | "house",
-    nextRaw: number,
-  ) {
-    const others = (["pool", "seed", "house"] as const).filter(
-      (k) => k !== changed,
-    );
-    const current = { pool: poolWeight, seed: seedWeight, house: houseWeight };
-    const otherSum = current[others[0]] + current[others[1]];
-    const max = Math.max(0, 100 - otherSum);
-    const next = Math.max(0, Math.min(max, Number(nextRaw) || 0));
-    const set = {
-      pool: setPoolWeight,
-      seed: setSeedWeight,
-      house: setHouseWeight,
-    };
-    set[changed](next);
-  }
 
   // Step 2 — Tier Allocation
   const [draft, setDraft] = React.useState<ChildDraft | null>(null);
@@ -399,12 +474,6 @@ export function MultiJackpotWizard() {
     const masterValue = masterValueAsStored();
     if (!(masterValue > 0))
       return toast.error("Contribution amount must be greater than zero");
-    const weightSum = poolWeight + seedWeight + houseWeight;
-    if (Math.abs(weightSum - 100) > 0.05) {
-      return toast.error(
-        `Contribution Weight must sum to 100% (currently ${weightSum.toFixed(2)}%)`,
-      );
-    }
     setSubmitting(true);
     try {
       const res = await axios.post<GroupDTO>(
@@ -412,7 +481,7 @@ export function MultiJackpotWizard() {
         {
           name: name.trim(),
           overlappingRule: "split",
-          // Source is implicit: House weight covers operator-funded share.
+          // Source is implicit: House weight (per tier) covers operator-funded share.
           contributionSource: "player",
           contributionType,
           masterContributionValue: masterValue,
@@ -428,13 +497,13 @@ export function MultiJackpotWizard() {
       );
       setGroup({
         ...res.data,
-        poolWeight,
-        seedWeight,
-        houseWeight,
         minWagerAmount,
         maxWagerAmount,
         assignedCategories: assignment.assignedCategories,
         assignedGameIds: assignment.assignedGameIds,
+        eligibility,
+        playerTargeting,
+        community,
       });
       setStep(2);
     } catch (err: any) {
@@ -454,9 +523,18 @@ export function MultiJackpotWizard() {
     const tierName = draft.tierName.trim();
     if (!tierName) return toast.error("Tier Name is required");
     const tierRank = Math.max(0, Math.trunc(Number(draft.tierRank) || 0));
+    if (savedChildren.some((c) => c.tierRank === tierRank)) {
+      return toast.error(`Tier rank ${tierRank} is already in use`);
+    }
     const splitShare = Number.parseFloat(draft.splitShare) || 0;
     if (splitShare <= 0 || splitShare > 100) {
       return toast.error("Split share must be between 0 and 100");
+    }
+    const weightSum = draft.poolWeight + draft.seedWeight + draft.houseWeight;
+    if (Math.abs(weightSum - 100) > 0.05) {
+      return toast.error(
+        `Contribution Weight must sum to 100% (currently ${weightSum.toFixed(2)}%)`,
+      );
     }
     const seedAmount = Number.parseFloat(draft.seedAmount) || 0;
     const reseedingAmount = Number.parseFloat(draft.reseedingAmount) || 0;
@@ -476,14 +554,17 @@ export function MultiJackpotWizard() {
     const maxPayout = draft.maxTotalPayout.trim()
       ? Math.max(0, Number(draft.maxTotalPayout))
       : undefined;
+    const maxWin = draft.maxWinAmount.trim()
+      ? Math.max(0, Number(draft.maxWinAmount))
+      : undefined;
+    const fixedWin = draft.fixedWinAmount.trim()
+      ? Math.max(0, Number(draft.fixedWinAmount))
+      : undefined;
 
     setSubmitting(true);
     try {
-      // 1) Create child jackpot. Trigger config + safeguards + reseed travel
-      //    via `config` → server merges into `trigger_condition`. Game arrays
-      //    stay empty: tiers inherit from the group's master assignment.
-      //    NOTE: tier saves skip the single-jackpot form's strict recurrenceType
-      //    cross-field validators — the curated subset is the source of truth.
+      // 1) Create child jackpot. Trigger config + safeguards + reseed + tier
+      //    extras travel via `config` → server merges into `trigger_condition`.
       const createRes = await axios.post<JackpotDTO>(
         "/api/v1/jackpots",
         {
@@ -496,7 +577,17 @@ export function MultiJackpotWizard() {
           assignedGameIds: [],
           config: {
             ...buildTriggerCondition(draft),
+            tierType: draft.tierType,
             reseedingAmount,
+            // Per-tier contribution weights (Pool / Seed / House).
+            contributionMode: "split",
+            poolWeight: draft.poolWeight,
+            seedWeight: draft.seedWeight,
+            houseWeight: draft.houseWeight,
+            // Per-tier extras
+            volatility: draft.volatility,
+            ...(maxWin !== undefined ? { maxWinAmount: maxWin } : {}),
+            ...(fixedWin !== undefined ? { fixedWinAmount: fixedWin } : {}),
             ...(maxWins !== undefined ? { maxNumberOfWins: maxWins } : {}),
             ...(maxPayout !== undefined ? { maxTotalPayout: maxPayout } : {}),
           },
@@ -542,12 +633,18 @@ export function MultiJackpotWizard() {
           tierRank,
           jackpotName,
           tierName,
+          tierType: draft.tierType,
           splitShare,
           seedAmount,
           reseedingAmount,
-          triggerModel: draft.triggerModel,
+          poolWeight: draft.poolWeight,
+          seedWeight: draft.seedWeight,
+          houseWeight: draft.houseWeight,
           triggerSummary: triggerSummary(draft),
           probability,
+          volatility: draft.volatility,
+          maxWinAmount: maxWin,
+          fixedWinAmount: fixedWin,
           maxNumberOfWins: maxWins,
           maxTotalPayout: maxPayout,
         },
@@ -633,10 +730,6 @@ export function MultiJackpotWizard() {
               setContributionType={setContributionType}
               totalContributionAmount={totalContributionAmount}
               setTotalContributionAmount={setTotalContributionAmount}
-              poolWeight={poolWeight}
-              seedWeight={seedWeight}
-              houseWeight={houseWeight}
-              setSingleWeight={setSingleWeight}
               minWagerAmount={minWagerAmount}
               maxWagerAmount={maxWagerAmount}
               setMinWagerAmount={setMinWagerAmount}
@@ -908,11 +1001,10 @@ function MasterRecap({ group }: { group: GroupDTO }) {
       </div>
       <div>
         <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 mb-0.5">
-          Weights (Pool / Seed / House)
+          Wager Limits
         </div>
         <div className="text-white font-mono">
-          {group.poolWeight.toFixed(0)}% · {group.seedWeight.toFixed(0)}% ·{" "}
-          {group.houseWeight.toFixed(0)}%
+          {group.minWagerAmount || 0} – {group.maxWagerAmount || "∞"}
         </div>
       </div>
       <div>
@@ -1178,35 +1270,35 @@ function DraftTierCard({
         <SectionHeading>Drop style</SectionHeading>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <ModeCard
-            active={draft.triggerModel === "pure_chance"}
-            onClick={() => onChange({ triggerModel: "pure_chance" })}
+            active={draft.tierType === "classic"}
+            onClick={() => onChange({ tierType: "classic" })}
             Icon={Dice5}
-            title="Pure Chance Roll"
+            title="Classic"
             blurb="Static 1-in-N odds for uniform, predictable drops."
           />
           <ModeCard
-            active={draft.triggerModel === "hype_curve"}
-            onClick={() => onChange({ triggerModel: "hype_curve" })}
+            active={draft.tierType === "must_drop"}
+            onClick={() => onChange({ tierType: "must_drop" })}
             Icon={TrendingUp}
-            title="Hype Curve Engine"
+            title="Must Drop"
             blurb="Dynamic must-drop between win boundaries."
           />
           <ModeCard
-            active={draft.triggerModel === "happy_hour"}
-            onClick={() => onChange({ triggerModel: "happy_hour" })}
+            active={draft.tierType === "happy_hour"}
+            onClick={() => onChange({ tierType: "happy_hour" })}
             Icon={Clock}
             title="Happy Hour"
             blurb="Calendar-gated contribution + win windows."
           />
         </div>
 
-        {draft.triggerModel === "pure_chance" && (
+        {draft.tierType === "classic" && (
           <PureChancePanel draft={draft} onChange={onChange} />
         )}
-        {draft.triggerModel === "hype_curve" && (
+        {draft.tierType === "must_drop" && (
           <HypeCurvePanel draft={draft} onChange={onChange} />
         )}
-        {draft.triggerModel === "happy_hour" && (
+        {draft.tierType === "happy_hour" && (
           <HappyHourPanel draft={draft} onChange={onChange} />
         )}
       </section>
