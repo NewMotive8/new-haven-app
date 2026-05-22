@@ -377,8 +377,8 @@ async function cloneSingleDraft(
   brandId: number,
   navigate: ReturnType<typeof useNavigate>,
 ) {
-  const payload = { ...bp.payload, name };
-  const body = { ...buildCreateBody(payload), enabled: false };
+  const payload = { ...bp.payload, name, isDraft: true };
+  const body = buildCreateBody(payload);
   const res = await axios.post<{ id: number }>("/api/v1/jackpots", body, {
     headers: { brandId: String(brandId), "Content-Type": "application/json" },
   });

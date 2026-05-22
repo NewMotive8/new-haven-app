@@ -93,8 +93,9 @@ function SimulatorPage() {
   const [result, setResult] = React.useState<SimulatorResponseDTO | null>(null);
   const [activeConfig, setActiveConfig] = React.useState<JackpotConfigDTO | null>(null);
   const [saving, setSaving] = React.useState(false);
+  const [savingDraft, setSavingDraft] = React.useState(false);
 
-  async function handleSave() {
+  async function persistJackpot(asDraft: boolean) {
     const payload = originalPayloadRef.current;
     if (!payload) return;
     if (!payload.name) {
@@ -105,13 +106,13 @@ function SimulatorPage() {
       toast.error("No brand selected");
       return;
     }
-    setSaving(true);
+    if (asDraft) setSavingDraft(true); else setSaving(true);
     try {
-      const body = buildCreateBody(payload);
+      const body = buildCreateBody({ ...payload, isDraft: asDraft });
       await axios.post("/api/v1/jackpots", body, {
         headers: { brandId: String(brandId), "Content-Type": "application/json" },
       });
-      toast.success("Jackpot created");
+      toast.success(asDraft ? "Draft saved" : "Jackpot created");
       try { sessionStorage.removeItem('jackpot:pendingPayload'); } catch { /* noop */ }
       navigate({ to: "/admin/jackpots" });
     } catch (err: unknown) {
@@ -119,12 +120,15 @@ function SimulatorPage() {
         (err as { response?: { data?: { message?: string } }; message?: string })
           ?.response?.data?.message ??
         (err as { message?: string })?.message ??
-        "Failed to create jackpot";
+        (asDraft ? "Failed to save draft" : "Failed to create jackpot");
       toast.error(msg);
     } finally {
-      setSaving(false);
+      if (asDraft) setSavingDraft(false); else setSaving(false);
     }
   }
+
+  async function handleSave() { await persistJackpot(false); }
+  async function handleSaveDraft() { await persistJackpot(true); }
 
   async function handleSimulate() {
     setError(null);
