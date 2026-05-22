@@ -517,6 +517,7 @@ function ResultsSummary({
           configuredProb={configuredProbability(config, "jackpot")}
           iterations={result.iterations}
           wins={result.winCounter || 0}
+          rejectedByGate={result.rejectedByGate ?? 0}
         />
       ) : (
         <div style={{ display: "grid", gap: 8 }}>
@@ -529,6 +530,7 @@ function ResultsSummary({
                 configuredProb={configuredProbability(config, { tier: tierConfig })}
                 iterations={result.iterations}
                 wins={t.winCounter || 0}
+                rejectedByGate={t.rejectedByGate ?? 0}
               />
             );
           })}
