@@ -140,6 +140,7 @@ const mustDropHigh: SingleBlueprint = {
     maxWinAmount: 10000,
     mustDropPeriod: 1,
     triggerOdds: 0,
+    operatorShare: 15,
   },
 };
 
