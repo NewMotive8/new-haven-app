@@ -35,22 +35,22 @@ export function calculateAverageHitChance(
 }
 
 /**
- * Fixed-odds trigger probability helper.
- * Uses the same FAIRNESS_MULTIPLIER shape as calculateMaximumHitChance so
- * contribution scaling stays consistent with the rest of the pipeline.
+ * Fixed-odds trigger probability.
  *
- *   p_per_spin (baseline) = 1 / triggerOdds
- *   hitChance = p_per_spin * contributionAmount * FAIRNESS_MULTIPLIER
+ * An explicit "1 in N" override means EXACTLY p = 1/N per spin, as a pure
+ * Bernoulli trial — independent of wager, contribution amount, or pool size.
+ * The contribution-scaling used by the AVERAGE/MAXIMUM curve models does
+ * NOT apply here; otherwise the actual hit rate would drift by a factor of
+ * `contributionAmount * FAIRNESS_MULTIPLIER` away from the configured value
+ * (and the Math Audit would flag Variance for a correctly-running engine).
  *
- * Compared against a uniform [0, 1) RNG roll, exactly like the curve helpers.
+ * Caller compares the returned probability against a uniform [0, 1) RNG roll.
  */
-export function fixedOddsHitChance(
-  triggerOdds: number,
-  contributionAmount: number,
-): number {
+export function fixedOddsHitChance(triggerOdds: number): number {
   if (!Number.isFinite(triggerOdds) || triggerOdds <= 0) return 0;
-  return (1 / triggerOdds) * contributionAmount * FAIRNESS_MULTIPLIER;
+  return 1 / triggerOdds;
 }
+
 
 /**
  * Java parity: JackpotEngineMaths.calculateMaximumHitChance.
