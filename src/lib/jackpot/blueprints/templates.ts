@@ -72,6 +72,7 @@ const classicHigh: SingleBlueprint = {
     maximumSeedAmount: 1000,
     initialPoolAmount: 1000,
     triggerOdds: 250000,
+    operatorShare: 0,
   },
 };
 
