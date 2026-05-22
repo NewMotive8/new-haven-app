@@ -15,7 +15,6 @@ export interface ContributionSlice {
 }
 
 export interface BetLedgerEntry extends ContributionSlice {
-  /** Tier rank when MULTI_LEVEL (undefined for flat jackpots). */
   tier?: number;
   label?: string;
 }
@@ -23,9 +22,7 @@ export interface BetLedgerEntry extends ContributionSlice {
 export interface BetLedger {
   wager: number;
   totalContribution: number;
-  /** Aggregated split across all tiers (or the single flat slice). */
   totals: ContributionSlice;
-  /** Per-target breakdown (one entry for CLASSIC, N entries for MULTI_LEVEL). */
   entries: BetLedgerEntry[];
 }
 
