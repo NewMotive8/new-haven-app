@@ -371,6 +371,11 @@ function JackpotsPage() {
               Failed to load jackpots: {(error as Error)?.message}
             </div>
           )}
+          {groupsQuery.isError && (
+            <div className="p-4 text-amber-400 text-sm border-t border-neutral-800">
+              Failed to load MultiJackpots: {(groupsQuery.error as Error)?.message ?? "unknown error"}
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
