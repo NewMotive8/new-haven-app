@@ -442,6 +442,67 @@ function getTargetCap(config: JackpotConfigDTO | null, scope: "jackpot" | { tier
   );
 }
 
+/**
+ * Per-spin pool contribution given contributionType.
+ *   - PERCENTAGE: wager × contributionAmount / 100
+ *   - FIXED:      contributionAmount (wager-independent)
+ */
+function perSpinPoolContribution(pool: any, wager: number): number {
+  const amt = Number(pool?.contributionAmount ?? 0);
+  if (!Number.isFinite(amt) || amt <= 0) return 0;
+  const type = String(pool?.contributionType ?? "PERCENTAGE").toUpperCase();
+  if (type === "FIXED") return amt;
+  return (Number(wager) || 0) * amt / 100;
+}
+
+const MAX_AUTO_ITERATIONS = 10_000_000;
+const LIFECYCLES_PER_RUN = 5;
+
+/**
+ * Curve-mode iteration scaler. Returns the spins required for the curve
+ * engine to complete ~5 full drop lifecycles given the configured target
+ * cap and per-spin pool growth, clamped to MAX_AUTO_ITERATIONS.
+ *
+ * Returns null when the config is fixed-odds (triggerOdds > 0) or when the
+ * required inputs are missing — caller should fall back to the user value.
+ */
+function autoScaleIterations(
+  config: JackpotConfigDTO | null,
+  wager: number,
+  userIterations: number,
+): number | null {
+  if (!config) return null;
+  const scopes: Array<{ pool: any; target: number; odds: number }> = [];
+  const tiers: any[] = (config as any).tiers ?? [];
+  if (tiers.length > 0) {
+    for (const t of tiers) {
+      scopes.push({
+        pool: t.pool,
+        target: getTargetCap(config, { tier: t }),
+        odds: getTriggerOdds(config, { tier: t }),
+      });
+    }
+  } else {
+    scopes.push({
+      pool: config.pool,
+      target: getTargetCap(config, "jackpot"),
+      odds: getTriggerOdds(config, "jackpot"),
+    });
+  }
+  // Auto-scale only applies when every scope is curve-mode.
+  if (scopes.some((s) => s.odds > 0)) return null;
+
+  let maxSpins = 0;
+  for (const s of scopes) {
+    const perSpin = perSpinPoolContribution(s.pool, wager);
+    if (perSpin <= 0 || s.target <= 0) continue;
+    const spins = (s.target / perSpin) * LIFECYCLES_PER_RUN;
+    if (spins > maxSpins) maxSpins = spins;
+  }
+  if (maxSpins <= 0) return null;
+  const scaled = Math.min(MAX_AUTO_ITERATIONS, Math.ceil(maxSpins));
+  return Math.max(scaled, userIterations);
+
 function ResultsSummary({
   result,
   config,
