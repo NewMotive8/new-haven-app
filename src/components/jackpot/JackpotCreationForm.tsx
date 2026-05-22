@@ -19,6 +19,7 @@ import widgetSuperMega from '@/assets/jackpot/244780cbffaf9d0b9bf83126f279bedf56
 import widgetGoldenHarvest from '@/assets/jackpot/f033c6caa6105be44a8d53aa1abee2e5d474a512.png';
 import widgetCyberNeon from '@/assets/jackpot/575536f44a49439391db5b61fc21c21dc03d8e65.png';
 import { sanitizeIncomingDraft } from '@/lib/jackpot/hydrate-draft';
+import { TriggerProbabilityPanel } from '@/components/jackpot/TriggerProbabilityPanel';
 
 // Helpers hoisted to module scope so their identity is stable across renders
 // (declaring them inside the component unmounts inputs on every keystroke and
