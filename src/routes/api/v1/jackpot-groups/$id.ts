@@ -79,6 +79,23 @@ export const Route = createFileRoute("/api/v1/jackpot-groups/$id")({
           throw e;
         }
       },
+      DELETE: async ({ request, params }) => {
+        const brand = requireBrandId(request);
+        if (brand instanceof Response) return brand;
+        const existing = await getGroup(params.id);
+        if (!existing) return errorJson(`Group ${params.id} not found`, 404);
+        if (Number(existing.brandId) !== Number(brand)) {
+          return errorJson("Group does not belong to brand", 403);
+        }
+        try {
+          const ok = await deleteGroup(brand, params.id);
+          if (!ok) return errorJson(`Group ${params.id} not found`, 404);
+          return json({ id: Number(params.id), deleted: true });
+        } catch (e: any) {
+          if (e instanceof GroupConflictError) return errorJson(e.message, 409);
+          throw e;
+        }
+      },
     },
   },
 });
