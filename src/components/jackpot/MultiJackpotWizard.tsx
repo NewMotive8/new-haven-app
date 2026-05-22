@@ -592,7 +592,7 @@ export function MultiJackpotWizard() {
                   }
                   className="w-full h-11 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-white"
                 >
-                  <option value="player">Player (deducted from wager)</option>
+                  <option value="player">Player contribution</option>
                   <option value="operator">Operator (house-funded)</option>
                 </select>
                 <div className="text-xs text-neutral-500">Who finances the pools.</div>
