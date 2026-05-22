@@ -20,6 +20,12 @@ import widgetGoldenHarvest from '@/assets/jackpot/f033c6caa6105be44a8d53aa1abee2
 import widgetCyberNeon from '@/assets/jackpot/575536f44a49439391db5b61fc21c21dc03d8e65.png';
 import { sanitizeIncomingDraft } from '@/lib/jackpot/hydrate-draft';
 import { TriggerProbabilityPanel } from '@/components/jackpot/TriggerProbabilityPanel';
+import {
+  PrizeEconomySelector,
+  normalizePrizeEconomy,
+  DEFAULT_PRIZE_ECONOMY,
+  type PrizeEconomyValue,
+} from '@/components/jackpot/PrizeEconomySelector';
 
 // Helpers hoisted to module scope so their identity is stable across renders
 // (declaring them inside the component unmounts inputs on every keystroke and
