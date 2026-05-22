@@ -7,6 +7,7 @@ import type { JackpotConfigDTO, SimulatorResponseDTO } from "@/lib/jackpot/types
 import type { JackpotSavePayload } from "@/components/jackpot/JackpotCreationForm";
 import { mapPayloadToConfig } from "@/lib/jackpot/payload-to-config";
 import { buildCreateBody } from "@/lib/jackpot/build-create-body";
+import { BlueprintCenter } from "@/components/jackpot/BlueprintCenter";
 
 const DEFAULT_CONFIG: JackpotConfigDTO = {
   id: 1,
