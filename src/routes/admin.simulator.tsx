@@ -725,6 +725,72 @@ function MathAudit({
           )}
         </div>
       </div>
+
+      {configuredN > 0 && (() => {
+        const expectedWins = Math.round(iterations * configuredProb);
+        const triggersFired = wins + rejectedByGate;
+        const gateExplains =
+          rejectedByGate > 0 &&
+          expectedWins > 0 &&
+          Math.abs(triggersFired - expectedWins) / expectedWins <= 0.25;
+        const hint = compliant
+          ? null
+          : gateExplains
+            ? "Gate rejections explain the gap — wins were suppressed because pool/seed conditions weren't met."
+            : rejectedByGate > 0
+              ? "Some triggers were blocked by pool/seed gates, but the gap is larger than that — likely sample-size variance. Increase iterations."
+              : "Variance is sample-size driven — increase iterations for a tighter rate.";
+
+        const diagCell: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 2 };
+        const diagK: React.CSSProperties = {
+          fontSize: 10,
+          letterSpacing: 0.8,
+          textTransform: "uppercase",
+          color: "#7d8ba3",
+        };
+        const diagV: React.CSSProperties = {
+          fontSize: 14,
+          fontWeight: 600,
+          color: "#e6edf3",
+          fontVariantNumeric: "tabular-nums",
+        };
+
+        return (
+          <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid #1f2a44" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                gap: 16,
+              }}
+            >
+              <div style={diagCell}>
+                <span style={diagK}>Expected Wins</span>
+                <span style={diagV}>{fmtInt(expectedWins)}</span>
+              </div>
+              <div style={diagCell}>
+                <span style={diagK}>Actual Wins</span>
+                <span style={diagV}>{fmtInt(wins)}</span>
+              </div>
+              <div style={diagCell}>
+                <span style={diagK}>Blocked by Gate</span>
+                <span style={{ ...diagV, color: rejectedByGate > 0 ? "#fbbf24" : "#e6edf3" }}>
+                  {fmtInt(rejectedByGate)}
+                </span>
+              </div>
+              <div style={diagCell}>
+                <span style={diagK}>Triggers Fired</span>
+                <span style={diagV}>{fmtInt(triggersFired)}</span>
+              </div>
+            </div>
+            {hint && (
+              <div style={{ marginTop: 10, fontSize: 12, color: "#9fb0c8", lineHeight: 1.5 }}>
+                {hint}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
