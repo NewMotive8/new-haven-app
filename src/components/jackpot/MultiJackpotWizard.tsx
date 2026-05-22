@@ -398,7 +398,13 @@ export function MultiJackpotWizard() {
     if (brandId == null) return toast.error("No brand selected");
     const masterValue = masterValueAsStored();
     if (!(masterValue > 0))
-      return toast.error("Master contribution value must be greater than zero");
+      return toast.error("Contribution amount must be greater than zero");
+    const weightSum = poolWeight + seedWeight + houseWeight;
+    if (Math.abs(weightSum - 100) > 0.05) {
+      return toast.error(
+        `Contribution Weight must sum to 100% (currently ${weightSum.toFixed(2)}%)`,
+      );
+    }
     setSubmitting(true);
     try {
       const res = await axios.post<GroupDTO>(
@@ -406,7 +412,8 @@ export function MultiJackpotWizard() {
         {
           name: name.trim(),
           overlappingRule: "split",
-          contributionSource,
+          // Source is implicit: House weight covers operator-funded share.
+          contributionSource: "player",
           contributionType,
           masterContributionValue: masterValue,
           assignedCategories: assignment.assignedCategories,
@@ -421,6 +428,11 @@ export function MultiJackpotWizard() {
       );
       setGroup({
         ...res.data,
+        poolWeight,
+        seedWeight,
+        houseWeight,
+        minWagerAmount,
+        maxWagerAmount,
         assignedCategories: assignment.assignedCategories,
         assignedGameIds: assignment.assignedGameIds,
       });
