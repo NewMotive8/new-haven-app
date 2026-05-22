@@ -358,7 +358,7 @@ const multiSmall: MultiBlueprint = {
     "Two-tier internal token split — hourly Spark then capped Daily Climax. House-protected.",
   targetGameTypes: ["Slots"],
   kind: "multi",
-  group: { contributionType: "percentage", masterPlayerPercent: 5.0, walletType: "internal" },
+  group: { contributionType: "percentage", masterPlayerPercent: 5.0, walletType: "internal", operatorShare: 15 },
   tiers: [
     { tierName: "Hourly Spark", tierRank: 1, tierType: "classic", splitSharePct: 40, seedAmount: 10, reseedingAmount: 10, triggerOdds: 1500 },
     { tierName: "Daily Climax", tierRank: 2, tierType: "must_drop", splitSharePct: 60, seedAmount: 150, reseedingAmount: 150, triggerOdds: 0, maxWinAmount: 500, dropPacing: 5, minBoundary: 200 },
