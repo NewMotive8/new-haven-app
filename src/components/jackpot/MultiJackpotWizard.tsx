@@ -545,8 +545,9 @@ export function MultiJackpotWizard() {
       );
     }
     const initialPoolAmount = Number.parseFloat(draft.initialPoolAmount) || 0;
-    const seedAmount = Number.parseFloat(draft.seedAmount) || 0;
     const reseedingAmount = Number.parseFloat(draft.reseedingAmount) || 0;
+    // Seed bucket mirrors the re-seeding amount (single operator-facing value).
+    const seedAmount = reseedingAmount;
     const probability = probabilityFromDraft(draft);
     const triggerProbability = Number(probability.toFixed(8));
 
