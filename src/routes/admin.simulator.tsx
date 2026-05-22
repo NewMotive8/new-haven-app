@@ -1121,6 +1121,8 @@ function SimulatorCharts({ result }: { result: SimulatorResponseDTO }) {
               />
               <RTooltip
                 contentStyle={{ background: "#0b1426", border: "1px solid #1f2a44", borderRadius: 8, color: "#e6edf3" }}
+                labelStyle={{ color: "#e6edf3" }}
+                itemStyle={{ color: "#e6edf3" }}
                 labelFormatter={(v) => `Iteration: ${Number(v).toLocaleString()}`}
                 formatter={(v: any) => [Number(v).toLocaleString(), "Wins"]}
               />
@@ -1156,6 +1158,8 @@ function SimulatorCharts({ result }: { result: SimulatorResponseDTO }) {
               </Pie>
               <RTooltip
                 contentStyle={{ background: "#0b1426", border: "1px solid #1f2a44", borderRadius: 8, color: "#e6edf3" }}
+                labelStyle={{ color: "#e6edf3" }}
+                itemStyle={{ color: "#e6edf3" }}
                 formatter={(v: any, n: any) => [Number(v).toLocaleString(), n]}
               />
               <Legend
@@ -1179,6 +1183,8 @@ function SimulatorCharts({ result }: { result: SimulatorResponseDTO }) {
                 <YAxis stroke={axisColor} fontSize={11} />
                 <RTooltip
                   contentStyle={{ background: "#0b1426", border: "1px solid #1f2a44", borderRadius: 8, color: "#e6edf3" }}
+                labelStyle={{ color: "#e6edf3" }}
+                itemStyle={{ color: "#e6edf3" }}
                   formatter={(v: any) => Number(v).toLocaleString()}
                 />
                 <Bar dataKey="drops" fill="#10b981" radius={[6, 6, 0, 0]} />
