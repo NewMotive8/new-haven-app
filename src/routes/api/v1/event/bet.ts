@@ -29,19 +29,36 @@ import type { JackpotConfigDTO, JackpotDTO } from "@/lib/jackpot/types";
 // Request schema
 // ---------------------------------------------------------------------------
 
-const BetEventSchema = z.object({
-  transactionId: z.string().min(1).max(128),
-  wager: z.number().positive().finite(),
-  gameId: z.string().min(1).max(128),
-  playerSegments: z.array(z.string().min(1).max(64)).max(64).default([]),
-  systemRngValue: z.number().min(0).max(1).optional(),
-  // Optional back-compat / routing hints
-  jackpotId: z.number().int().optional(),
-  playerId: z.string().max(128).optional(),
-  eventId: z.string().max(128).optional(),
-  config: z.any().optional(),
-  configs: z.array(z.any()).optional(),
-});
+const BetEventSchema = z
+  .object({
+    transactionId: z.string().min(1).max(128),
+    wager: z.number().positive().finite(),
+    gameId: z.string().min(1).max(128),
+    playerSegments: z.array(z.string().min(1).max(64)).max(64).default([]),
+    systemRngValue: z.number().min(0).max(1).optional(),
+    // Optional back-compat / routing hints (mutually exclusive)
+    jackpotId: z.number().int().optional(),
+    groupId: z.number().int().positive().optional(),
+    playerId: z.string().max(128).optional(),
+    eventId: z.string().max(128).optional(),
+    config: z.any().optional(),
+    configs: z.array(z.any()).optional(),
+  })
+  .superRefine((val, ctx) => {
+    const routes = [
+      val.groupId != null,
+      val.jackpotId != null,
+      val.config != null,
+      Array.isArray(val.configs) && val.configs.length > 0,
+    ].filter(Boolean).length;
+    if (routes > 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "ROUTING_CONFLICT: provide at most one of groupId, jackpotId, config, configs.",
+      });
+    }
+  });
 
 type BetEventBody = z.infer<typeof BetEventSchema>;
 
