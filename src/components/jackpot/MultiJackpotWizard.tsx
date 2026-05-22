@@ -1,6 +1,6 @@
 import * as React from "react";
 import axios from "axios";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Plus,

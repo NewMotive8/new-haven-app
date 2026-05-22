@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import * as React from "react";
 import axios from "axios";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 import { Sparkles, Layers } from "lucide-react";
 import { BrandContext } from "@/backoffice/app";
 import {
