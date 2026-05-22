@@ -1222,7 +1222,19 @@ function DraftTierCard({
       {/* ── Group B — Allocation & Fuel ────────────────────────────── */}
       <section className="space-y-3">
         <SectionHeading>Allocation & fuel</SectionHeading>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-neutral-300">Initial pool amount</Label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={draft.initialPoolAmount}
+              onChange={(e) => onChange({ initialPoolAmount: e.target.value })}
+              placeholder="100.00"
+              className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
+            />
+            <div className="text-xs text-neutral-500">Starting pool value at launch.</div>
+          </div>
           <div className="space-y-2">
             <Label className="text-neutral-300">Initial seed amount</Label>
             <Input
@@ -1233,7 +1245,7 @@ function DraftTierCard({
               placeholder="100.00"
               className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
             />
-            <div className="text-xs text-neutral-500">Starting pool value.</div>
+            <div className="text-xs text-neutral-500">Operator-funded floor the pool can never fall below.</div>
           </div>
           <div className="space-y-2">
             <Label className="text-neutral-300">Re-seeding amount</Label>
