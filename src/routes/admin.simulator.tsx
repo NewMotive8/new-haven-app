@@ -179,6 +179,48 @@ function SimulatorPage() {
         payloadToSend = { ...parsedPayload, timed: { ...restTimed } };
       }
 
+      // ── Direct House skim: when the config carries a top-level
+      // `operatorShare` (0..100), route that % of every player contribution
+      // into casino House Revenue and fund the prize pools with the
+      // remaining (100 - operatorShare)%. We synthesise the engine's
+      // 3-way contribution split so houseContributions accumulate
+      // automatically and surface on the "House Revenue" KPI.
+      const houseSkimPct = Math.min(
+        100,
+        Math.max(0, Number((payloadToSend as any).operatorShare) || 0),
+      );
+      const alreadySplit = (payloadToSend as any).contribution?.mode === "split";
+      if (houseSkimPct > 0 && !alreadySplit) {
+        const poolAmt = Number(payloadToSend.pool?.contributionAmount) || 0;
+        const seedAmt = Number(payloadToSend.seed?.contributionAmount) || 0;
+        const poolType = String(
+          payloadToSend.pool?.contributionType ?? "PERCENTAGE",
+        ).toUpperCase();
+        const seedType = String(
+          payloadToSend.seed?.contributionType ?? poolType,
+        ).toUpperCase();
+        const total = poolAmt + seedAmt;
+        if (total > 0 && poolType === seedType) {
+          const fundShare = 100 - houseSkimPct;
+          const poolWeight = (poolAmt / total) * fundShare;
+          const seedWeight = (seedAmt / total) * fundShare;
+          payloadToSend = {
+            ...payloadToSend,
+            contribution: {
+              mode: "split",
+              totalContributionAmount: total,
+              totalContributionType: poolType as any,
+              poolWeight,
+              seedWeight,
+              houseWeight: houseSkimPct,
+            },
+          };
+          toast.success(
+            `House skim active — ${houseSkimPct}% of every contribution routed to House Revenue.`,
+          );
+        }
+      }
+
       const autoIters = autoScaleIterations(payloadToSend, wager, iterations);
       const effectiveIters = autoIters ?? iterations;
       const res = await axios.post<SimulatorResponseDTO>(
