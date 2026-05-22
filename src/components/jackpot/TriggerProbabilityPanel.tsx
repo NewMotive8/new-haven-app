@@ -87,7 +87,10 @@ export function TriggerProbabilityPanel({
   const sliderPct = spinsToSlider(spins);
   const VibeIcon = vibe.Icon;
   return (
-    <div className="rounded-lg border border-neutral-800 bg-neutral-950/50 p-5 space-y-4">
+    <div className="relative rounded-lg border border-neutral-800 bg-neutral-950/50 p-5 space-y-4">
+      <div className="absolute top-3 right-3">
+        <DropPaceInfoDialog />
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-end">
         <div className="space-y-2">
           <Label className="text-neutral-400 text-xs uppercase tracking-wider">
