@@ -27,7 +27,20 @@ type Jackpot = {
   volatility?: number;
   brandId: string;
   config?: Record<string, unknown>;
+  groupId?: number | null;
+  tierRank?: number | null;
 };
+
+type JackpotGroup = {
+  id: number;
+  name: string;
+  status: string;
+  overlappingRule?: string;
+};
+
+type DisplayPool =
+  | { kind: "single"; id: string; name: string; balance: number; jackpot: Jackpot }
+  | { kind: "group"; id: string; name: string; balance: number; group: JackpotGroup; tiers: Jackpot[] };
 
 type OverlappingRule = "split" | "additive";
 
@@ -219,6 +232,7 @@ const QA_TEST_CASES: QaTestCase[] = [
 function SandboxDemoPage() {
   const [brandId, setBrandId] = useState<string>("1");
   const [pools, setPools] = useState<Jackpot[]>([]);
+  const [groups, setGroups] = useState<JackpotGroup[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [poolDisplays, setPoolDisplays] = useState<Record<number, number>>({});
   const [optIns, setOptIns] = useState<Record<number, boolean>>({});
@@ -292,12 +306,17 @@ function SandboxDemoPage() {
 
     const tick = async () => {
       try {
-        const res = await fetch("/api/v1/jackpots", { headers: headers() });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = (await res.json()) as Jackpot[];
+        const [jpRes, grpRes] = await Promise.all([
+          fetch("/api/v1/jackpots", { headers: headers() }),
+          fetch("/api/v1/jackpot-groups", { headers: headers() }),
+        ]);
+        if (!jpRes.ok) throw new Error(`HTTP ${jpRes.status}`);
+        const data = (await jpRes.json()) as Jackpot[];
+        const grpData: JackpotGroup[] = grpRes.ok ? await grpRes.json() : [];
         if (cancelled) return;
         const enabled = data.filter((j) => j.enabled);
         setPools(enabled);
+        setGroups(grpData);
         setPoolDisplays((prev) => {
           const next: Record<number, number> = { ...prev };
           for (const jp of enabled) {
@@ -316,7 +335,6 @@ function SandboxDemoPage() {
           }
           return next;
         });
-        setActiveIndex((i) => (enabled.length === 0 ? 0 : Math.min(i, enabled.length - 1)));
         setError(null);
       } catch (e) {
         if (!cancelled) setError((e as Error).message);
@@ -372,9 +390,49 @@ function SandboxDemoPage() {
     };
   }, [brandId, headers]);
 
-  const activePool: Jackpot | null = pools[activeIndex] ?? null;
+  // ── Derive display pools: active MultiJackpot groups appear as a single
+  //    grouped tile (showing all tiers stacked), followed by standalone jackpots.
+  const displayPools: DisplayPool[] = useMemo(() => {
+    const activeGroups = groups.filter((g) => g.status === "active");
+    const activeGroupIds = new Set(activeGroups.map((g) => g.id));
+    const groupTiles: DisplayPool[] = activeGroups.map((g) => {
+      const tiers = pools
+        .filter((p) => p.groupId === g.id)
+        .sort((a, b) => (a.tierRank ?? 0) - (b.tierRank ?? 0) || a.id - b.id);
+      const balance = tiers.reduce(
+        (s, t) => s + (poolDisplays[t.id] ?? t.poolBalance),
+        0,
+      );
+      return { kind: "group", id: `g${g.id}`, name: g.name, balance, group: g, tiers };
+    });
+    const singles: DisplayPool[] = pools
+      .filter((p) => !p.groupId || !activeGroupIds.has(p.groupId))
+      .map((p) => ({
+        kind: "single",
+        id: `j${p.id}`,
+        name: p.name,
+        balance: poolDisplays[p.id] ?? p.poolBalance,
+        jackpot: p,
+      }));
+    return [...groupTiles, ...singles];
+  }, [groups, pools, poolDisplays]);
+
+  // Keep activeIndex within bounds of the display list.
+  useEffect(() => {
+    setActiveIndex((i) => (displayPools.length === 0 ? 0 : Math.min(i, displayPools.length - 1)));
+  }, [displayPools.length]);
+
+  const activeDisplay: DisplayPool | null = displayPools[activeIndex] ?? null;
+  const activePool: Jackpot | null =
+    activeDisplay?.kind === "single" ? activeDisplay.jackpot : null;
+  const activeGroupTiers: Jackpot[] =
+    activeDisplay?.kind === "group" ? activeDisplay.tiers : [];
   const activeRule: OverlappingRule | null = activePool ? readOverlappingRule(activePool) : null;
-  const activeOptedIn = activePool ? !!optIns[activePool.id] : false;
+  const activeOptedIn = activeDisplay
+    ? activeDisplay.kind === "single"
+      ? !!optIns[activeDisplay.jackpot.id]
+      : activeGroupTiers.some((t) => !!optIns[t.id])
+    : false;
 
   // ── Cumulative fee label ─────────────────────────────────────────────────
   const optedInPools = useMemo(
@@ -725,17 +783,33 @@ function SandboxDemoPage() {
 
   // ── Opt-in/out handler with additive compliance interceptor ──────────────
   const handleOptToggle = () => {
-    if (!activePool) return;
-    const id = activePool.id;
+    if (!activeDisplay) return;
+
+    // Group opt-in: toggle all tiers atomically (mirrors how MultiJackpot
+    // groups are surfaced as a single player-facing campaign).
+    if (activeDisplay.kind === "group") {
+      const tiers = activeDisplay.tiers;
+      if (tiers.length === 0) return;
+      const anyIn = tiers.some((t) => !!optIns[t.id]);
+      setOptIns((m) => {
+        const next = { ...m };
+        for (const t of tiers) next[t.id] = !anyIn;
+        return next;
+      });
+      return;
+    }
+
+    const jp = activeDisplay.jackpot;
+    const id = jp.id;
     const currentlyIn = !!optIns[id];
     if (currentlyIn) {
       setOptIns((m) => ({ ...m, [id]: false }));
       return;
     }
-    const rule = readOverlappingRule(activePool);
+    const rule = readOverlappingRule(jp);
     const othersIn = pools.some((p) => p.id !== id && optIns[p.id]);
     if (rule === "additive" && othersIn) {
-      setPendingOptIn(activePool);
+      setPendingOptIn(jp);
       return;
     }
     setOptIns((m) => ({ ...m, [id]: true }));
@@ -804,7 +878,7 @@ function SandboxDemoPage() {
     };
   };
 
-  const multi = pools.length > 1;
+  const multi = displayPools.length > 1;
   const optedInCount = optedInPools.length;
 
   return (
@@ -835,7 +909,7 @@ function SandboxDemoPage() {
         {/* ── Player widget host ───────────────────────────────── */}
         <section className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 relative overflow-hidden min-h-[420px]">
           <div className="text-xs uppercase tracking-wider text-slate-400 mb-3">
-            Player widget host · {pools.length} pool{pools.length === 1 ? "" : "s"}
+            Player widget host · {displayPools.length} pool{displayPools.length === 1 ? "" : "s"}
           </div>
 
           <div id="jooba-container-root" ref={widgetHostRef} className="flex justify-center">
@@ -854,13 +928,13 @@ function SandboxDemoPage() {
                     </button>
                   )}
                   <div id="jooba-widget-current-amount" className="jooba-widget-current-amount">
-                    {activePool ? fmt(poolDisplays[activePool.id] ?? activePool.poolBalance) : texts.loading}
+                    {activeDisplay ? fmt(activeDisplay.balance) : texts.loading}
                   </div>
                   {multi ? (
                     <button
                       className="jooba-icon-btn jooba-nav-btn"
-                      onClick={() => setActiveIndex((i) => Math.min(pools.length - 1, i + 1))}
-                      disabled={activeIndex >= pools.length - 1}
+                      onClick={() => setActiveIndex((i) => Math.min(displayPools.length - 1, i + 1))}
+                      disabled={activeIndex >= displayPools.length - 1}
                       aria-label="Next pool"
                     >
                       ›
@@ -906,7 +980,7 @@ function SandboxDemoPage() {
                         ))}
                       </div>
                     </div>
-                  ) : pools.length === 0 ? (
+                  ) : displayPools.length === 0 ? (
                     <div className="jooba-info-label">Awaiting jackpot…</div>
                   ) : (
                     <>
@@ -915,11 +989,39 @@ function SandboxDemoPage() {
                           className="jooba-carousel-track"
                           style={{ transform: `translateX(-${activeIndex * 100}%)` }}
                         >
-                          {pools.map((p) => {
+                          {displayPools.map((dp) => {
+                            if (dp.kind === "group") {
+                              const anyIn = dp.tiers.some((t) => !!optIns[t.id]);
+                              return (
+                                <div className="jooba-slide" key={dp.id}>
+                                  <div className="jooba-coin" aria-hidden>
+                                    <span>€</span>
+                                  </div>
+                                  <div className="jooba-jackpot-name">{dp.name}</div>
+                                  <div className="jooba-badge jooba-badge-split">
+                                    MULTI-JACKPOT · {dp.tiers.length} TIERS
+                                  </div>
+                                  <div className="jooba-tier-list">
+                                    {dp.tiers.map((t) => (
+                                      <div className="jooba-tier-row" key={t.id}>
+                                        <span className="jooba-tier-name">{t.name}</span>
+                                        <span className="jooba-tier-amount">
+                                          {fmt(poolDisplays[t.id] ?? t.poolBalance)}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <div className="jooba-info-label">
+                                    {anyIn ? texts.userInLabel : texts.userOutLabel}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            const p = dp.jackpot;
                             const rule = readOverlappingRule(p);
                             const inIt = !!optIns[p.id];
                             return (
-                              <div className="jooba-slide" key={p.id}>
+                              <div className="jooba-slide" key={dp.id}>
                                 <div className="jooba-coin" aria-hidden>
                                   <span>€</span>
                                 </div>
@@ -939,12 +1041,12 @@ function SandboxDemoPage() {
                       </div>
                       {multi && (
                         <div className="jooba-dots">
-                          {pools.map((p, i) => (
+                          {displayPools.map((dp, i) => (
                             <button
-                              key={p.id}
+                              key={dp.id}
                               className={`jooba-dot ${i === activeIndex ? "jooba-dot-active" : ""}`}
                               onClick={() => setActiveIndex(i)}
-                              aria-label={`Show pool ${p.name}`}
+                              aria-label={`Show pool ${dp.name}`}
                             />
                           ))}
                         </div>
@@ -956,7 +1058,7 @@ function SandboxDemoPage() {
                 {/* Footer: opt button + cumulative fee */}
                 <div id="jooba-widget-footer" className="jooba-widget-footer">
                   <div id="jooba-widget-buttons-opt-wrapper" className="jooba-widget-buttons-opt-wrapper">
-                    {activePool && (
+                    {activeDisplay && (
                       activeOptedIn ? (
                         <button
                           id="jooba-widget-opt-out-button"
@@ -1804,6 +1906,20 @@ const widgetCss = `
 .jooba-badge-split { background: rgba(16,185,129,.15); color: #6ee7b7; border: 1px solid rgba(16,185,129,.35); }
 .jooba-badge-additive { background: rgba(244,114,182,.15); color: #f9a8d4; border: 1px solid rgba(244,114,182,.4); }
 .jooba-info-label { font-size: 12px; color: #94a3b8; text-align: center; }
+.jooba-tier-list {
+  display: flex; flex-direction: column; gap: 4px;
+  width: 100%; max-width: 260px;
+  padding: 8px 12px; margin: 4px 0;
+  border-radius: 8px;
+  background: rgba(15,23,42,.6);
+  border: 1px solid rgba(148,163,184,.2);
+}
+.jooba-tier-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 12px; gap: 12px;
+}
+.jooba-tier-name { color: #cbd5e1; font-weight: 500; }
+.jooba-tier-amount { color: #facc15; font-weight: 700; font-variant-numeric: tabular-nums; }
 .jooba-dots { display: flex; gap: 6px; padding: 4px 0 0; }
 .jooba-dot {
   width: 8px; height: 8px; border-radius: 50%; border: none;
