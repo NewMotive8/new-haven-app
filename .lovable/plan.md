@@ -1,31 +1,33 @@
-## Add Contribution Weight grid to the Tier card
+## Remove "Initial seed amount" from the Tier card
 
-You're right — `DraftTierCard` already carries `poolWeight / seedWeight / houseWeight` in state, validates that they sum to 100 on save, and submits them with the child jackpot, but there is no UI to edit them. Today they are stuck at the defaults (60 / 30 / 10) for every tier.
+### Why
 
-### What to add
+For operators, only two amounts matter per tier:
 
-A new "Contribution Weight" section inside `DraftTierCard` in `src/components/jackpot/MultiJackpotWizard.tsx`, placed **right after the "Allocation & fuel" group** (after the Initial pool / Seed / Reseed / Split share grid, around line 1302) and **before "Drop style"**.
+- **Initial pool amount** — what players see at launch of the very first cycle.
+- **Re-seeding amount** — the starting pool for every subsequent cycle after a win.
 
-The section will contain:
+"Initial seed amount" is an engine-internal concept (the seed bucket's starting balance) that, in operator terms, should always equal the Re-seeding amount. Exposing it as a third field is redundant and confusing.
 
-1. **Three % input boxes** in a 3-column grid:
-   - **Pool %** — share of the tier's contribution that feeds the live pool
-   - **Seed %** — share that refills the seed/reseed floor
-   - **House %** — operator margin retained outside the prize pools
-2. **Live sum indicator** showing `Total: NN.NN%` with a green check when it equals 100, red when it doesn't (mirrors the existing `shareInvalid` styling used for split share).
-3. **Helper copy** under the grid: "Pool / Seed / House must sum to 100%. Applied to this tier's slice of the master contribution."
-4. **Quick presets** (optional, small text buttons): `60 / 30 / 10`, `70 / 20 / 10`, `100 / 0 / 0` — one click to fill.
+### UI changes (`src/components/jackpot/MultiJackpotWizard.tsx`, `DraftTierCard`)
 
-No changes to validation, submission payload, or `ChildDraft` shape — those are already wired. No changes to the master-level Contribution Source split (that stays as the Player/Operator slider).
+In the "Allocation & fuel" section (around lines 1242–1301):
 
-### Files touched
+- **Remove** the "Initial seed amount" input (the middle field bound to `draft.seedAmount`).
+- Keep the grid as: **Initial pool amount · Re-seeding amount · Tier split share (%)** — three columns instead of four (still `md:grid-cols-2`, ordering: pool → reseed → split share, with split share on its own row or alongside reseed).
+- Update the helper copy under "Re-seeding amount" to: *"Starting pool for each new cycle after a win. Also acts as the floor the pool can never fall below."*
 
-- `src/components/jackpot/MultiJackpotWizard.tsx` — add the UI block inside `DraftTierCard`, reusing `Input`, `Label`, and the existing styling tokens.
+### Wiring (no schema change)
+
+`draft.seedAmount` is still used by the engine payload. Instead of removing it from `ChildDraft`, mirror it from the re-seeding value on save:
+
+- In the tier-save handler (around line 578), set `seedAmount = reseedingAmount` before building the create body, so the engine receives a consistent seed/reseed pair.
+- Keep `seedAmount` in the `ChildDraft` type for now (no risky type churn). Drop the field from initial state defaults or leave it as `"0"` — it will be overwritten on save.
 
 ### Out of scope
 
-- Backend / API / Zod schema changes (already accept these fields).
-- Per-tier override of the master Player/Operator contribution source.
-- Editing the master weight grid (it was intentionally removed from Step 1 per `.lovable/plan.md`).
+- Backend / API schema changes.
+- The Single Jackpot form (separate flow, can be revisited later if the user wants the same simplification there).
+- Renaming or restructuring `seedAmount` in the engine types.
 
 Confirm and I'll implement.
