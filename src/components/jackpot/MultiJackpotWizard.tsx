@@ -47,6 +47,13 @@ interface GroupDTO {
   contributionSource: ContributionSource;
   contributionType: ContributionType;
   masterContributionValue: number;
+  // UI-only mirror of the Single-Jackpot Contribution card.
+  // Persisted via masterContributionValue; these extras live in wizard memory.
+  poolWeight: number;
+  seedWeight: number;
+  houseWeight: number;
+  minWagerAmount: number;
+  maxWagerAmount: number;
   assignedCategories?: string[];
   assignedGameIds?: number[];
 }
