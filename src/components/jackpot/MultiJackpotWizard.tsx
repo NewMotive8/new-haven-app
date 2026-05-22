@@ -730,10 +730,6 @@ export function MultiJackpotWizard() {
               setContributionType={setContributionType}
               totalContributionAmount={totalContributionAmount}
               setTotalContributionAmount={setTotalContributionAmount}
-              poolWeight={poolWeight}
-              seedWeight={seedWeight}
-              houseWeight={houseWeight}
-              setSingleWeight={setSingleWeight}
               minWagerAmount={minWagerAmount}
               maxWagerAmount={maxWagerAmount}
               setMinWagerAmount={setMinWagerAmount}
