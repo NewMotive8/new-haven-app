@@ -386,6 +386,9 @@ export function MultiJackpotWizard() {
     playerSharePct >= 50 ? "player" : "operator";
   const [contributionType, setContributionType] =
     React.useState<ContributionType>("fixed");
+  const [prizeEconomy, setPrizeEconomy] = React.useState<PrizeEconomyValue>(
+    DEFAULT_PRIZE_ECONOMY,
+  );
   const [totalContributionAmount, setTotalContributionAmount] =
     React.useState<number>(0.1);
   const [minWagerAmount, setMinWagerAmount] = React.useState<number>(0);
