@@ -365,6 +365,43 @@ function resolveTimedWindow(
   return { start: firstOfMonth, end: lastOfMonth };
 }
 
+/** Convert "HH:MM" → minutes-since-midnight; returns null if invalid/missing. */
+function parseHHMM(s: string | undefined): number | null {
+  if (!s || typeof s !== "string") return null;
+  const m = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const mm = Number(m[2]);
+  if (!Number.isFinite(h) || !Number.isFinite(mm)) return null;
+  return h * 60 + mm;
+}
+
+/** True if `minuteOfDay` lies within [start, end]; wraps across midnight. */
+function withinDailyWindow(minuteOfDay: number, startMin: number, endMin: number): boolean {
+  if (startMin === endMin) return true; // degenerate -> treat as always on
+  if (startMin < endMin) return minuteOfDay >= startMin && minuteOfDay < endMin;
+  // wraps midnight
+  return minuteOfDay >= startMin || minuteOfDay < endMin;
+}
+
+/** True when the calendar day at `date` matches the configured Happy Hour day. */
+function matchesFreqDay(
+  date: Date,
+  interval: "DAILY" | "WEEKLY" | "MONTHLY" | undefined,
+  freqDay: string | undefined,
+): boolean {
+  if (!interval || interval === "DAILY") return true;
+  if (interval === "WEEKLY") {
+    if (!freqDay) return true;
+    return date.getUTCDay() === Number(freqDay);
+  }
+  if (interval === "MONTHLY") {
+    if (!freqDay) return true;
+    return date.getUTCDate() === Number(freqDay);
+  }
+  return true;
+}
+
 function simulateTimed(
   jackpot: JackpotConfigDTO,
   wager: number,
@@ -395,6 +432,26 @@ function simulateTimed(
         : 0;
   const logTarget = rawTarget < 2 ? 2 : rawTarget;
 
+  // ── Operation safeguards (Must-Drop & Frequency).
+  const maxNumberOfWins = Number(jackpot.maxNumberOfWins) || 0;
+  const maxTotalPayout = Number(jackpot.maxTotalPayout) || 0;
+
+  // ── Happy Hour window setup (Frequency only). When absent, the gate is open.
+  const isFrequency = structuralType === "FREQUENCY";
+  const timed = jackpot.timed;
+  const contribStart = parseHHMM(timed?.contribStartTime);
+  const contribEnd = parseHHMM(timed?.contribEndTime);
+  const winStart = parseHHMM(timed?.winStartTime);
+  const winEnd = parseHHMM(timed?.winEndTime);
+  const hasContribWindow = isFrequency && contribStart != null && contribEnd != null;
+  const hasWinWindow = isFrequency && winStart != null && winEnd != null;
+
+  // ── Virtual clock: distribute the iterations evenly across the timed window.
+  const nowMs = Date.now();
+  const { start: winStartMs, end: winEndMs } = resolveTimedWindow(timed, new Date(nowMs));
+  const totalWindowMs = Math.max(1, winEndMs - winStartMs);
+  const totalMinutes = totalWindowMs / 1000 / 60;
+
   let walletContributions = 0;
   let operatorContributions = 0;
   let houseContributions = 0;
@@ -404,9 +461,25 @@ function simulateTimed(
   let rejectedByGate = 0;
   const tierCounts: Record<string, number> = {};
   const winEvents: WinEventDTO[] = [];
-  const nowIso = new Date().toISOString();
 
   for (let i = 0; i < iterations; i++) {
+    // Virtual timestamp for this spin (spread iterations across the window).
+    const spinMs =
+      iterations > 1
+        ? winStartMs + Math.floor((i / (iterations - 1)) * totalWindowMs)
+        : winStartMs;
+    const spinDate = new Date(spinMs);
+    const minuteOfDay = spinDate.getUTCHours() * 60 + spinDate.getUTCMinutes();
+
+    // ── Happy Hour contribution gate ──
+    // Outside window → zero contribution, zero win opportunity.
+    const dayMatches = matchesFreqDay(spinDate, timed?.freqInterval, timed?.freqDay);
+    const insideContribWindow =
+      !hasContribWindow ||
+      (dayMatches && withinDailyWindow(minuteOfDay, contribStart!, contribEnd!));
+
+    if (!insideContribWindow) continue;
+
     rt.poolCurrent = Math.min(rt.poolCap, rt.poolCurrent + rt.poolContribForCalc);
     walletContributions += rt.poolFromWallet;
     operatorContributions += rt.poolNotFromWallet;
@@ -420,10 +493,14 @@ function simulateTimed(
       mathContribution += rt.seedContribForCalc;
     }
 
-    const nowMs = Date.now();
-    const { start, end } = resolveTimedWindow(jackpot.timed, new Date(nowMs));
-    const totalMinutes = (end - start) / 1000 / 60;
-    const currentMinute = (nowMs - start) / 1000 / 60;
+    // ── Happy Hour win gate ── inside contribution window but outside win window:
+    // pool still grows but no payouts can fire.
+    const insideWinWindow =
+      !hasWinWindow ||
+      (dayMatches && withinDailyWindow(minuteOfDay, winStart!, winEnd!));
+    if (!insideWinWindow) continue;
+
+    const currentMinute = (spinMs - winStartMs) / 1000 / 60;
     const rawPct = totalMinutes > 0 ? currentMinute / totalMinutes : 1;
     const percentageIntoGame = roundHalfEven(Math.min(Math.max(rawPct, 0), 1), 2);
 
@@ -431,7 +508,6 @@ function simulateTimed(
 
     let maximumHitChance: number;
     if (triggerOdds > 0) {
-      // Fixed-odds baseline; the time-decay still scales on top.
       maximumHitChance = fixedOddsHitChance(triggerOdds, mathContribution);
     } else {
       const currentAmount = Math.max(1, rt.poolCurrent);
@@ -466,9 +542,18 @@ function simulateTimed(
     tierCounts[tier] = (tierCounts[tier] ?? 0) + 1;
 
     if (winEvents.length < MAX_WIN_EVENTS_RETAINED) {
-      winEvents.push({ iteration: i + 1, amount: winAmount, poolBeforeWin, timestamp: nowIso });
+      winEvents.push({
+        iteration: i + 1,
+        amount: winAmount,
+        poolBeforeWin,
+        timestamp: spinDate.toISOString(),
+      });
     }
     reseedAfterWin(rt, winAmount, hasFixedOrMaxOverride);
+
+    // ── Operation safeguards: halt once caps hit.
+    if (maxNumberOfWins > 0 && winCounter >= maxNumberOfWins) break;
+    if (maxTotalPayout > 0 && winAmountCounter >= maxTotalPayout) break;
   }
 
   const totalWagered = wager * iterations;
@@ -497,6 +582,7 @@ function simulateTimed(
     houseRatio,
   };
 }
+
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Phase 3 — relational group fan-out simulator.
