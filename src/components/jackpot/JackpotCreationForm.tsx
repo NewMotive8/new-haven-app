@@ -643,6 +643,9 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       triggerOdds,
       previewWager,
       eligibility: buildEligibility(),
+      assignedCategories,
+      assignedGameIds,
+
     };
   }
 
