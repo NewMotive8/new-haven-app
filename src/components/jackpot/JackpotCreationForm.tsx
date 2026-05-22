@@ -622,7 +622,9 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       name: name.trim(),
       description: description.trim(),
       type: selectedType,
-      payoutModel: isClassic ? ('maximum' as PayoutModel) : payoutModel,
+      // Must-Drop is structurally a Maximum-Win mechanic — force the payout model.
+      payoutModel: (isClassic || isMustDrop) ? ('maximum' as PayoutModel) : payoutModel,
+
       contributionType,
       seedContributionType,
       volatility: volatility[0],
