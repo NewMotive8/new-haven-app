@@ -1,61 +1,101 @@
-# Parent-Governed Split Funding Model
+# Game Assignment Step — Plan
 
-Move funding rules from individual child jackpots up to the Multi-Jackpot **group**, and have each child store only its proportional share of the parent's master contribution.
+Add a self-contained Game Assignment step to both jackpot creation flows. The UI works against a fixed master-category list and a clean internal `games` table — no operator-specific logic.
 
-## 1. Database
+## 1. Database — `games` table
 
-Migration on `public.jackpot_groups`:
-- `contribution_source text NOT NULL DEFAULT 'player'` — `'player' | 'operator'`
-- `contribution_type   text NOT NULL DEFAULT 'percentage'` — `'percentage' | 'fixed'`
-- `master_contribution_value double precision NOT NULL DEFAULT 0` — fraction (e.g. `0.01` = 1%) when type=percentage, currency units when type=fixed
-- CHECK constraints on the two enums and `>= 0` on the value
-- `overlapping_rule` is retained but defaulted/locked to `'split'` (parent-governed split is the only supported model)
+New migration creating `public.games`:
 
-Migration on `public.jackpots`:
-- `split_share numeric(7,4) NOT NULL DEFAULT 0` — percentage 0–100 with up to 4 decimals
-- `contribution_percentage` stays as the **derived** absolute rate the transaction engine reads (unchanged hot path)
-- Backfill: for existing grouped children, set `split_share = 100 / siblings_count` and recompute `contribution_percentage` from current parent values (or 0 / leave as-is for ungrouped rows)
+| Column            | Type                           | Notes                                            |
+| ----------------- | ------------------------------ | ------------------------------------------------ |
+| `id`              | `bigint` identity PK           |                                                  |
+| `name`            | `text` not null                | Search target (trigram index)                    |
+| `master_category` | `text` not null, CHECK in enum | Slots / Table Games / Live Casino / Crash / Sports |
+| `provider`        | `text` not null                |                                                  |
+| `operator_game_id`| `text` not null                | Stable external identifier                       |
+| `enabled`         | `boolean` default true         |                                                  |
+| `created_at`/`updated_at` | `timestamptz`          | Standard                                         |
 
-The existing `jackpot_groups_guard` / `jackpots_group_guard` triggers already lock fields while parent is `active` — the new columns inherit that lock automatically.
+- Unique index on `(provider, operator_game_id)`.
+- `pg_trgm` extension + GIN index on `lower(name)` for fast `ILIKE` search.
+- RLS: enabled, admins-only via `has_role(auth.uid(),'admin')` (read + manage).
+- Seed ~25 sample rows across all 5 categories so the picker works out of the box.
 
-## 2. Backend (`src/lib/jackpot/store.server.ts` + routes)
+Jackpot payload storage (`jackpots` and `jackpot_groups`):
+- Add `assigned_categories text[] not null default '{}'`
+- Add `assigned_game_ids  bigint[] not null default '{}'`
+- CHECK: every entry of `assigned_categories` must be in the master enum.
 
-- Extend `JackpotGroupDTO` with `contributionSource`, `contributionType`, `masterContributionValue`; extend child DTO with `splitShare`.
-- `createGroup` / `updateGroupProfile`: accept and persist the three new master fields.
-- `addChildJackpot` / `updateChild`: accept `splitShare`, derive `contributionRate = masterValue * splitShare / 100` (works for both `percentage` and `fixed` storage — engine already treats the column as its absolute per-spin amount), write both `split_share` and `contribution_percentage` atomically.
-- When a group's master settings change in `updateGroupProfile`, recompute and update every child's `contribution_percentage` in the same transaction.
-- Zod schemas updated in:
-  - `routes/api/v1/jackpot-groups/index.ts` (POST create)
-  - `routes/api/v1/jackpot-groups/$id.ts` (PATCH group)
-  - `routes/api/v1/jackpot-groups/$id/children.ts` (POST attach — replace `contributionRate` with `splitShare`, server derives the rate)
-- Server-side validation: reject group activation (`/status.ts`) unless the sum of child `splitShare` values equals `100.00` (±0.01 tolerance).
+## 2. Master Categories — hardcoded constant
 
-## 3. Wizard (`src/components/jackpot/MultiJackpotWizard.tsx`)
+New module `src/lib/jackpot/master-categories.ts`:
 
-- **Step 1 — Master Strategy:** replace the Overlapping Rule cards with three controls:
-  - Contribution Source (select: Player / Operator)
-  - Contribution Type (select: Percentage of Wager / Fixed Amount)
-  - Master Contribution Value (numeric input; `%` suffix when percentage, currency suffix when fixed)
-- **Step 2 — Tier Stack:** remove per-tier contribution-rate input from `DraftTierCard`; replace with **Group Split Share (%)** input (0–100, 2 decimals). Live-display the derived absolute rate (`masterValue × share/100`) underneath so operators see the actual engine value.
-  - Sum bar at top of the tier list showing `Σ shares = X.XX% / 100.00%` with red/green state.
-  - "Continue" / "Save Tier" disabled unless sum equals exactly 100.00 (with 0.01 tolerance).
-- **Step 3 — Launch Gate:** total exposure calc rewritten to use parent `masterValue` × Σ shares; show parent funding block (source / type / value) and per-tier share + derived rate side-by-side.
-- Submission flow:
-  1. `POST /api/v1/jackpot-groups` with master funding fields
-  2. For each tier: `POST /api/v1/jackpots` (name only — contribution comes from derivation)
-  3. `POST /api/v1/jackpot-groups/$id/children` with `{ jackpotId, tierRank, triggerProbability, splitShare, name }`
+```ts
+export const MASTER_CATEGORIES = [
+  "Slots", "Table Games", "Live Casino", "Crash Games", "Sports",
+] as const;
+export type MasterCategory = (typeof MASTER_CATEGORIES)[number];
+```
 
-## 4. Backoffice (`src/routes/admin.jackpot-groups.$id.tsx` + `index.tsx`)
+Used by the UI for the toggle row, and by the server validator to reject anything not in the set. Not loaded from the DB.
 
-- Detail page parent summary: new "Funding" card showing Source, Type, Master Value, and Σ shares health indicator. Inputs editable only when `status !== 'active'` (existing `<fieldset disabled>` wrapper).
-- Children table: add **Split Share (%)** column and **Derived Rate** column next to Name and Probability. Inline edits update `splitShare`; server re-derives `contributionRate`.
-- Group list page (`admin.jackpot-groups.index.tsx`): show Source + Master Value chip in each row.
+## 3. Server function — game search
 
-## 5. Out of scope
+`src/lib/games.functions.ts`:
 
-- No changes to the runtime transaction engine, simulator, or ledger — they keep reading the already-derived `contribution_percentage`.
-- `overlapping_rule` column stays in the DB for backward compatibility but is hidden from the UI and forced to `'split'`.
+- `searchGames` — `createServerFn({ method: "GET" })` + `requireSupabaseAuth`, input `{ q: string (≤80), categories?: MasterCategory[], limit?: 1..25 }`, returns `[{ id, name, master_category, provider, operator_game_id }]`. Implementation: `select … from games where enabled and name ilike '%' || q || '%' [and master_category = any(categories)] order by name limit N`.
+- `listGamesByIds` — same shape but `where id = any(ids)` — used to hydrate already-selected games on edit.
 
-## Migration ordering note
+Both use the user-scoped supabase client (RLS-respecting).
 
-The DB migration must land first (separate approval step). Then store + routes + wizard + detail page ship together in one code pass so types stay consistent.
+## 4. UI — `<GameAssignmentStep />`
+
+New component `src/components/jackpot/GameAssignmentStep.tsx`. Pure presentational; takes `{ value, onChange, disabled }` where value is:
+
+```ts
+{ assignedCategories: MasterCategory[]; assignedGameIds: number[] }
+```
+
+Layout:
+
+```text
++--------------------------------------------------------+
+| Master Categories                                       |
+|  [ Slots ] [ Table Games ] [ Live Casino ]              |
+|  [ Crash Games ] [ Sports ]      (multi-select toggles) |
++--------------------------------------------------------+
+| Specific Games (optional)                               |
+|  [ search games by name...        ]  debounced 250ms    |
+|    > Book of Ra        | Slots | NetEnt                 |
+|    > Mega Moolah       | Slots | Microgaming            |
+|                                                         |
+|  Selected (3):  [Book of Ra ×] [Mega Moolah ×] [...]    |
++--------------------------------------------------------+
+```
+
+Behaviour:
+- Category toggles read from `MASTER_CATEGORIES`.
+- Search uses `useQuery({ queryKey: ['games-search', q, cats], queryFn: () => searchGames(...) })` with `enabled: q.length >= 2`. Results render in a shadcn `Command` popover; clicking adds the id to `assignedGameIds` (de-duped). Already-selected rows show a checkmark.
+- Selected chips hydrate via `listGamesByIds` once on mount.
+- `disabled` prop hides the toggles/inputs behind the same read-only treatment used elsewhere when the parent is active.
+- Emits only category strings + internal game IDs. No provider / operator-game-id leaves the component.
+
+## 5. Wire into both flows
+
+**Single jackpot** (`JackpotCreationForm.tsx` → `admin.jackpots.new.tsx`):
+- Add a new section "Game Assignment" between the existing config and submit area.
+- Extend form state with `assignedCategories` / `assignedGameIds`; include them in the create/update payload sent to `POST /api/v1/jackpots`.
+
+**Multi-jackpot wizard** (`MultiJackpotWizard.tsx`):
+- Add the step at the group level (Step 1 — Campaign Strategy) so all tiers inherit it, matching the existing parent-governed funding pattern.
+- Persist via `POST/PATCH /api/v1/jackpot-groups` payload.
+
+## 6. Backend payload plumbing
+
+- Extend Zod input schemas in `src/routes/api/v1/jackpots/*` and `src/routes/api/v1/jackpot-groups/*` with the two new fields (categories validated against `MASTER_CATEGORIES`, game IDs as `z.array(z.number().int().positive()).max(500)`).
+- Extend `store.server.ts` DTOs + insert/update SQL so the columns round-trip.
+- No changes to the transaction engine, ledger, or simulator — those are out of scope for this step.
+
+## Out of scope (explicit)
+
+- CSV bulk upload, player segmentation, category-lock UI, transaction-engine eligibility checks. Those are separate follow-ups; this step only delivers the picker + storage.
