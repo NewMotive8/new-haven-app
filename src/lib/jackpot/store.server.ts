@@ -175,7 +175,10 @@ export async function createJackpot(
     contribution_percentage: Number(dto.contributionRate ?? 0.01),
     volatility: Number(dto.volatility ?? 5),
     trigger_condition: triggerCondition,
+    assigned_categories: dto.assignedCategories ?? [],
+    assigned_game_ids: dto.assignedGameIds ?? [],
   };
+
   const { data: jp, error } = await supabaseAdmin
     .from("jackpots")
     .insert(insertRow)
