@@ -575,13 +575,13 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
   const [continueError, setContinueError] = useState<string | null>(null);
 
-  // ── Game Assignment ────────────────────────────────────────────────
-  const [assignedCategories, setAssignedCategories] = useState<string[]>(
-    (initial?.assignedCategories as string[] | undefined) ?? [],
+  // ── Inclusions: bulk-uploaded allow-list of player IDs (CSV)
+  const [includedPlayerIds, setIncludedPlayerIds] = useState<string[]>(
+    initial?.eligibility?.players?.includedPlayerIds ?? [],
   );
-  const [assignedGameIds, setAssignedGameIds] = useState<number[]>(
-    (initial?.assignedGameIds as number[] | undefined) ?? [],
-  );
+
+
+
 
 
   function buildPayload(): JackpotSavePayload {
