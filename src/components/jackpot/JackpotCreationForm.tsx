@@ -2465,31 +2465,35 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                         <div></div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <BrightLabel htmlFor="min-wager-must-drop">Minimum Wager Amount</BrightLabel>
-                          <CurrencyInput
-                            id="min-wager-must-drop"
-                            type="number"
-                            placeholder="0"
-                            className="bg-neutral-800 border-neutral-700"
-                          />
-                        </div>
-                        <div></div>
-                      </div>
+                      {contributionType === 'percentage' && (
+                        <>
+                          <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                              <BrightLabel htmlFor="min-wager-must-drop">Minimum Wager Amount</BrightLabel>
+                              <CurrencyInput
+                                id="min-wager-must-drop"
+                                type="number"
+                                placeholder="0"
+                                className="bg-neutral-800 border-neutral-700"
+                              />
+                            </div>
+                            <div></div>
+                          </div>
 
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <BrightLabel htmlFor="max-wager-must-drop">Maximum Wager Amount</BrightLabel>
-                          <CurrencyInput
-                            id="max-wager-must-drop"
-                            type="number"
-                            placeholder="0"
-                            className="bg-neutral-800 border-neutral-700"
-                          />
-                        </div>
-                        <div></div>
-                      </div>
+                          <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                              <BrightLabel htmlFor="max-wager-must-drop">Maximum Wager Amount</BrightLabel>
+                              <CurrencyInput
+                                id="max-wager-must-drop"
+                                type="number"
+                                placeholder="0"
+                                className="bg-neutral-800 border-neutral-700"
+                              />
+                            </div>
+                            <div></div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </Card>
                 </div>
