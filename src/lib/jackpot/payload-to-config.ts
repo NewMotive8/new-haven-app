@@ -2,7 +2,6 @@ import type {
   JackpotConfigDTO,
   JackpotStructuralType,
   JackpotWinType,
-  TierDTO,
 } from "./types";
 import type { JackpotSavePayload } from "@/components/jackpot/JackpotCreationForm";
 
