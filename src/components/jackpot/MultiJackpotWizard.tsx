@@ -174,26 +174,29 @@ export function MultiJackpotWizard() {
   /* ───────────────── Step 2 ───────────────── */
   async function saveDraft() {
     if (!group || !draft) return;
-    if (draft.jackpotId == null) return toast.error("Select a jackpot to attach");
+    const tierName = draft.tierName.trim();
+    if (!tierName) return toast.error("Tier Name is required");
     const tierRank = Math.max(0, Math.trunc(Number(draft.tierRank) || 0));
     const probability = denominatorToProbability(draft.triggerDenominator);
     const contributionRate = Number(
       (Number.parseFloat(draft.contributionRate) || 0).toFixed(8),
     );
     const seedAmount = Number.parseFloat(draft.seedAmount) || 0;
-    const body: Record<string, unknown> = {
-      jackpotId: draft.jackpotId,
-      tierRank,
-      triggerProbability: Number(probability.toFixed(8)),
-      contributionRate,
-      seedAmount,
-    };
-    if (draft.tierName.trim()) body.name = draft.tierName.trim();
+    const triggerProbability = Number(probability.toFixed(8));
+
     setSubmitting(true);
     try {
-      const res = await axios.post(
-        `/api/v1/jackpot-groups/${group.id}/children`,
-        body,
+      // 1) Create the standalone jackpot row inline.
+      const createRes = await axios.post<JackpotDTO>(
+        "/api/v1/jackpots",
+        {
+          name: tierName,
+          enabled: true,
+          contributionRate,
+          seedAmount,
+          poolBalance: seedAmount,
+          triggerThreshold: seedAmount * 2,
+        },
         {
           headers: {
             brandId: String(brandId),
@@ -201,34 +204,56 @@ export function MultiJackpotWizard() {
           },
         },
       );
-      const attached = (res.data ?? {}) as Partial<JackpotDTO>;
-      if (typeof attached.id !== "number") {
-        toast.error("Server returned an unexpected response while attaching the tier");
+      const created = (createRes.data ?? {}) as Partial<JackpotDTO>;
+      if (typeof created.id !== "number") {
+        toast.error("Server did not return a jackpot id while creating the tier");
         return;
       }
-      const jackpotName = attached.name ?? "Attached jackpot";
+      const newJackpotId = created.id;
+
+      // 2) Attach it to the parent MultiJackpot group.
+      const attachRes = await axios.post(
+        `/api/v1/jackpot-groups/${group.id}/children`,
+        {
+          jackpotId: newJackpotId,
+          tierRank,
+          triggerProbability,
+          contributionRate,
+          name: tierName,
+        },
+        {
+          headers: {
+            brandId: String(brandId),
+            "Content-Type": "application/json",
+          },
+        },
+      );
+      const attached = (attachRes.data ?? {}) as Partial<JackpotDTO>;
+      const jackpotName = attached.name ?? created.name ?? tierName;
+
       setSavedChildren((prev) => [
         ...prev,
         {
-          jackpotId: attached.id as number,
+          jackpotId: newJackpotId,
           tierRank,
           jackpotName,
-          tierName: draft.tierName.trim() || jackpotName,
+          tierName,
           probability,
           contributionRate,
           seedAmount,
         },
       ]);
       setDraft(null);
-      toast.success(`Attached ${jackpotName} at tier ${tierRank}`);
+      toast.success(`Created tier "${tierName}" at rank ${tierRank}`);
     } catch (err: any) {
       toast.error(
-        err?.response?.data?.error ?? err?.message ?? "Failed to attach child tier",
+        err?.response?.data?.error ?? err?.message ?? "Failed to create child tier",
       );
     } finally {
       setSubmitting(false);
     }
   }
+
 
   /* ───────────────── Step 3 ───────────────── */
   async function handleActivate() {
