@@ -4500,12 +4500,15 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
 
         {/* ── Engine Configuration: Multi-Level tiers + Timed lifespan ─────────── */}
-        {(selectedType === 'multi_level' || selectedType === 'must_drop' || selectedType === 'frequency') && (
+        {/* ── Engine Configuration: Multi-Level tiers + Frequency timed lifespan.
+            Must-Drop hides this entirely — its lifespan/period are derived from
+            the operator-friendly Recurrence selection above. */}
+        {(selectedType === 'multi_level' || selectedType === 'frequency') && (
           <section className="mt-10 scroll-mt-20">
             <h2 className="text-xl font-semibold mb-2">Engine Configuration</h2>
             <p className="text-sm text-neutral-400 mb-6">
               These fields drive the simulator engine directly for{' '}
-              {selectedType === 'multi_level' ? 'Multi-Level tier cascading' : 'time-decayed (Must-Drop / Frequency) hit logic'}.
+              {selectedType === 'multi_level' ? 'Multi-Level tier cascading' : 'time-decayed Frequency hit logic'}.
             </p>
 
             {selectedType === 'multi_level' && (
