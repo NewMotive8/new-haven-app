@@ -5081,7 +5081,6 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
 
 
-        </section>
 
         {/* Continue bar — bottom-right, navigates to /backoffice/simulator */}
 
