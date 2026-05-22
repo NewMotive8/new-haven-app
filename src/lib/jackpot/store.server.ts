@@ -487,7 +487,7 @@ export async function getGroup(
 
   const { data: childRows, error: cErr } = await supabaseAdmin
     .from("jackpots")
-    .select(`${SELECT}, group_id, tier_rank, trigger_probability`)
+    .select(`${SELECT}, group_id, tier_rank, trigger_probability, split_share`)
     .eq("group_id", id)
     .order("tier_rank", { ascending: true });
   if (cErr) throw new Error(cErr.message);
@@ -497,11 +497,13 @@ export async function getGroup(
       group_id: number | null;
       tier_rank: number | null;
       trigger_probability: number | null;
+      split_share: number | null;
     }
   >).map((row) => ({
     ...rowToDTO(row),
     tierRank: Number(row.tier_rank ?? 0),
     triggerProbability: Number(row.trigger_probability ?? 0),
+    splitShare: Number(row.split_share ?? 0),
   }));
 
   return { ...group, children };
