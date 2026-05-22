@@ -167,6 +167,40 @@ function JackpotGroupDetailPage() {
     }
   }
 
+  async function handleClone() {
+    setBusy(true);
+    try {
+      const res = await axios.post(
+        `/api/v1/jackpot-groups/${id}/clone`,
+        {},
+        { headers: { brandId: String(brandId) } },
+      );
+      toast.success("MultiJackpot cloned");
+      const newId = (res.data as { id: number }).id;
+      navigate({ to: "/admin/jackpot-groups/$id", params: { id: String(newId) } });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error ?? err?.message ?? "Clone failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDelete() {
+    setBusy(true);
+    try {
+      await axios.delete(`/api/v1/jackpot-groups/${id}`, {
+        headers: { brandId: String(brandId) },
+      });
+      toast.success("MultiJackpot deleted");
+      await queryClient.invalidateQueries(["jackpot-groups"]);
+      navigate({ to: "/admin/jackpot-groups" });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error ?? err?.message ?? "Delete failed");
+      setBusy(false);
+      setConfirmDelete(false);
+    }
+  }
+
   if (query.isLoading) {
     return (
       <div className="min-h-screen bg-neutral-950 text-white p-10">Loading…</div>
