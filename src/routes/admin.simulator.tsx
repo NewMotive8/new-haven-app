@@ -545,6 +545,8 @@ function ResultsSummary({
           iterations={result.iterations}
           wins={result.winCounter || 0}
           rejectedByGate={result.rejectedByGate ?? 0}
+          triggerOdds={getTriggerOdds(config, "jackpot")}
+          targetCap={getTargetCap(config, "jackpot")}
         />
       ) : (
         <div style={{ display: "grid", gap: 8 }}>
@@ -558,6 +560,8 @@ function ResultsSummary({
                 iterations={result.iterations}
                 wins={t.winCounter || 0}
                 rejectedByGate={t.rejectedByGate ?? 0}
+                triggerOdds={getTriggerOdds(config, { tier: tierConfig })}
+                targetCap={getTargetCap(config, { tier: tierConfig })}
               />
             );
           })}
