@@ -8,6 +8,21 @@ import type { JackpotSavePayload } from "@/components/jackpot/JackpotCreationFor
 import { mapPayloadToConfig } from "@/lib/jackpot/payload-to-config";
 import { buildCreateBody } from "@/lib/jackpot/build-create-body";
 import { BlueprintCenter } from "@/components/jackpot/BlueprintCenter";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RTooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+  BarChart,
+  Bar,
+} from "recharts";
 
 const DEFAULT_CONFIG: JackpotConfigDTO = {
   id: 1,
@@ -493,6 +508,9 @@ function ResultsSummary({
         </div>
       )}
 
+      {/* 2b. Visual analytics */}
+      <SimulatorCharts result={result} />
+
       {/* 3. Math Audit */}
       {!isMultiLevel ? (
         <MathAudit
@@ -706,6 +724,180 @@ function MathAudit({
     </div>
   );
 }
+
+// ----- Visual analytics: cumulative wins + payout distribution -----
+const CHART_COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#06b6d4", "#a855f7"];
+
+function SimulatorCharts({ result }: { result: SimulatorResponseDTO }) {
+  const events = result.winEvents ?? [];
+  const tiers = result.tierResults ?? [];
+
+  // Cumulative wins over iterations — downsample to ~60 points
+  const cumulative = React.useMemo(() => {
+    if (!events.length) return [];
+    const sorted = [...events].sort((a, b) => a.iteration - b.iteration);
+    const total = result.iterations || sorted[sorted.length - 1].iteration;
+    const buckets = 60;
+    const step = Math.max(1, Math.floor(total / buckets));
+    const points: { iteration: number; wins: number; payout: number }[] = [];
+    let wins = 0;
+    let payout = 0;
+    let next = step;
+    let idx = 0;
+    for (let i = step; i <= total; i += step) {
+      while (idx < sorted.length && sorted[idx].iteration <= i) {
+        wins++;
+        payout += sorted[idx].amount || 0;
+        idx++;
+      }
+      points.push({ iteration: i, wins, payout: Math.round(payout) });
+      next = i + step;
+    }
+    return points;
+  }, [events, result.iterations]);
+
+  // Win range distribution (binned by payout amount) — for single jackpot
+  const rangeData = React.useMemo(() => {
+    if (!events.length) return [];
+    const amounts = events.map((e) => e.amount).filter((a) => a > 0);
+    if (!amounts.length) return [];
+    const min = Math.min(...amounts);
+    const max = Math.max(...amounts);
+    if (min === max) return [{ name: `€${fmt(min)}`, value: amounts.length }];
+    const binCount = 5;
+    const step = (max - min) / binCount;
+    const bins = Array.from({ length: binCount }, (_, i) => ({
+      name: `€${fmt(min + i * step, 0)}–${fmt(min + (i + 1) * step, 0)}`,
+      value: 0,
+    }));
+    for (const a of amounts) {
+      const idx = Math.min(binCount - 1, Math.floor((a - min) / step));
+      bins[idx].value++;
+    }
+    return bins.filter((b) => b.value > 0);
+  }, [events]);
+
+  // Per-tier payout breakdown — for multi-level
+  const tierData = React.useMemo(
+    () =>
+      tiers.map((t) => ({
+        name: t.label || `Tier ${t.tier}`,
+        drops: t.winCounter || 0,
+        payout: Math.round(t.winAmountCounter || 0),
+      })),
+    [tiers],
+  );
+
+  if (!cumulative.length && !rangeData.length && !tierData.length) return null;
+
+  const distribution = tierData.length
+    ? tierData.map((t) => ({ name: t.name, value: t.payout }))
+    : rangeData;
+
+  const axisColor = "#9fb0c8";
+  const gridColor = "rgba(159, 176, 200, 0.12)";
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)", gap: 12 }}>
+      <div style={panel}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "#f8fafc" }}>Win Distribution Over Time</div>
+        <div style={{ fontSize: 12, color: "#9fb0c8", marginTop: 2, marginBottom: 12 }}>
+          Cumulative wins throughout simulation
+        </div>
+        <div style={{ width: "100%", height: 280 }}>
+          <ResponsiveContainer>
+            <AreaChart data={cumulative} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="winsGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#6366f1" stopOpacity={0.6} />
+                  <stop offset="100%" stopColor="#6366f1" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke={gridColor} strokeDasharray="3 3" vertical={false} />
+              <XAxis
+                dataKey="iteration"
+                stroke={axisColor}
+                fontSize={11}
+                tickFormatter={(v) => (v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v))}
+              />
+              <YAxis
+                stroke={axisColor}
+                fontSize={11}
+                tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v))}
+              />
+              <RTooltip
+                contentStyle={{ background: "#0b1426", border: "1px solid #1f2a44", borderRadius: 8, color: "#e6edf3" }}
+                labelFormatter={(v) => `Iteration: ${Number(v).toLocaleString()}`}
+                formatter={(v: any) => [Number(v).toLocaleString(), "Wins"]}
+              />
+              <Area type="monotone" dataKey="wins" stroke="#818cf8" strokeWidth={2} fill="url(#winsGrad)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div style={panel}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "#f8fafc" }}>
+          {tierData.length ? "Payout by Tier" : "Win Range Distribution"}
+        </div>
+        <div style={{ fontSize: 12, color: "#9fb0c8", marginTop: 2, marginBottom: 12 }}>
+          {tierData.length ? "Total payout per tier" : "Breakdown by payout amount"}
+        </div>
+        <div style={{ width: "100%", height: 280 }}>
+          <ResponsiveContainer>
+            <PieChart>
+              <Pie
+                data={distribution}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={60}
+                outerRadius={95}
+                paddingAngle={2}
+                stroke="#0b1426"
+                strokeWidth={2}
+              >
+                {distribution.map((_, i) => (
+                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                ))}
+              </Pie>
+              <RTooltip
+                contentStyle={{ background: "#0b1426", border: "1px solid #1f2a44", borderRadius: 8, color: "#e6edf3" }}
+                formatter={(v: any, n: any) => [Number(v).toLocaleString(), n]}
+              />
+              <Legend
+                verticalAlign="bottom"
+                iconType="circle"
+                wrapperStyle={{ fontSize: 11, color: "#cbd5e1" }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {tierData.length > 0 && (
+        <div style={{ ...panel, gridColumn: "1 / -1" }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "#f8fafc", marginBottom: 12 }}>Drops per Tier</div>
+          <div style={{ width: "100%", height: 240 }}>
+            <ResponsiveContainer>
+              <BarChart data={tierData} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                <CartesianGrid stroke={gridColor} strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" stroke={axisColor} fontSize={11} />
+                <YAxis stroke={axisColor} fontSize={11} />
+                <RTooltip
+                  contentStyle={{ background: "#0b1426", border: "1px solid #1f2a44", borderRadius: 8, color: "#e6edf3" }}
+                  formatter={(v: any) => Number(v).toLocaleString()}
+                />
+                <Bar dataKey="drops" fill="#10b981" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 
 export const Route = createFileRoute("/admin/simulator")({
   ssr: false,
