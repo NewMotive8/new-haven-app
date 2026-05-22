@@ -417,6 +417,31 @@ function configuredProbability(
   return 0;
 }
 
+/** Returns 0 when no fixed-odds override is configured (curve/must-drop model). */
+function getTriggerOdds(config: JackpotConfigDTO | null, scope: "jackpot" | { tier: any }): number {
+  if (!config) return 0;
+  if (scope === "jackpot") return Number(config.triggerOdds) || 0;
+  return Number(scope.tier?.triggerOdds) || 0;
+}
+
+/** Target cap drives the curve engine's hit chance — used as the curve-mode label. */
+function getTargetCap(config: JackpotConfigDTO | null, scope: "jackpot" | { tier: any }): number {
+  if (!config) return 0;
+  if (scope === "jackpot") {
+    return Number(
+      config.pool?.targetAmount ??
+        (config as any).pool?.maximumAmount ??
+        config.maximumWinAmount ??
+        config.fixedWinAmount ??
+        0,
+    );
+  }
+  const t = scope.tier;
+  return Number(
+    t?.pool?.targetAmount ?? t?.pool?.maximumAmount ?? t?.maximumWinAmount ?? 0,
+  );
+}
+
 function ResultsSummary({
   result,
   config,
