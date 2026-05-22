@@ -33,6 +33,12 @@ const ACTIVE: CardDef[] = [
     to: "/admin/simulator",
     icon: <FaPlay size={22} />,
   },
+  {
+    title: "Sand Box",
+    description: "Interactive demo and batch spin sandbox.",
+    to: "/sandbox-demo",
+    icon: <FaBolt size={22} />,
+  },
 ];
 
 const COMING_SOON: CardDef[] = [
