@@ -346,6 +346,15 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
   const [name, setName] = useState(initial?.name ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
 
+  // Prize Economy & Wallet Type — drives currency selector + amountScale.
+  const [prizeEconomy, setPrizeEconomy] = useState<PrizeEconomyValue>(
+    normalizePrizeEconomy({
+      walletType: initial?.walletType,
+      currencyId: initial?.currencyId ?? null,
+      amountScale: initial?.amountScale,
+    }) || DEFAULT_PRIZE_ECONOMY,
+  );
+
   // Form state
   const [payoutModel, setPayoutModel] = useState<PayoutModel>(initial?.payoutModel ?? 'maximum');
   const [contributionType, setContributionType] = useState<ContributionType>(initial?.contributionType ?? 'fixed');
