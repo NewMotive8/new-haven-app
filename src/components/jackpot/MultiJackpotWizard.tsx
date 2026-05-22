@@ -90,10 +90,10 @@ interface ChildDraft {
   uid: string;
   tierName: string;
   tierRank: string;
-  // Tier type — drives which trigger fields are visible.
   tierType: TierType;
   // Allocation & Fuel
-  seedAmount: string;       // Initial Pool Amount
+  initialPoolAmount: string;   // Starting pool value
+  seedAmount: string;          // Initial Seed Amount (operator floor)
   reseedingAmount: string;
   splitShare: string;
   // Per-tier contribution weight grid (Pool / Seed / House — sum = 100)
@@ -115,12 +115,13 @@ interface ChildDraft {
   winEndTime: string;
   cloneContribToWin: boolean;
   // Per-tier extras
-  volatility: number;        // 1..10
-  maxWinAmount: string;      // hard payout cap
-  fixedWinAmount: string;    // locked prize value
+  volatility: number;
+  maxWinAmount: string;
+  fixedWinAmount: string;
   // Tier Safeguards
   maxNumberOfWins: string;
   maxTotalPayout: string;
+  maxPoolAmount: string;
 }
 
 interface SavedChild {
