@@ -1,14 +1,24 @@
-import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
 import * as React from "react";
 import axios from "axios";
 import { useQuery, useQueryClient } from "react-query";
 import { toast } from "react-toastify";
-import { AlertTriangle, ArrowLeft, Layers, Coins } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Layers, Coins, Copy, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { BrandContext } from "@/backoffice/app";
 import {
   denominatorToProbability,
