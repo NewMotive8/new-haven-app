@@ -1301,6 +1301,94 @@ function DraftTierCard({
         </div>
       </section>
 
+      {/* ── Group B2 — Contribution Weight (Pool / Seed / House) ─────── */}
+      <section className="space-y-3">
+        <SectionHeading>Contribution weight</SectionHeading>
+        {(() => {
+          const weightSum =
+            (Number(draft.poolWeight) || 0) +
+            (Number(draft.seedWeight) || 0) +
+            (Number(draft.houseWeight) || 0);
+          const sumOk = Math.abs(weightSum - 100) < 0.01;
+          const clampPct = (v: string) => {
+            const n = Number.parseFloat(v);
+            if (Number.isNaN(n)) return 0;
+            return Math.max(0, Math.min(100, n));
+          };
+          const applyPreset = (p: number, s: number, h: number) =>
+            onChange({ poolWeight: p, seedWeight: s, houseWeight: h });
+          const fields: Array<{
+            key: "poolWeight" | "seedWeight" | "houseWeight";
+            label: string;
+            hint: string;
+          }> = [
+            { key: "poolWeight", label: "Pool %", hint: "Feeds the live prize pool." },
+            { key: "seedWeight", label: "Seed %", hint: "Refills the seed / reseed floor." },
+            { key: "houseWeight", label: "House %", hint: "Operator margin retained." },
+          ];
+          return (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {fields.map((f) => (
+                  <div key={f.key} className="space-y-2">
+                    <Label className="text-neutral-300">{f.label}</Label>
+                    <div className="relative">
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        value={String(draft[f.key])}
+                        onChange={(e) =>
+                          onChange({ [f.key]: clampPct(e.target.value) } as Partial<ChildDraftForm>)
+                        }
+                        className={`bg-neutral-800 border-neutral-700 text-white font-mono h-10 pr-8 ${
+                          !sumOk ? "border-red-500/60" : ""
+                        }`}
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">
+                        %
+                      </span>
+                    </div>
+                    <div className="text-xs text-neutral-500">{f.hint}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div
+                  className={`text-xs font-mono ${
+                    sumOk ? "text-emerald-400" : "text-red-400"
+                  }`}
+                >
+                  Total: {weightSum.toFixed(2)}% {sumOk ? "✓" : "(must equal 100%)"}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-neutral-500">Presets:</span>
+                  {[
+                    [60, 30, 10],
+                    [70, 20, 10],
+                    [100, 0, 0],
+                  ].map(([p, s, h]) => (
+                    <button
+                      key={`${p}-${s}-${h}`}
+                      type="button"
+                      onClick={() => applyPreset(p, s, h)}
+                      className="text-xs px-2 py-1 rounded bg-neutral-800 border border-neutral-700 text-neutral-300 hover:bg-neutral-700 font-mono"
+                    >
+                      {p}/{s}/{h}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="text-xs text-neutral-500">
+                Pool / Seed / House must sum to 100%. Applied to this tier&apos;s slice of
+                the master contribution.
+              </div>
+            </>
+          );
+        })()}
+      </section>
+
+
+
       {/* ── Group C — Drop Style ───────────────────────────────────── */}
       <section className="space-y-3">
         <SectionHeading>Drop style</SectionHeading>
