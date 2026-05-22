@@ -125,7 +125,7 @@ export function BlueprintCenter({ host, onInjectSingle }: Props) {
             className="gap-2 bg-blue-600 text-white border-blue-600 hover:!bg-blue-600 hover:!text-white"
           >
             <Library className="h-4 w-4" />
-            Optimization Blueprints
+            Jackpot Templates
           </Button>
         </SheetTrigger>
         <SheetContent
@@ -135,7 +135,7 @@ export function BlueprintCenter({ host, onInjectSingle }: Props) {
           <SheetHeader className="space-y-1 pr-12">
             <SheetTitle className="text-white text-xl flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-indigo-300" />
-              Optimization Blueprints
+              Jackpot Templates
             </SheetTitle>
             <SheetDescription className="text-neutral-400">
               12 pre-configured, house-profitable templates. Pick by operator scale,
