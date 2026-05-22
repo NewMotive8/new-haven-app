@@ -132,8 +132,8 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
           poolWeight: num(payload.poolWeight, 60),
           seedWeight: num(payload.seedWeight, 30),
           houseWeight: num(payload.houseWeight, 10),
-          overlappingRule: payload.overlappingRule ?? "split",
         }
+
       : undefined;
   const triggerOdds = num(payload.triggerOdds, 0);
 
