@@ -1702,8 +1702,8 @@ function LaunchGate({
           value={group.contributionType === "percentage" ? "Percentage" : "Fixed"}
         />
         <SummaryStat
-          label="Source"
-          value={group.contributionSource === "operator" ? "Operator-funded" : "Player-funded"}
+          label="Source split"
+          value={`Player ${group.playerSharePct ?? (group.contributionSource === "operator" ? 0 : 100)}% · Operator ${100 - (group.playerSharePct ?? (group.contributionSource === "operator" ? 0 : 100))}%`}
         />
       </div>
 
