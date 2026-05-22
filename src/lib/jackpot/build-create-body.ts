@@ -108,5 +108,8 @@ export function buildCreateBody(payload: JackpotSavePayload) {
     volatility: payload.volatility,
     jackpotType: payload.type,
     config: buildTriggerCondition(payload),
+    assignedCategories: payload.assignedCategories ?? [],
+    assignedGameIds: payload.assignedGameIds ?? [],
   };
+
 }

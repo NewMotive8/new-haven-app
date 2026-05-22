@@ -14,6 +14,8 @@ type JackpotRow = {
   trigger_condition: any;
   created_at: string;
   updated_at: string;
+  assigned_categories?: string[] | null;
+  assigned_game_ids?: Array<number | string> | null;
   jackpot_pools: { id: number; current_balance: number }[] | null;
   jackpot_seeds: { id: number; base_seed_amount: number }[] | null;
 };
@@ -41,15 +43,20 @@ function rowToDTO(row: JackpotRow): JackpotDTO {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     config: cfg,
+    assignedCategories: Array.isArray(row.assigned_categories) ? row.assigned_categories : [],
+    assignedGameIds: Array.isArray(row.assigned_game_ids)
+      ? row.assigned_game_ids.map((x) => Number(x))
+      : [],
   };
 }
 
 const SELECT = `
   id, name, brand_id, enabled, contribution_percentage, volatility,
-  trigger_condition, created_at, updated_at,
+  trigger_condition, assigned_categories, assigned_game_ids, created_at, updated_at,
   jackpot_pools ( id, current_balance ),
   jackpot_seeds ( id, base_seed_amount )
 `;
+
 
 function brandIdNum(brandId: string): number {
   const n = Number(brandId);
@@ -168,7 +175,10 @@ export async function createJackpot(
     contribution_percentage: Number(dto.contributionRate ?? 0.01),
     volatility: Number(dto.volatility ?? 5),
     trigger_condition: triggerCondition,
+    assigned_categories: dto.assignedCategories ?? [],
+    assigned_game_ids: dto.assignedGameIds ?? [],
   };
+
   const { data: jp, error } = await supabaseAdmin
     .from("jackpots")
     .insert(insertRow)
@@ -354,10 +364,13 @@ export interface JackpotGroupDTO {
   contributionSource: ContributionSource;
   contributionType: GroupContributionType;
   masterContributionValue: number;
+  assignedCategories: string[];
+  assignedGameIds: number[];
   activatedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
 
 export interface JackpotGroupWithChildrenDTO extends JackpotGroupDTO {
   children: Array<
@@ -388,6 +401,8 @@ type GroupRow = {
   contribution_source: ContributionSource;
   contribution_type: GroupContributionType;
   master_contribution_value: number;
+  assigned_categories: string[] | null;
+  assigned_game_ids: Array<number | string> | null;
   activated_at: string | null;
   created_at: string;
   updated_at: string;
@@ -403,6 +418,10 @@ function groupRowToDTO(row: GroupRow): JackpotGroupDTO {
     contributionSource: (row.contribution_source ?? "player") as ContributionSource,
     contributionType: (row.contribution_type ?? "percentage") as GroupContributionType,
     masterContributionValue: Number(row.master_contribution_value ?? 0),
+    assignedCategories: Array.isArray(row.assigned_categories) ? row.assigned_categories : [],
+    assignedGameIds: Array.isArray(row.assigned_game_ids)
+      ? row.assigned_game_ids.map((x) => Number(x))
+      : [],
     activatedAt: row.activated_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -410,7 +429,8 @@ function groupRowToDTO(row: GroupRow): JackpotGroupDTO {
 }
 
 const GROUP_SELECT =
-  "id, brand_id, name, status, overlapping_rule, contribution_source, contribution_type, master_contribution_value, activated_at, created_at, updated_at";
+  "id, brand_id, name, status, overlapping_rule, contribution_source, contribution_type, master_contribution_value, assigned_categories, assigned_game_ids, activated_at, created_at, updated_at";
+
 
 function toBrandNum(brandId: string | number): number {
   return typeof brandId === "number" ? brandId : brandIdNum(brandId);
@@ -432,6 +452,8 @@ export interface CreateGroupInput {
   contributionSource?: ContributionSource;
   contributionType?: GroupContributionType;
   masterContributionValue?: number;
+  assignedCategories?: string[];
+  assignedGameIds?: number[];
 }
 
 export async function createGroup(
@@ -448,12 +470,15 @@ export async function createGroup(
       contribution_source: input.contributionSource ?? "player",
       contribution_type: input.contributionType ?? "percentage",
       master_contribution_value: Number(input.masterContributionValue ?? 0),
+      assigned_categories: input.assignedCategories ?? [],
+      assigned_game_ids: input.assignedGameIds ?? [],
     })
     .select(GROUP_SELECT)
     .single();
   if (error) throw new Error(error.message);
   return groupRowToDTO(data as unknown as GroupRow);
 }
+
 
 
 export async function listGroups(
@@ -757,6 +782,8 @@ export async function updateGroupProfile(
     contributionSource?: ContributionSource;
     contributionType?: GroupContributionType;
     masterContributionValue?: number;
+    assignedCategories?: string[];
+    assignedGameIds?: number[];
   },
 ): Promise<JackpotGroupDTO | undefined> {
   const id = Number(groupId);
@@ -781,6 +808,11 @@ export async function updateGroupProfile(
     update.contribution_type = patch.contributionType;
   if (patch.masterContributionValue !== undefined)
     update.master_contribution_value = Number(patch.masterContributionValue);
+  if (patch.assignedCategories !== undefined)
+    update.assigned_categories = patch.assignedCategories;
+  if (patch.assignedGameIds !== undefined)
+    update.assigned_game_ids = patch.assignedGameIds;
+
 
   if (Object.keys(update).length === 0) {
     const { data } = await supabaseAdmin

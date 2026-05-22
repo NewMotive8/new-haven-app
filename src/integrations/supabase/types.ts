@@ -14,9 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      games: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: number
+          master_category: string
+          name: string
+          operator_game_id: string
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: never
+          master_category: string
+          name: string
+          operator_game_id: string
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: never
+          master_category?: string
+          name?: string
+          operator_game_id?: string
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       jackpot_groups: {
         Row: {
           activated_at: string | null
+          assigned_categories: string[]
+          assigned_game_ids: number[]
           brand_id: number
           contribution_source: string
           contribution_type: string
@@ -30,6 +65,8 @@ export type Database = {
         }
         Insert: {
           activated_at?: string | null
+          assigned_categories?: string[]
+          assigned_game_ids?: number[]
           brand_id: number
           contribution_source?: string
           contribution_type?: string
@@ -43,6 +80,8 @@ export type Database = {
         }
         Update: {
           activated_at?: string | null
+          assigned_categories?: string[]
+          assigned_game_ids?: number[]
           brand_id?: number
           contribution_source?: string
           contribution_type?: string
@@ -145,6 +184,8 @@ export type Database = {
       }
       jackpots: {
         Row: {
+          assigned_categories: string[]
+          assigned_game_ids: number[]
           brand_id: number
           contribution_percentage: number
           created_at: string
@@ -160,6 +201,8 @@ export type Database = {
           volatility: number
         }
         Insert: {
+          assigned_categories?: string[]
+          assigned_game_ids?: number[]
           brand_id: number
           contribution_percentage?: number
           created_at?: string
@@ -175,6 +218,8 @@ export type Database = {
           volatility?: number
         }
         Update: {
+          assigned_categories?: string[]
+          assigned_game_ids?: number[]
           brand_id?: number
           contribution_percentage?: number
           created_at?: string
@@ -279,6 +324,8 @@ export type Database = {
         }
         Returns: boolean
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       app_role: "admin" | "user"

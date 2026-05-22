@@ -16,7 +16,11 @@ export interface JackpotDTO {
   volatility?: number;
   jackpotType?: JackpotKind;
   config?: Record<string, any>;
+  // Game-assignment targeting metadata.
+  assignedCategories?: string[];
+  assignedGameIds?: number[];
 }
+
 
 export interface TopupDTO {
   jackpotId: number;

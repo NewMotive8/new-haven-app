@@ -26,6 +26,9 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { BrandContext } from "@/backoffice/app";
 import type { JackpotDTO } from "@/lib/jackpot/types";
+import { GameAssignmentStep, type GameAssignmentValue } from "@/components/jackpot/GameAssignmentStep";
+import type { MasterCategory } from "@/lib/jackpot/master-categories";
+
 import {
   denominatorToProbability,
   formatDropFrequency,
@@ -144,7 +147,12 @@ export function MultiJackpotWizard() {
   const [contributionType, setContributionType] =
     React.useState<ContributionType>("percentage");
   const [masterValueInput, setMasterValueInput] = React.useState("1.00"); // % when percentage, currency when fixed
+  const [assignment, setAssignment] = React.useState<GameAssignmentValue>({
+    assignedCategories: [],
+    assignedGameIds: [],
+  });
   const [group, setGroup] = React.useState<GroupDTO | null>(null);
+
 
   // Step 2 — Tier Allocation
   const [draft, setDraft] = React.useState<ChildDraft | null>(null);
@@ -202,6 +210,9 @@ export function MultiJackpotWizard() {
           contributionSource,
           contributionType,
           masterContributionValue: masterValue,
+          assignedCategories: assignment.assignedCategories,
+          assignedGameIds: assignment.assignedGameIds,
+
         },
         {
           headers: {

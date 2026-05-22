@@ -1,4 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
+import { GameAssignmentStep, type GameAssignmentValue } from '@/components/jackpot/GameAssignmentStep';
+import type { MasterCategory } from '@/lib/jackpot/master-categories';
+
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { Clock, LogOut, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -273,7 +276,11 @@ export type JackpotSavePayload = {
       blacklistedPlayerIds: string[];
     };
   };
+  // ── Game Assignment — internal master categories + games catalog IDs.
+  assignedCategories?: string[];
+  assignedGameIds?: number[];
 };
+
 
 export interface JackpotCreationFormProps {
   onSave: (payload: JackpotSavePayload) => void | Promise<void>;
@@ -566,6 +573,15 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
   const [continueError, setContinueError] = useState<string | null>(null);
 
+  // ── Game Assignment ────────────────────────────────────────────────
+  const [assignedCategories, setAssignedCategories] = useState<string[]>(
+    (initial?.assignedCategories as string[] | undefined) ?? [],
+  );
+  const [assignedGameIds, setAssignedGameIds] = useState<number[]>(
+    (initial?.assignedGameIds as number[] | undefined) ?? [],
+  );
+
+
   function buildPayload(): JackpotSavePayload {
     return {
       name: name.trim(),
@@ -630,6 +646,9 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       triggerOdds,
       previewWager,
       eligibility: buildEligibility(),
+      assignedCategories,
+      assignedGameIds,
+
     };
   }
 
@@ -5061,7 +5080,23 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
           </section>
         )}
 
+        {/* Game Assignment — internal master categories + games catalog. */}
+        <section className="mt-8">
+          <GameAssignmentStep
+            value={{
+              assignedCategories: assignedCategories as MasterCategory[],
+              assignedGameIds,
+            }}
+            onChange={(next: GameAssignmentValue) => {
+              setAssignedCategories(next.assignedCategories);
+              setAssignedGameIds(next.assignedGameIds);
+            }}
+          />
+
+        </section>
+
         {/* Continue bar — bottom-right, navigates to /backoffice/simulator */}
+
         <div className="flex items-center justify-between pt-8 pb-16 border-t border-neutral-800 mt-8">
           <Button variant="outline" size="lg" onClick={handleBack}>Back</Button>
           <div className="flex items-center gap-4">
