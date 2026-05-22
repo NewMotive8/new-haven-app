@@ -122,7 +122,7 @@ export function BlueprintCenter({ host, onInjectSingle }: Props) {
           <Button
             type="button"
             variant="outline"
-            className="gap-2 border-indigo-500/40 text-indigo-200 hover:bg-indigo-500/10"
+            className="gap-2 bg-blue-600 text-white border-blue-600 hover:!bg-blue-600 hover:!text-white"
           >
             <Library className="h-4 w-4" />
             Optimization Blueprints
