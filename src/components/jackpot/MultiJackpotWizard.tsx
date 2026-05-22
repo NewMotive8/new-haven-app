@@ -729,16 +729,6 @@ export function MultiJackpotWizard() {
               <PlayerTargetingSection value={playerTargeting} onChange={setPlayerTargeting} />
             </div>
 
-            <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4 flex gap-3">
-              <Coins className="w-5 h-5 text-blue-300 shrink-0 mt-0.5" />
-              <div className="text-sm text-blue-100">
-                <div className="font-medium mb-0.5">Parent-governed split</div>
-                Children inherit this master value and game assignment. Their
-                absolute contribution is derived from{" "}
-                <span className="font-mono">master × share%</span> and saved to
-                the transaction engine automatically.
-              </div>
-            </div>
           </div>
 
           <div className="mt-10 flex justify-end">
