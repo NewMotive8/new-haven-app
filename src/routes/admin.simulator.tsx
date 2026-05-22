@@ -285,7 +285,13 @@ function SimulatorPage() {
                 </button>
               </div>
             )}
+            {initError && (
+              <div style={{ color: "#fbbf24", fontSize: 13 }}>
+                Config rejected by validation: {initError}
+              </div>
+            )}
             {error && <div style={{ color: "#f87171", fontSize: 13 }}>{error}</div>}
+
           </div>
         </div>
 
