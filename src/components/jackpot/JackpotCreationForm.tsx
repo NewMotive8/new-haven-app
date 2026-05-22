@@ -3144,25 +3144,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                             </Select>
                           </div>
 
-                          <div className="space-y-2">
-                            <BrightLabel htmlFor="weekly-max-number-wins">Maximum Number of Wins</BrightLabel>
-                            <Input
-                              id="weekly-max-number-wins"
-                              type="number"
-                              defaultValue="0"
-                              className="bg-neutral-800 border-neutral-700 max-w-[400px]"
-                            />
-                          </div>
+                          {/* Max Number of Wins + Max Payout Amount consolidated in "Operation Safeguards" section. */}
 
-                          <div className="space-y-2">
-                            <BrightLabel htmlFor="weekly-maximum-payout-amount">Maximum Payout Amount</BrightLabel>
-                            <CurrencyInput
-                              id="weekly-maximum-payout-amount"
-                              type="number"
-                              defaultValue="0"
-                              className="bg-neutral-800 border-neutral-700 max-w-[400px]"
-                            />
-                          </div>
                         </div>
                       )}
 
