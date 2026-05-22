@@ -3519,10 +3519,157 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                 </div>
               </section>
 
-              {/* Win Logic & Model Section */}
-              <section ref={modelRef} className="scroll-mt-20">
-                <h2 className="text-xl font-semibold mb-6">Win Logic & Model</h2>
+              {/* 1. Happy Hour Frequency Settings — calendar recurrence + windows. */}
+              <section ref={schedulingRef} className="scroll-mt-20">
+                <h2 className="text-xl font-semibold mb-6">Happy Hour Frequency Settings</h2>
+                <div className="grid gap-6">
+                  <Card className="p-6 bg-neutral-900/50 border-neutral-800">
+                    <p className="text-xs text-neutral-400 mb-6">
+                      Calendar-gated jackpot. Contributions only accrue during the Contribution Window;
+                      payouts only fire during the Winning Window. Both are serialized as
+                      <code className="ml-1 text-neutral-300">contributionFrequency</code> &amp;{' '}
+                      <code className="text-neutral-300">winFrequency</code> JSON for the Java engine.
+                    </p>
 
+                    <div className="space-y-6">
+                      {/* Interval + conditional day picker */}
+                      <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <BrightLabel htmlFor="freq-interval">Recurrence Interval</BrightLabel>
+                          <Select
+                            value={freqInterval}
+                            onValueChange={(v) => {
+                              setFreqInterval(v as 'DAILY' | 'WEEKLY' | 'MONTHLY');
+                              setFreqDay('');
+                            }}
+                          >
+                            <SelectTrigger id="freq-interval" className="bg-neutral-800 border-neutral-700 text-white">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-neutral-800 border-neutral-700 text-white">
+                              <SelectItem value="DAILY" className="text-white">Daily</SelectItem>
+                              <SelectItem value="WEEKLY" className="text-white">Weekly</SelectItem>
+                              <SelectItem value="MONTHLY" className="text-white">Monthly</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {freqInterval === 'WEEKLY' && (
+                          <div className="space-y-2">
+                            <BrightLabel htmlFor="freq-day-weekly">Day of Week</BrightLabel>
+                            <Select value={freqDay} onValueChange={setFreqDay}>
+                              <SelectTrigger id="freq-day-weekly" className="bg-neutral-800 border-neutral-700 text-white">
+                                <SelectValue placeholder="Select a day (1–7)" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-neutral-800 border-neutral-700 text-white">
+                                {['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map((label, i) => (
+                                  <SelectItem key={i + 1} value={String(i + 1)} className="text-white">
+                                    {i + 1} — {label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+
+                        {freqInterval === 'MONTHLY' && (
+                          <div className="space-y-2">
+                            <BrightLabel htmlFor="freq-day-monthly">Day of Month</BrightLabel>
+                            <Select value={freqDay} onValueChange={setFreqDay}>
+                              <SelectTrigger id="freq-day-monthly" className="bg-neutral-800 border-neutral-700 text-white">
+                                <SelectValue placeholder="Select a day (1–31)" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-neutral-800 border-neutral-700 text-white max-h-[300px]">
+                                {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                                  <SelectItem key={d} value={String(d)} className="text-white">{d}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Contribution Window */}
+                      <div className="pt-2 border-t border-neutral-800">
+                        <BrightLabel className="text-sm">Contribution Window</BrightLabel>
+                        <p className="text-[11px] text-neutral-500 mt-1 mb-3">
+                          Only bets placed within this window contribute to the pool.
+                        </p>
+                        <div className="grid grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <BrightLabel htmlFor="contrib-start">Start Time</BrightLabel>
+                            <Input
+                              id="contrib-start"
+                              type="time"
+                              value={contribStartTime}
+                              onChange={(e) => setContribStartTime(e.target.value)}
+                              className="bg-neutral-800 border-neutral-700 text-white"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <BrightLabel htmlFor="contrib-end">End Time</BrightLabel>
+                            <Input
+                              id="contrib-end"
+                              type="time"
+                              value={contribEndTime}
+                              onChange={(e) => setContribEndTime(e.target.value)}
+                              className="bg-neutral-800 border-neutral-700 text-white"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Clone toggle */}
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-neutral-800/40 border border-neutral-800">
+                        <div className="space-y-1 pr-4">
+                          <BrightLabel className="text-sm">Mirror Contribution Window into Winning Window</BrightLabel>
+                          <p className="text-[11px] text-neutral-500">
+                            When on, players win only during the same hours they contributed. Turn off to
+                            schedule a separate payout window (e.g. accrue all day, pay out 20:00–21:00).
+                          </p>
+                        </div>
+                        <Switch checked={cloneContribToWin} onCheckedChange={setCloneContribToWin} />
+                      </div>
+
+                      {/* Winning Window (split mode) */}
+                      {!cloneContribToWin && (
+                        <div className="pt-2 border-t border-neutral-800">
+                          <BrightLabel className="text-sm">Winning Window</BrightLabel>
+                          <p className="text-[11px] text-neutral-500 mt-1 mb-3">
+                            Only payouts triggered during this window are awarded.
+                          </p>
+                          <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                              <BrightLabel htmlFor="win-start">Start Time</BrightLabel>
+                              <Input
+                                id="win-start"
+                                type="time"
+                                value={winStartTime}
+                                onChange={(e) => setWinStartTime(e.target.value)}
+                                className="bg-neutral-800 border-neutral-700 text-white"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <BrightLabel htmlFor="win-end">End Time</BrightLabel>
+                              <Input
+                                id="win-end"
+                                type="time"
+                                value={winEndTime}
+                                onChange={(e) => setWinEndTime(e.target.value)}
+                                className="bg-neutral-800 border-neutral-700 text-white"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                </div>
+              </section>
+
+              {/* 2. Win Targets & Payout Model — payout-model toggle + bound target amounts. */}
+              <section ref={modelRef} className="scroll-mt-20">
+                <h2 className="text-xl font-semibold mb-6">Win Targets & Payout Model</h2>
                 <div className="grid gap-6">
                   <Card className="p-6 bg-neutral-900/50 border-neutral-800">
                     <div className="space-y-6">
@@ -3531,9 +3678,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                         <RadioGroup value={payoutModel} onValueChange={(v) => setPayoutModel(v as PayoutModel)}>
                           <div className="grid grid-cols-3 gap-4">
                             <label className={`relative flex flex-col p-5 rounded-lg border-2 cursor-pointer transition-all ${
-                              payoutModel === 'fixed'
-                                ? 'border-blue-500 bg-blue-500/10'
-                                : 'border-neutral-700 bg-neutral-800/30 hover:border-neutral-600'
+                              payoutModel === 'fixed' ? 'border-blue-500 bg-blue-500/10' : 'border-neutral-700 bg-neutral-800/30 hover:border-neutral-600'
                             }`}>
                               <RadioGroupItem value="fixed" className="sr-only" />
                               <div className="flex items-center justify-between mb-3">
@@ -3544,15 +3689,11 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                   </div>
                                 )}
                               </div>
-                              <span className="text-xs text-neutral-400 leading-relaxed">
-                                Jackpot pays a predetermined fixed amount every time
-                              </span>
+                              <span className="text-xs text-neutral-400 leading-relaxed">Predetermined fixed amount every drop.</span>
                             </label>
 
                             <label className={`relative flex flex-col p-5 rounded-lg border-2 cursor-pointer transition-all ${
-                              payoutModel === 'average'
-                                ? 'border-blue-500 bg-blue-500/10'
-                                : 'border-neutral-700 bg-neutral-800/30 hover:border-neutral-600'
+                              payoutModel === 'average' ? 'border-blue-500 bg-blue-500/10' : 'border-neutral-700 bg-neutral-800/30 hover:border-neutral-600'
                             }`}>
                               <RadioGroupItem value="average" className="sr-only" />
                               <div className="flex items-center justify-between mb-3">
@@ -3563,15 +3704,11 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                   </div>
                                 )}
                               </div>
-                              <span className="text-xs text-neutral-400 leading-relaxed">
-                                Payout varies around a target average with volatility control
-                              </span>
+                              <span className="text-xs text-neutral-400 leading-relaxed">Targets an average with min/max bounds.</span>
                             </label>
 
                             <label className={`relative flex flex-col p-5 rounded-lg border-2 cursor-pointer transition-all ${
-                              payoutModel === 'maximum'
-                                ? 'border-blue-500 bg-blue-500/10'
-                                : 'border-neutral-700 bg-neutral-800/30 hover:border-neutral-600'
+                              payoutModel === 'maximum' ? 'border-blue-500 bg-blue-500/10' : 'border-neutral-700 bg-neutral-800/30 hover:border-neutral-600'
                             }`}>
                               <RadioGroupItem value="maximum" className="sr-only" />
                               <div className="flex items-center justify-between mb-3">
@@ -3582,79 +3719,40 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                                   </div>
                                 )}
                               </div>
-                              <span className="text-xs text-neutral-400 leading-relaxed">
-                                Payout varies with a defined maximum cap
-                              </span>
+                              <span className="text-xs text-neutral-400 leading-relaxed">Varies up to a hard maximum cap.</span>
                             </label>
                           </div>
                         </RadioGroup>
                       </div>
 
-                      {/* Model-specific fields */}
                       {payoutModel === 'fixed' && (
-                        <div className="space-y-6 pt-4">
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="frequency-fixed-amount">Fixed Win Amount</BrightLabel>
-                              <CurrencyInput
-                                id="frequency-fixed-amount"
-                                type="number"
-                                placeholder="0"
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                              <p className="text-xs text-red-400">This field is required</p>
-                            </div>
-                            <div></div>
+                        <div className="grid grid-cols-2 gap-6 pt-4 border-t border-neutral-800">
+                          <div className="space-y-2">
+                            <BrightLabel htmlFor="freq-fixed-amount">Fixed Win Amount</BrightLabel>
+                            <CurrencyInput
+                              id="freq-fixed-amount"
+                              type="number"
+                              placeholder="0"
+                              value={fixedWinAmount || ''}
+                              onChange={(e) => setFixedWinAmount(parseFloat(e.target.value) || 0)}
+                              className="bg-neutral-800 border-neutral-700"
+                            />
                           </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="frequency-volatility">Volatility</BrightLabel>
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm text-neutral-400">0</span>
-                                  <Slider
-                                    value={volatility}
-                                    onValueChange={setVolatility}
-                                    max={10}
-                                    step={1}
-                                    className="flex-1"
-                                  />
-                                  <span className="text-sm text-neutral-400">10</span>
-                                </div>
-                                <div className="flex justify-center">
-                                  <span className="text-sm text-neutral-400">{volatility[0]}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div></div>
-                          </div>
-                          {/* Wager limits moved to unified "Wager Eligibility Limits" block in Jackpot Contribution card. */}
-
+                          <div></div>
                         </div>
                       )}
 
                       {payoutModel === 'average' && (
-                        <div className="space-y-6 pt-4">
+                        <div className="space-y-6 pt-4 border-t border-neutral-800">
                           <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
-                              <BrightLabel htmlFor="frequency-avg-target">Average Win Amount</BrightLabel>
+                              <BrightLabel htmlFor="freq-avg-amount">Average Win Amount</BrightLabel>
                               <CurrencyInput
-                                id="frequency-avg-target"
+                                id="freq-avg-amount"
                                 type="number"
                                 placeholder="0"
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                              <p className="text-xs text-red-400">This field is required</p>
-                            </div>
-                            <div></div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="frequency-min-win">Minimum Win Amount</BrightLabel>
-                              <CurrencyInput
-                                id="frequency-min-win"
-                                type="number"
-                                placeholder="0"
+                                value={averageWinAmount || ''}
+                                onChange={(e) => setAverageWinAmount(parseFloat(e.target.value) || 0)}
                                 className="bg-neutral-800 border-neutral-700"
                               />
                             </div>
@@ -3662,95 +3760,121 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                           </div>
                           <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
-                              <BrightLabel htmlFor="frequency-max-win">Maximum Win Amount</BrightLabel>
+                              <BrightLabel htmlFor="freq-min-win-avg">Minimum Win Amount</BrightLabel>
                               <CurrencyInput
-                                id="frequency-max-win"
+                                id="freq-min-win-avg"
                                 type="number"
                                 placeholder="0"
+                                value={minWinAmount || ''}
+                                onChange={(e) => setMinWinAmount(parseFloat(e.target.value) || 0)}
                                 className="bg-neutral-800 border-neutral-700"
                               />
                             </div>
-                            <div></div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
-                              <BrightLabel htmlFor="frequency-volatility-avg">Volatility</BrightLabel>
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm text-neutral-400">0</span>
-                                  <Slider
-                                    value={volatility}
-                                    onValueChange={setVolatility}
-                                    max={10}
-                                    step={1}
-                                    className="flex-1"
-                                  />
-                                  <span className="text-sm text-neutral-400">10</span>
-                                </div>
-                                <div className="flex justify-center">
-                                  <span className="text-sm text-neutral-400">{volatility[0]}</span>
-                                </div>
-                              </div>
+                              <BrightLabel htmlFor="freq-max-win-avg">Maximum Win Amount</BrightLabel>
+                              <CurrencyInput
+                                id="freq-max-win-avg"
+                                type="number"
+                                placeholder="0"
+                                value={maxWinAmount || ''}
+                                onChange={(e) => setMaxWinAmount(parseFloat(e.target.value) || 0)}
+                                className="bg-neutral-800 border-neutral-700"
+                              />
                             </div>
-                            <div></div>
                           </div>
-                          {/* Wager limits moved to unified "Wager Eligibility Limits" block in Jackpot Contribution card. */}
-
                         </div>
                       )}
 
                       {payoutModel === 'maximum' && (
-                        <div className="space-y-6 pt-4">
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="frequency-min-win-max">Minimum Win Amount</BrightLabel>
-                              <CurrencyInput
-                                id="frequency-min-win-max"
-                                type="number"
-                                placeholder="0"
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
+                        <div className="grid grid-cols-2 gap-6 pt-4 border-t border-neutral-800">
+                          <div className="space-y-2">
+                            <BrightLabel htmlFor="freq-min-win-max">Minimum Win Amount</BrightLabel>
+                            <CurrencyInput
+                              id="freq-min-win-max"
+                              type="number"
+                              placeholder="0"
+                              value={minWinAmount || ''}
+                              onChange={(e) => setMinWinAmount(parseFloat(e.target.value) || 0)}
+                              className="bg-neutral-800 border-neutral-700"
+                            />
                           </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="frequency-max-win-max">Maximum Win Amount</BrightLabel>
-                              <CurrencyInput
-                                id="frequency-max-win-max"
-                                type="number"
-                                placeholder="0"
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
+                          <div className="space-y-2">
+                            <BrightLabel htmlFor="freq-max-win-max">Maximum Win Amount</BrightLabel>
+                            <CurrencyInput
+                              id="freq-max-win-max"
+                              type="number"
+                              placeholder="0"
+                              value={maxWinAmount || ''}
+                              onChange={(e) => setMaxWinAmount(parseFloat(e.target.value) || 0)}
+                              className="bg-neutral-800 border-neutral-700"
+                            />
                           </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="frequency-volatility-max">Volatility</BrightLabel>
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm text-neutral-400">0</span>
-                                  <Slider
-                                    value={volatility}
-                                    onValueChange={setVolatility}
-                                    max={10}
-                                    step={1}
-                                    className="flex-1"
-                                  />
-                                  <span className="text-sm text-neutral-400">10</span>
-                                </div>
-                                <div className="flex justify-center">
-                                  <span className="text-sm text-neutral-400">{volatility[0]}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div></div>
-                          </div>
-                          {/* Wager limits moved to unified "Wager Eligibility Limits" block in Jackpot Contribution card. */}
-
                         </div>
                       )}
+                    </div>
+                  </Card>
+                </div>
+              </section>
+
+              {/* 3. Drop Pacing — standalone volatility slider. */}
+              <section className="scroll-mt-20">
+                <h2 className="text-xl font-semibold mb-6">Drop Pacing</h2>
+                <div className="grid gap-6">
+                  <Card className="p-6 bg-neutral-900/50 border-neutral-800">
+                    <div className="space-y-3">
+                      <BrightLabel htmlFor="freq-volatility">Volatility ({volatility[0]})</BrightLabel>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-neutral-400 w-6">1</span>
+                        <Slider
+                          id="freq-volatility"
+                          value={volatility}
+                          onValueChange={setVolatility}
+                          min={1}
+                          max={10}
+                          step={1}
+                          className="flex-1"
+                        />
+                        <span className="text-sm text-neutral-400 w-6 text-right">10</span>
+                      </div>
+                      <p className="text-[11px] text-neutral-500">
+                        Lower settings distribute triggers evenly across the Happy Hour window. Higher settings
+                        hold triggers back to build suspense and concentrate drops near the end of the window.
+                      </p>
+                    </div>
+                  </Card>
+                </div>
+              </section>
+
+              {/* 4. Operation Safeguards — global per-jackpot caps. */}
+              <section className="scroll-mt-20">
+                <h2 className="text-xl font-semibold mb-6">Operation Safeguards</h2>
+                <div className="grid gap-6">
+                  <Card className="p-6 bg-neutral-900/50 border-neutral-800">
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <BrightLabel htmlFor="freq-max-number-wins">Maximum Number of Wins</BrightLabel>
+                        <Input
+                          id="freq-max-number-wins"
+                          type="number"
+                          placeholder="0"
+                          value={maxNumberOfWins || ''}
+                          onChange={(e) => setMaxNumberOfWins(parseInt(e.target.value) || 0)}
+                          className="bg-neutral-800 border-neutral-700"
+                        />
+                        <p className="text-[11px] text-neutral-500">Hard cap on drops across the jackpot's lifetime. 0 = unlimited.</p>
+                      </div>
+                      <div className="space-y-2">
+                        <BrightLabel htmlFor="freq-max-total-payout">Max Total Payout</BrightLabel>
+                        <CurrencyInput
+                          id="freq-max-total-payout"
+                          type="number"
+                          placeholder="0"
+                          value={maxTotalPayout || ''}
+                          onChange={(e) => setMaxTotalPayout(parseFloat(e.target.value) || 0)}
+                          className="bg-neutral-800 border-neutral-700"
+                        />
+                        <p className="text-[11px] text-neutral-500">Aggregate payout ceiling across all wins. 0 = unlimited.</p>
+                      </div>
                     </div>
                   </Card>
                 </div>
@@ -4214,164 +4338,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                 </div>
               </section>
 
-              {/* Scheduling Section */}
-              <section ref={schedulingRef} className="scroll-mt-20">
-                <h2 className="text-xl font-semibold mb-6">Scheduling</h2>
-
-                <div className="grid gap-6">
-                  <Card className="p-6 bg-neutral-900/50 border-neutral-800">
-                    <div className="space-y-6">
-                      {/* Frequency Start Date */}
-                      <div className="space-y-2">
-                        <BrightLabel htmlFor="frequency-start-date">Frequency Start Date</BrightLabel>
-                        <Input
-                          id="frequency-start-date"
-                          type="datetime-local"
-                          className="bg-neutral-800 border-neutral-700 max-w-[700px]"
-                        />
-                      </div>
-
-                      {/* Frequency End Date */}
-                      <div className="space-y-2">
-                        <BrightLabel htmlFor="frequency-end-date">Frequency End Date</BrightLabel>
-                        <Input
-                          id="frequency-end-date"
-                          type="datetime-local"
-                          className="bg-neutral-800 border-neutral-700 max-w-[700px]"
-                        />
-                      </div>
-
-                      {/* Select a Display Frequency */}
-                      <div className="space-y-3">
-                        <BrightLabel className="text-sm font-medium">Select a Display Frequency:</BrightLabel>
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => setDisplayFrequency('daily')}
-                            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                              displayFrequency === 'daily'
-                                ? 'bg-white text-neutral-900'
-                                : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200'
-                            }`}
-                          >
-                            DAILY
-                          </button>
-                          <button
-                            onClick={() => setDisplayFrequency('weekly')}
-                            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                              displayFrequency === 'weekly'
-                                ? 'bg-white text-neutral-900'
-                                : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200'
-                            }`}
-                          >
-                            WEEKLY
-                          </button>
-                          <button
-                            onClick={() => setDisplayFrequency('monthly')}
-                            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                              displayFrequency === 'monthly'
-                                ? 'bg-white text-neutral-900'
-                                : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200'
-                            }`}
-                          >
-                            MONTHLY
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Weekly Frequency Day (only for weekly) */}
-                      {displayFrequency === 'weekly' && (
-                        <div className="space-y-2">
-                          <BrightLabel htmlFor="weekly-frequency-day" className="text-red-400">WEEKLY-frequency-day</BrightLabel>
-                          <Select value={weeklyFrequencyDay} onValueChange={setWeeklyFrequencyDay}>
-                            <SelectTrigger id="weekly-frequency-day" className="bg-neutral-800 border-neutral-700 max-w-[700px] text-white">
-                              <SelectValue placeholder="Select..." />
-                            </SelectTrigger>
-                            <SelectContent className="bg-neutral-800 border-neutral-700 text-white">
-                              <SelectItem value="monday" className="text-white">Monday</SelectItem>
-                              <SelectItem value="tuesday" className="text-white">Tuesday</SelectItem>
-                              <SelectItem value="wednesday" className="text-white">Wednesday</SelectItem>
-                              <SelectItem value="thursday" className="text-white">Thursday</SelectItem>
-                              <SelectItem value="friday" className="text-white">Friday</SelectItem>
-                              <SelectItem value="saturday" className="text-white">Saturday</SelectItem>
-                              <SelectItem value="sunday" className="text-white">Sunday</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <p className="text-xs text-red-400">this-is-required</p>
-                        </div>
-                      )}
-
-                      {/* Monthly Frequency Day (only for monthly) */}
-                      {displayFrequency === 'monthly' && (
-                        <div className="space-y-2">
-                          <BrightLabel htmlFor="monthly-frequency-day" className="text-red-400">MONTHLY-frequency-day</BrightLabel>
-                          <Select value={monthlyFrequencyDay} onValueChange={setMonthlyFrequencyDay}>
-                            <SelectTrigger id="monthly-frequency-day" className="bg-neutral-800 border-neutral-700 max-w-[700px] text-white">
-                              <SelectValue placeholder="Select..." />
-                            </SelectTrigger>
-                            <SelectContent className="bg-neutral-800 border-neutral-700 text-white max-h-[300px]">
-                              {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                                <SelectItem key={day} value={day.toString()} className="text-white">
-                                  {day}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <p className="text-xs text-red-400">this-is-required</p>
-                        </div>
-                      )}
-
-                      {/* Time of day to start */}
-                      <div className="space-y-2">
-                        <BrightLabel htmlFor="time-of-day-start" className="text-red-400">Time of day to start</BrightLabel>
-                        <Input
-                          id="time-of-day-start"
-                          type="time"
-                          className="bg-neutral-800 border-neutral-700 max-w-[700px]"
-                        />
-                        <p className="text-xs text-red-400">this-is-required</p>
-                      </div>
-
-                      {/* Time of day to end */}
-                      <div className="space-y-2">
-                        <BrightLabel htmlFor="time-of-day-end" className="text-red-400">Time of day to end</BrightLabel>
-                        <Input
-                          id="time-of-day-end"
-                          type="time"
-                          className="bg-neutral-800 border-neutral-700 max-w-[700px]"
-                        />
-                        <p className="text-xs text-red-400">this-is-required</p>
-                      </div>
-
-                      {/* Do you want to configure a separate contribution frequency? */}
-                      <div className="space-y-3 pt-4">
-                        <BrightLabel className="text-sm font-medium">Do you want to configure a separate contribution frequency?</BrightLabel>
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => setSeparateContributionFrequency(false)}
-                            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                              !separateContributionFrequency
-                                ? 'bg-white text-neutral-900'
-                                : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200'
-                            }`}
-                          >
-                            No
-                          </button>
-                          <button
-                            onClick={() => setSeparateContributionFrequency(true)}
-                            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                              separateContributionFrequency
-                                ? 'bg-white text-neutral-900'
-                                : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200'
-                            }`}
-                          >
-                            Yes
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                </div>
-              </section>
+              {/* Legacy Scheduling section removed — replaced by Happy Hour Frequency Settings at top. */}
 
               {eligibilitySection}
               {communityWinSection}
@@ -4385,16 +4352,14 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
 
 
-        {/* ── Engine Configuration: Multi-Level tiers + Timed lifespan ─────────── */}
-        {/* ── Engine Configuration: Multi-Level tiers + Frequency timed lifespan.
-            Must-Drop hides this entirely — its lifespan/period are derived from
-            the operator-friendly Recurrence selection above. */}
-        {(selectedType === 'multi_level' || selectedType === 'frequency') && (
+        {/* ── Engine Configuration: Multi-Level tiers only.
+            Must-Drop derives lifespan/period from its Recurrence picker.
+            Frequency derives windows from Happy Hour Settings — no legacy lifespan card. */}
+        {selectedType === 'multi_level' && (
           <section className="mt-10 scroll-mt-20">
             <h2 className="text-xl font-semibold mb-2">Engine Configuration</h2>
             <p className="text-sm text-neutral-400 mb-6">
-              These fields drive the simulator engine directly for{' '}
-              {selectedType === 'multi_level' ? 'Multi-Level tier cascading' : 'time-decayed Frequency hit logic'}.
+              These fields drive the simulator engine directly for Multi-Level tier cascading.
             </p>
 
             {selectedType === 'multi_level' && (
@@ -4701,42 +4666,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
               </Card>
             )}
 
-            {selectedType === 'frequency' && (
-              <Card className="p-6 bg-neutral-900/50 border-neutral-800">
-                <BrightLabel className="text-base">Virtual Lifespan</BrightLabel>
-                <p className="text-xs text-neutral-400 mt-1 mb-4">
-                  Total simulated minutes mapped across iterations. Drives the time-decay hit chance:{' '}
-                  <code className="text-neutral-300">pow(% into game, volatility × 5) × contribution + maximumHitChance</code>.
-                </p>
-
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {[
-                    { label: 'Hourly', minutes: 60 },
-                    { label: 'Daily', minutes: 1440 },
-                    { label: 'Weekly', minutes: 10080 },
-                    { label: 'Monthly', minutes: 43200 },
-                  ].map((p) => (
-                    <button
-                      key={p.label}
-                      type="button"
-                      onClick={() => setLifespanMinutes(p.minutes)}
-                      className={`px-4 py-2 rounded-lg text-sm transition-colors ${
-                        lifespanMinutes === p.minutes ? 'bg-blue-500 text-white' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
-                      }`}
-                    >
-                      {p.label} ({p.minutes.toLocaleString()}m)
-                    </button>
-                  ))}
-                </div>
-
-                <div className="grid grid-cols-2 gap-6 max-w-xl">
-                  <div className="space-y-2">
-                    <BrightLabel htmlFor="lifespan-minutes">Lifespan (minutes)</BrightLabel>
-                    <Input id="lifespan-minutes" type="number" min={1} value={lifespanMinutes} onChange={(e) => setLifespanMinutes(Math.max(1, parseInt(e.target.value) || 1))} className="bg-neutral-800 border-neutral-700" />
-                  </div>
-                </div>
-              </Card>
-            )}
+            {/* Frequency legacy Virtual Lifespan card removed — superseded by Happy Hour Frequency Settings. */}
           </section>
         )}
 
