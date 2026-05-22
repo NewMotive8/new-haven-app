@@ -275,6 +275,7 @@ const happyMid: SingleBlueprint = {
         maximumSeedAmount: 300,
         initialPoolAmount: 300,
         maxTotalPayout: 1500,
+        operatorShare: 15,
       },
       "DAILY",
       "",
