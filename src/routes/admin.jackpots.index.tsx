@@ -525,8 +525,11 @@ function JackpotsPage() {
               Delete {confirm?.kind === "group" ? "MultiJackpot" : "Jackpot"}?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-neutral-400">
-              This permanently removes <span className="font-semibold text-neutral-200">{confirm?.name}</span>.
-              This action cannot be undone.
+              This permanently removes{" "}
+              <span className="font-semibold text-neutral-200">
+                {confirm?.name ?? ""}
+              </span>
+              . This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -535,11 +538,13 @@ function JackpotsPage() {
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 hover:bg-red-700 text-white"
-              onClick={async () => {
-                if (!confirm) return;
+              onClick={(e) => {
+                e.preventDefault();
                 const row = confirm;
+                if (!row) return;
                 setConfirm(null);
-                await runAction(row, "delete");
+                // Fire and forget — runAction handles its own errors/toasts.
+                void runAction(row, "delete");
               }}
             >
               Delete
