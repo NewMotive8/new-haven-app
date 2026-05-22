@@ -273,7 +273,11 @@ export type JackpotSavePayload = {
       blacklistedPlayerIds: string[];
     };
   };
+  // ── Game Assignment — internal master categories + games catalog IDs.
+  assignedCategories?: string[];
+  assignedGameIds?: number[];
 };
+
 
 export interface JackpotCreationFormProps {
   onSave: (payload: JackpotSavePayload) => void | Promise<void>;
