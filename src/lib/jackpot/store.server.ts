@@ -772,6 +772,8 @@ export async function updateGroupProfile(
     contributionSource?: ContributionSource;
     contributionType?: GroupContributionType;
     masterContributionValue?: number;
+    assignedCategories?: string[];
+    assignedGameIds?: number[];
   },
 ): Promise<JackpotGroupDTO | undefined> {
   const id = Number(groupId);
@@ -796,6 +798,11 @@ export async function updateGroupProfile(
     update.contribution_type = patch.contributionType;
   if (patch.masterContributionValue !== undefined)
     update.master_contribution_value = Number(patch.masterContributionValue);
+  if (patch.assignedCategories !== undefined)
+    update.assigned_categories = patch.assignedCategories;
+  if (patch.assignedGameIds !== undefined)
+    update.assigned_game_ids = patch.assignedGameIds;
+
 
   if (Object.keys(update).length === 0) {
     const { data } = await supabaseAdmin
