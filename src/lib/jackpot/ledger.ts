@@ -65,20 +65,7 @@ export function computeBetLedger(jp: JackpotConfigDTO, wager: number): BetLedger
     entries.push({ ...slice });
   };
 
-  if (jp.structuralType === "MULTI_LEVEL" && Array.isArray(jp.tiers) && jp.tiers.length > 0) {
-    jp.tiers.forEach((t: TierDTO) => {
-      const tierWager = w * (Number(t.multiLevelWeight) || 0);
-      const slice = resolveContributionSlice(
-        t.contribution,
-        { type: t.pool.contributionType, amount: Number(t.pool.contributionAmount) || 0 },
-        { type: t.seed.contributionType, amount: Number(t.seed.contributionAmount) || 0 },
-        tierWager,
-      );
-      entries.push({ ...slice, tier: t.multiLevelTier, label: t.label });
-    });
-  } else {
-    pushFlat();
-  }
+  pushFlat();
 
   const totals = entries.reduce<ContributionSlice>(
     (acc, e) => ({ pool: acc.pool + e.pool, seed: acc.seed + e.seed, house: acc.house + e.house }),
