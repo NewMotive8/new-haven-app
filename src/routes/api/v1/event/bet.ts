@@ -11,7 +11,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { errorJson, json, preflight, requireBrandId, requireInternalSecret } from "@/lib/jackpot/http";
-import { getJackpot, listJackpots } from "@/lib/jackpot/store.server";
+import {
+  getJackpot,
+  listJackpots,
+  getGroupForBet,
+  recordGroupTransaction,
+  GroupConflictError,
+} from "@/lib/jackpot/store.server";
 import {
   applyCommunityPayout,
   computeBetLedger,
