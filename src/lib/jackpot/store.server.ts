@@ -514,7 +514,7 @@ export async function addChildJackpot(
   groupId: string | number,
   jackpotId: string | number,
   tierRank: number,
-  opts: { triggerProbability?: number; contributionRate?: number } = {},
+  opts: { triggerProbability?: number; contributionRate?: number; name?: string } = {},
 ): Promise<JackpotDTO> {
   const gid = Number(groupId);
   const jid = Number(jackpotId);
@@ -539,6 +539,9 @@ export async function addChildJackpot(
   }
   if (opts.contributionRate !== undefined) {
     updates.contribution_percentage = opts.contributionRate;
+  }
+  if (opts.name !== undefined && opts.name.trim() !== "") {
+    updates.name = opts.name.trim();
   }
 
   const { error } = await supabaseAdmin
