@@ -1001,11 +1001,10 @@ function MasterRecap({ group }: { group: GroupDTO }) {
       </div>
       <div>
         <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 mb-0.5">
-          Weights (Pool / Seed / House)
+          Wager Limits
         </div>
         <div className="text-white font-mono">
-          {group.poolWeight.toFixed(0)}% · {group.seedWeight.toFixed(0)}% ·{" "}
-          {group.houseWeight.toFixed(0)}%
+          {group.minWagerAmount || 0} – {group.maxWagerAmount || "∞"}
         </div>
       </div>
       <div>
