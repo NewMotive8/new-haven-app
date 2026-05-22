@@ -94,6 +94,7 @@ const classicMid: SingleBlueprint = {
     maximumSeedAmount: 250,
     initialPoolAmount: 250,
     triggerOdds: 50000,
+    operatorShare: 15,
   },
 };
 
