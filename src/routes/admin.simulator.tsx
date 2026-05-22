@@ -699,9 +699,19 @@ function ResultsSummary({
   );
 }
 
-function KpiCard({ label, value, badge }: { label: string; value: string; badge?: string }) {
+function KpiCard({
+  label,
+  value,
+  badge,
+  note,
+}: {
+  label: string;
+  value: string;
+  badge?: string;
+  note?: string;
+}) {
   return (
-    <div style={{ ...panel, padding: 18 }}>
+    <div style={{ ...panel, padding: 18 }} title={note}>
       <div style={{ fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase", color: "#9fb0c8" }}>
         {label}
       </div>
@@ -722,6 +732,20 @@ function KpiCard({ label, value, badge }: { label: string; value: string; badge?
         >
           {badge}
         </span>
+      )}
+      {note && (
+        <div
+          style={{
+            marginTop: 10,
+            fontSize: 11,
+            color: "#7d8ba3",
+            lineHeight: 1.4,
+            borderTop: "1px dashed #1f2a44",
+            paddingTop: 8,
+          }}
+        >
+          {note}
+        </div>
       )}
     </div>
   );
