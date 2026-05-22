@@ -9,6 +9,7 @@ import {
 import {
   getGroup,
   updateGroupProfile,
+  deleteGroup,
   GroupConflictError,
 } from "@/lib/jackpot/store.server";
 
