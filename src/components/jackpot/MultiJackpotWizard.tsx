@@ -739,8 +739,8 @@ export function MultiJackpotWizard() {
             </div>
 
             <JackpotContributionCard
-              contributionSource={contributionSource}
-              setContributionSource={setContributionSource}
+              playerSharePct={playerSharePct}
+              setPlayerSharePct={setPlayerSharePct}
               contributionType={contributionType}
               setContributionType={setContributionType}
               totalContributionAmount={totalContributionAmount}
