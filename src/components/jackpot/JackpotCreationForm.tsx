@@ -636,19 +636,45 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
     // ── Option A: strict mutually exclusive modes ─────────────────────────
     // Classic Progressive = fixed-odds only (triggerOdds, NO win/budget caps).
     // Must-Drop          = value-driven (Min/Max Win + caps, NO triggerOdds).
-    // Frequency          = time-driven (scheduling only, NO triggerOdds, NO caps).
+    // Frequency          = calendar-gated Happy Hour (contributionFrequency +
+    //                      winFrequency JSON strings, NO triggerOdds).
     // Wager limits only apply when contributionType === 'percentage'.
     const isClassic = selectedType === 'classic';
     const isMustDrop = selectedType === 'must_drop';
+    const isFrequency = selectedType === 'frequency';
     const isPercentage =
       (contributionMode === 'split' ? totalContributionType : contributionType) === 'percentage';
 
+    // Win-amount fields are valid for Must-Drop AND Frequency (calendar-gated payouts).
+    const includeWinAmounts = isMustDrop || isFrequency;
+
+    // Happy Hour: when "clone" is on, mirror contribution times into the win window.
+    const effWinStart = cloneContribToWin ? contribStartTime : winStartTime;
+    const effWinEnd = cloneContribToWin ? contribEndTime : winEndTime;
+    const freqDayOut = freqInterval === 'DAILY' ? '' : freqDay;
+    const contributionFrequencyJSON = isFrequency
+      ? JSON.stringify({
+          frequency: freqInterval,
+          day: freqDayOut,
+          startTime: contribStartTime,
+          endTime: contribEndTime,
+        })
+      : undefined;
+    const winFrequencyJSON = isFrequency
+      ? JSON.stringify({
+          frequency: freqInterval,
+          day: freqDayOut,
+          startTime: effWinStart,
+          endTime: effWinEnd,
+        })
+      : undefined;
 
     return {
       name: name.trim(),
       description: description.trim(),
       type: selectedType,
       // Must-Drop is structurally a Maximum-Win mechanic — force the payout model.
+      // Frequency keeps the operator-selected payout model (fixed/average/maximum).
       payoutModel: (isClassic || isMustDrop) ? ('maximum' as PayoutModel) : payoutModel,
 
       contributionType,
@@ -685,32 +711,52 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       },
       isTemplate,
       selectedWidget,
-      // Win-amount fields — only valid for Must-Drop.
-      fixedWinAmount: isMustDrop ? fixedWinAmount : 0,
-      averageWinAmount: isMustDrop ? averageWinAmount : 0,
-      minWinAmount: isMustDrop ? minWinAmount : 0,
-      maxWinAmount: isMustDrop ? maxWinAmount : 0,
+      // Win-amount fields — Must-Drop AND Frequency (calendar-gated payouts).
+      fixedWinAmount: includeWinAmounts ? fixedWinAmount : 0,
+      averageWinAmount: includeWinAmounts ? averageWinAmount : 0,
+      minWinAmount: includeWinAmounts ? minWinAmount : 0,
+      maxWinAmount: includeWinAmounts ? maxWinAmount : 0,
       // Wager limits — only valid for percentage contributions.
       minWagerAmount: isPercentage ? minWagerAmount : 0,
       maxWagerAmount: isPercentage ? maxWagerAmount : 0,
       reseedingAmount,
       maximumSeedAmount,
       initialPoolAmount,
-      ...(selectedType === 'must_drop' || selectedType === 'frequency'
-        ? { lifespanMinutes, mustDropPeriod }
-        : {}),
+      // Must-Drop derives lifespan/period from its Recurrence picker.
+      // Frequency uses Happy Hour windows below — no legacy lifespan injection.
+      ...(isMustDrop ? { lifespanMinutes, mustDropPeriod } : {}),
       ...(selectedType === 'multi_level' ? { tiers } : {}),
-      // ── v2: contribution split + trigger odds + preview wager
+      // ── v2: contribution split + preview wager
       contributionMode,
       totalContributionAmount,
       totalContributionType,
       poolWeight,
       seedWeight,
       houseWeight,
-      // Trigger Probability — only valid for Classic Progressive.
+      // Trigger Probability — only valid for Classic Progressive (nullified for Frequency/Must-Drop).
       triggerOdds: isClassic ? triggerOdds : 0,
       previewWager,
       eligibility: buildEligibility(),
+
+      // ── Frequency Happy Hour — calendar-gated payload (Frequency mode only).
+      ...(isFrequency
+        ? {
+            freqInterval,
+            freqDay: freqDayOut,
+            contribStartTime,
+            contribEndTime,
+            winStartTime: effWinStart,
+            winEndTime: effWinEnd,
+            cloneContribToWin,
+            contributionFrequency: contributionFrequencyJSON,
+            winFrequency: winFrequencyJSON,
+          }
+        : {}),
+
+      // ── Operation Safeguards — Must-Drop & Frequency global caps.
+      ...(isMustDrop || isFrequency
+        ? { maxNumberOfWins, maxTotalPayout }
+        : {}),
     };
 
   }
@@ -727,9 +773,19 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       setContinueError('Multi-Level jackpots need at least one tier.');
       return;
     }
-    if ((payload.type === 'frequency' || payload.type === 'must_drop') && !payload.recurrenceType) {
+    if (payload.type === 'must_drop' && !payload.recurrenceType) {
       setContinueError('Pick a recurrence to continue.');
       return;
+    }
+    if (payload.type === 'frequency') {
+      if (!payload.contribStartTime || !payload.contribEndTime) {
+        setContinueError('Set the Contribution Window start & end times.');
+        return;
+      }
+      if (payload.freqInterval !== 'DAILY' && !payload.freqDay) {
+        setContinueError('Pick a day for the selected Happy Hour interval.');
+        return;
+      }
     }
 
     try {
