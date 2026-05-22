@@ -754,13 +754,6 @@ export function MultiJackpotWizard() {
             />
 
 
-            <div className="pt-2 border-t border-neutral-800">
-              <GameAssignmentStep
-                value={assignment}
-                onChange={setAssignment}
-                disabled={submitting}
-              />
-            </div>
 
             <div className="pt-2 border-t border-neutral-800">
               <EligibilityRulesSection value={eligibility} onChange={setEligibility} />

@@ -1,33 +1,28 @@
-## Remove "Initial seed amount" from the Tier card
+## Remove the Game Assignment block from Step 1
 
-### Why
+The dedicated **Game Assignment** card (Master Categories + Specific Games picker) is redundant — the **Eligibility & Rules Engine** section below it already covers casino vertical / category / game-level targeting.
 
-For operators, only two amounts matter per tier:
+### Change
 
-- **Initial pool amount** — what players see at launch of the very first cycle.
-- **Re-seeding amount** — the starting pool for every subsequent cycle after a win.
+In `src/components/jackpot/MultiJackpotWizard.tsx`, delete the Game Assignment block in Step 1 (lines 757–763):
 
-"Initial seed amount" is an engine-internal concept (the seed bucket's starting balance) that, in operator terms, should always equal the Re-seeding amount. Exposing it as a third field is redundant and confusing.
+```tsx
+<div className="pt-2 border-t border-neutral-800">
+  <GameAssignmentStep
+    value={assignment}
+    onChange={setAssignment}
+    disabled={submitting}
+  />
+</div>
+```
 
-### UI changes (`src/components/jackpot/MultiJackpotWizard.tsx`, `DraftTierCard`)
+### Keep (no risky cleanup)
 
-In the "Allocation & fuel" section (around lines 1242–1301):
-
-- **Remove** the "Initial seed amount" input (the middle field bound to `draft.seedAmount`).
-- Keep the grid as: **Initial pool amount · Re-seeding amount · Tier split share (%)** — three columns instead of four (still `md:grid-cols-2`, ordering: pool → reseed → split share, with split share on its own row or alongside reseed).
-- Update the helper copy under "Re-seeding amount" to: *"Starting pool for each new cycle after a win. Also acts as the floor the pool can never fall below."*
-
-### Wiring (no schema change)
-
-`draft.seedAmount` is still used by the engine payload. Instead of removing it from `ChildDraft`, mirror it from the re-seeding value on save:
-
-- In the tier-save handler (around line 578), set `seedAmount = reseedingAmount` before building the create body, so the engine receives a consistent seed/reseed pair.
-- Keep `seedAmount` in the `ChildDraft` type for now (no risky type churn). Drop the field from initial state defaults or leave it as `"0"` — it will be overwritten on save.
+- Leave the `assignment` state, the `GameAssignmentStep` import, and the `assignedCategories` / `assignedGameIds` fields on the group/child create payloads. They keep defaulting to empty arrays — the backend stays happy and we don't have to touch the API schema.
+- The Tier Ladder summary chips that read `group.assignedCategories` / `assignedGameIds` will just show "All games" naturally when both are empty.
 
 ### Out of scope
 
-- Backend / API schema changes.
-- The Single Jackpot form (separate flow, can be revisited later if the user wants the same simplification there).
-- Renaming or restructuring `seedAmount` in the engine types.
+- Deleting `GameAssignmentStep.tsx` or the related fields from `GroupDTO` / API — can be cleaned up later once we're sure Eligibility fully replaces it everywhere (single-jackpot form still uses it).
 
-Confirm and I'll implement.
+Confirm and I'll apply.
