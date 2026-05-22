@@ -2178,37 +2178,9 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                         <div></div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <BrightLabel htmlFor="max-wins">Maximum Number of Wins</BrightLabel>
-                          <Input
-                            id="max-wins"
-                            type="number"
-                            placeholder="0"
-                            className="bg-neutral-800 border-neutral-700"
-                          />
-                          <p className="text-xs text-neutral-500">
-                            Jackpot deactivates after this many wins (0 = unlimited)
-                          </p>
-                        </div>
-                        <div></div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <BrightLabel htmlFor="max-payout">Maximum Total Payout Amount</BrightLabel>
-                          <CurrencyInput
-                            id="max-payout"
-                            type="number"
-                            placeholder="0"
-                            className="bg-neutral-800 border-neutral-700"
-                          />
-                          <p className="text-xs text-neutral-500">
-                            Jackpot stops after total payouts reach this amount
-                          </p>
-                        </div>
-                        <div></div>
-                      </div>
+                      {/* Max Number of Wins / Max Total Payout — disabled for
+                          Classic Progressive (fixed-odds mode). Configure those
+                          caps in a Must-Drop jackpot instead. */}
                     </div>
                   </Card>
                 </div>
