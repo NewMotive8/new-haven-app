@@ -4392,7 +4392,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
               {eligibilitySection}
               {communityWinSection}
-              {triggerProbabilitySection}
+              {/* Trigger Probability is disabled for Frequency (time-driven). */}
               {playerTargetingSection}
 
             </>
