@@ -283,6 +283,8 @@ export type JackpotSavePayload = {
   maxTotalPayout?: number;
 
   previewWager?: number;
+  /** When true, persist with enabled=false and tag config.isDraft=true. */
+  isDraft?: boolean;
   // ── Eligibility & Rules Engine — game/event targeting metadata.
   eligibility?: {
     vertical: 'casino' | 'sportsbook';

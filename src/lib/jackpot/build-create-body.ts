@@ -86,16 +86,21 @@ export function buildCreateBody(payload: JackpotSavePayload) {
   const poolBalance = initialPool > 0 ? initialPool : seedAmount;
   const triggerThreshold = Math.max(poolBalance * 2, seedAmount * 2);
   const contributionRate = payload.poolPercentageValue / 100;
+  const isDraft = payload.isDraft === true;
+  const config = buildTriggerCondition(payload);
+  if (isDraft) {
+    (config as Record<string, unknown>).isDraft = true;
+  }
   return {
     name: payload.name,
-    enabled: true,
+    enabled: !isDraft,
     contributionRate,
     seedAmount,
     poolBalance,
     triggerThreshold,
     volatility: payload.volatility,
     jackpotType: payload.type,
-    config: buildTriggerCondition(payload),
+    config,
   };
 
 }
