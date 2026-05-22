@@ -306,12 +306,17 @@ function SandboxDemoPage() {
 
     const tick = async () => {
       try {
-        const res = await fetch("/api/v1/jackpots", { headers: headers() });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = (await res.json()) as Jackpot[];
+        const [jpRes, grpRes] = await Promise.all([
+          fetch("/api/v1/jackpots", { headers: headers() }),
+          fetch("/api/v1/jackpot-groups", { headers: headers() }),
+        ]);
+        if (!jpRes.ok) throw new Error(`HTTP ${jpRes.status}`);
+        const data = (await jpRes.json()) as Jackpot[];
+        const grpData: JackpotGroup[] = grpRes.ok ? await grpRes.json() : [];
         if (cancelled) return;
         const enabled = data.filter((j) => j.enabled);
         setPools(enabled);
+        setGroups(grpData);
         setPoolDisplays((prev) => {
           const next: Record<number, number> = { ...prev };
           for (const jp of enabled) {
@@ -330,7 +335,6 @@ function SandboxDemoPage() {
           }
           return next;
         });
-        setActiveIndex((i) => (enabled.length === 0 ? 0 : Math.min(i, enabled.length - 1)));
         setError(null);
       } catch (e) {
         if (!cancelled) setError((e as Error).message);
