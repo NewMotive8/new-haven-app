@@ -32,6 +32,7 @@ import { Route as ApiV1EventBetRouteImport } from './routes/api/v1/event/bet'
 import { Route as ApiV1JackpotsEnableIdRouteImport } from './routes/api/v1/jackpots/enable.$id'
 import { Route as ApiV1JackpotsDisableIdRouteImport } from './routes/api/v1/jackpots/disable.$id'
 import { Route as ApiV1JackpotGroupsIdStatusRouteImport } from './routes/api/v1/jackpot-groups/$id/status'
+import { Route as ApiV1JackpotGroupsIdChildrenRouteImport } from './routes/api/v1/jackpot-groups/$id/children'
 import { Route as ApiV1EventBetLedgerRouteImport } from './routes/api/v1/event/bet.ledger'
 
 const SandboxDemoRoute = SandboxDemoRouteImport.update({
@@ -150,6 +151,12 @@ const ApiV1JackpotGroupsIdStatusRoute =
     path: '/status',
     getParentRoute: () => ApiV1JackpotGroupsIdRoute,
   } as any)
+const ApiV1JackpotGroupsIdChildrenRoute =
+  ApiV1JackpotGroupsIdChildrenRouteImport.update({
+    id: '/children',
+    path: '/children',
+    getParentRoute: () => ApiV1JackpotGroupsIdRoute,
+  } as any)
 const ApiV1EventBetLedgerRoute = ApiV1EventBetLedgerRouteImport.update({
   id: '/ledger',
   path: '/ledger',
@@ -178,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/api/v1/jackpots/': typeof ApiV1JackpotsIndexRoute
   '/api/v2/jackpots/': typeof ApiV2JackpotsIndexRoute
   '/api/v1/event/bet/ledger': typeof ApiV1EventBetLedgerRoute
+  '/api/v1/jackpot-groups/$id/children': typeof ApiV1JackpotGroupsIdChildrenRoute
   '/api/v1/jackpot-groups/$id/status': typeof ApiV1JackpotGroupsIdStatusRoute
   '/api/v1/jackpots/disable/$id': typeof ApiV1JackpotsDisableIdRoute
   '/api/v1/jackpots/enable/$id': typeof ApiV1JackpotsEnableIdRoute
@@ -202,6 +210,7 @@ export interface FileRoutesByTo {
   '/api/v1/jackpots': typeof ApiV1JackpotsIndexRoute
   '/api/v2/jackpots': typeof ApiV2JackpotsIndexRoute
   '/api/v1/event/bet/ledger': typeof ApiV1EventBetLedgerRoute
+  '/api/v1/jackpot-groups/$id/children': typeof ApiV1JackpotGroupsIdChildrenRoute
   '/api/v1/jackpot-groups/$id/status': typeof ApiV1JackpotGroupsIdStatusRoute
   '/api/v1/jackpots/disable/$id': typeof ApiV1JackpotsDisableIdRoute
   '/api/v1/jackpots/enable/$id': typeof ApiV1JackpotsEnableIdRoute
@@ -229,6 +238,7 @@ export interface FileRoutesById {
   '/api/v1/jackpots/': typeof ApiV1JackpotsIndexRoute
   '/api/v2/jackpots/': typeof ApiV2JackpotsIndexRoute
   '/api/v1/event/bet/ledger': typeof ApiV1EventBetLedgerRoute
+  '/api/v1/jackpot-groups/$id/children': typeof ApiV1JackpotGroupsIdChildrenRoute
   '/api/v1/jackpot-groups/$id/status': typeof ApiV1JackpotGroupsIdStatusRoute
   '/api/v1/jackpots/disable/$id': typeof ApiV1JackpotsDisableIdRoute
   '/api/v1/jackpots/enable/$id': typeof ApiV1JackpotsEnableIdRoute
@@ -257,6 +267,7 @@ export interface FileRouteTypes {
     | '/api/v1/jackpots/'
     | '/api/v2/jackpots/'
     | '/api/v1/event/bet/ledger'
+    | '/api/v1/jackpot-groups/$id/children'
     | '/api/v1/jackpot-groups/$id/status'
     | '/api/v1/jackpots/disable/$id'
     | '/api/v1/jackpots/enable/$id'
@@ -281,6 +292,7 @@ export interface FileRouteTypes {
     | '/api/v1/jackpots'
     | '/api/v2/jackpots'
     | '/api/v1/event/bet/ledger'
+    | '/api/v1/jackpot-groups/$id/children'
     | '/api/v1/jackpot-groups/$id/status'
     | '/api/v1/jackpots/disable/$id'
     | '/api/v1/jackpots/enable/$id'
@@ -307,6 +319,7 @@ export interface FileRouteTypes {
     | '/api/v1/jackpots/'
     | '/api/v2/jackpots/'
     | '/api/v1/event/bet/ledger'
+    | '/api/v1/jackpot-groups/$id/children'
     | '/api/v1/jackpot-groups/$id/status'
     | '/api/v1/jackpots/disable/$id'
     | '/api/v1/jackpots/enable/$id'
@@ -494,6 +507,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1JackpotGroupsIdStatusRouteImport
       parentRoute: typeof ApiV1JackpotGroupsIdRoute
     }
+    '/api/v1/jackpot-groups/$id/children': {
+      id: '/api/v1/jackpot-groups/$id/children'
+      path: '/children'
+      fullPath: '/api/v1/jackpot-groups/$id/children'
+      preLoaderRoute: typeof ApiV1JackpotGroupsIdChildrenRouteImport
+      parentRoute: typeof ApiV1JackpotGroupsIdRoute
+    }
     '/api/v1/event/bet/ledger': {
       id: '/api/v1/event/bet/ledger'
       path: '/ledger'
@@ -547,10 +567,12 @@ const ApiV1EventBetRouteWithChildren = ApiV1EventBetRoute._addFileChildren(
 )
 
 interface ApiV1JackpotGroupsIdRouteChildren {
+  ApiV1JackpotGroupsIdChildrenRoute: typeof ApiV1JackpotGroupsIdChildrenRoute
   ApiV1JackpotGroupsIdStatusRoute: typeof ApiV1JackpotGroupsIdStatusRoute
 }
 
 const ApiV1JackpotGroupsIdRouteChildren: ApiV1JackpotGroupsIdRouteChildren = {
+  ApiV1JackpotGroupsIdChildrenRoute: ApiV1JackpotGroupsIdChildrenRoute,
   ApiV1JackpotGroupsIdStatusRoute: ApiV1JackpotGroupsIdStatusRoute,
 }
 
