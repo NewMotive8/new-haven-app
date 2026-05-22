@@ -221,6 +221,9 @@ export const Route = createFileRoute("/admin/jackpots/new")({
     if (Number.isFinite(eid) && eid > 0) out.editId = eid;
     const cid = Number(raw.cloneFrom);
     if (Number.isFinite(cid) && cid > 0) out.cloneFrom = cid;
+    const did = Number(raw.draftId);
+    if (Number.isFinite(did) && did > 0) out.draftId = did;
+    if (raw.tab === "single" || raw.tab === "multi") out.tab = raw.tab;
     return out;
   },
   component: NewJackpotPage,
