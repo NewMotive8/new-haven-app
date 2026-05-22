@@ -498,17 +498,47 @@ function ChildTierRow({
   disableRemove: boolean;
   submitting: boolean;
 }) {
+  // Simulated daily volume is ephemeral UI-only state — never sent to the API.
+  const [dailyVolume, setDailyVolume] = React.useState<number>(DEFAULT_DAILY_VOLUME);
+  const probability = denominatorToProbability(draft.triggerDenominator);
+  const dropText = formatDropFrequency(probability, dailyVolume);
+
+  function handleJackpotChange(nextId: number | null) {
+    const patch: Partial<ChildDraft> = { jackpotId: nextId };
+    // Autofill tier name from jackpot profile when picking, but never
+    // overwrite a name the operator has already customized.
+    if (nextId != null && !draft.tierName.trim()) {
+      const picked = jackpots.find((j) => j.id === nextId);
+      if (picked?.name) patch.tierName = picked.name;
+    }
+    onChange(patch);
+  }
+
   return (
-    <div className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+    <div className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-4 space-y-4">
+      {/* Custom Tier Name — prominent, top of card */}
+      <div className="space-y-2">
+        <Label className="text-neutral-300">
+          Tier Name <span className="text-neutral-500 font-normal">(operator-facing label)</span>
+        </Label>
+        <Input
+          type="text"
+          value={draft.tierName}
+          onChange={(e) => onChange({ tierName: e.target.value })}
+          placeholder="e.g. Mini, Super Drop, Friday Booster"
+          className="bg-neutral-800 border-neutral-700 text-white"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
         <div className="md:col-span-2 space-y-2">
           <Label className="text-neutral-300">Jackpot</Label>
           <select
             value={draft.jackpotId ?? ""}
             onChange={(e) =>
-              onChange({ jackpotId: e.target.value ? Number(e.target.value) : null })
+              handleJackpotChange(e.target.value ? Number(e.target.value) : null)
             }
-            className="w-full h-10 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-white"
+            className="w-full h-10 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-white disabled:opacity-60"
           >
             <option value="">Select existing jackpot…</option>
             {jackpots.map((j) => (
@@ -528,34 +558,80 @@ function ChildTierRow({
             className="bg-neutral-800 border-neutral-700 text-white"
           />
         </div>
-        <div className="space-y-2">
-          <Label className="text-neutral-300" title="Probability per spin (0–1). 8-decimal precision.">
-            Trigger probability
-          </Label>
-          <Input
-            type="text"
-            inputMode="decimal"
-            value={draft.triggerProbability}
-            onChange={(e) => onChange({ triggerProbability: e.target.value })}
-            placeholder="0.00010000"
-            className="bg-neutral-800 border-neutral-700 text-white font-mono"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label className="text-neutral-300" title="Fraction of wager contributed (0–1).">
-            Contribution rate
-          </Label>
-          <Input
-            type="text"
-            inputMode="decimal"
-            value={draft.contributionRate}
-            onChange={(e) => onChange({ contributionRate: e.target.value })}
-            placeholder="0.01000000"
-            className="bg-neutral-800 border-neutral-700 text-white font-mono"
-          />
+      </div>
+
+      {/* Trigger Probability — dual-input parsing view */}
+      <div className="rounded-md border border-neutral-800 bg-neutral-950/40 p-4 space-y-3">
+        <div className="text-sm font-medium text-white">Trigger Probability</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+          <div className="space-y-1">
+            <Label className="text-neutral-400 text-xs uppercase tracking-wider">
+              Odds
+            </Label>
+            <div className="flex items-center gap-2">
+              <span className="text-neutral-300 text-sm whitespace-nowrap">1 in</span>
+              <Input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                step={1}
+                value={draft.triggerDenominator}
+                onChange={(e) => onChange({ triggerDenominator: e.target.value })}
+                placeholder="50000"
+                className="bg-neutral-800 border-neutral-700 text-white font-mono"
+              />
+              <span className="text-neutral-300 text-sm whitespace-nowrap">spins</span>
+            </div>
+            <div className="text-xs text-neutral-500 font-mono pt-1">
+              Raw probability: {probabilityFixed8(probability)}
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-neutral-400 text-xs uppercase tracking-wider">
+              Contribution rate
+            </Label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={draft.contributionRate}
+              onChange={(e) => onChange({ contributionRate: e.target.value })}
+              placeholder="0.01000000"
+              className="bg-neutral-800 border-neutral-700 text-white font-mono"
+            />
+            <div className="text-xs text-neutral-500 pt-1">
+              Fraction of wager contributed (0–1).
+            </div>
+          </div>
         </div>
       </div>
-      <div className="mt-4 flex items-center justify-between">
+
+      {/* Simulated Daily Volume — local UI only */}
+      <div className="rounded-md border border-neutral-800 bg-neutral-950/40 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-neutral-300">
+            Simulated Daily Volume{" "}
+            <span className="text-neutral-500 font-normal text-xs">(preview only — not saved)</span>
+          </Label>
+          <span className="font-mono text-sm text-white">
+            {dailyVolume.toLocaleString()} spins/day
+          </span>
+        </div>
+        <Slider
+          value={[dailyVolume]}
+          min={1000}
+          max={500000}
+          step={1000}
+          onValueChange={(v) => setDailyVolume(v[0] ?? DEFAULT_DAILY_VOLUME)}
+        />
+        <div className="rounded border border-blue-500/30 bg-blue-500/5 p-3">
+          <div className="text-xs uppercase tracking-wider text-blue-300 mb-1">
+            Estimated Drop Frequency
+          </div>
+          <div className="text-sm text-white">{dropText}</div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between pt-1">
         <Button
           type="button"
           variant="ghost"
@@ -579,3 +655,4 @@ function ChildTierRow({
     </div>
   );
 }
+
