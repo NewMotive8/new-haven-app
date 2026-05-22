@@ -127,7 +127,6 @@ function appendAudit(entry: AuditEntry) {
 function inlineConfigFromDto(jp: JackpotDTO): JackpotConfigDTO {
   const cfg = (jp.config ?? {}) as Record<string, unknown>;
   const v2 = (cfg.engineV2 ?? {}) as Record<string, unknown>;
-  const tiers = (cfg.tiers as JackpotConfigDTO["tiers"]) ?? undefined;
 
   return {
     id: jp.id,
@@ -135,7 +134,7 @@ function inlineConfigFromDto(jp: JackpotDTO): JackpotConfigDTO {
     enabled: jp.enabled,
     brandId: jp.brandId,
     type: "AVERAGE",
-    structuralType: tiers && tiers.length > 0 ? "MULTI_LEVEL" : "CLASSIC",
+    structuralType: "CLASSIC",
     volatility: jp.volatility ?? 1,
     pool: {
       currentAmount: jp.poolBalance,
@@ -150,7 +149,6 @@ function inlineConfigFromDto(jp: JackpotDTO): JackpotConfigDTO {
       contributionAmount: 0,
       contributionType: "FIXED",
     },
-    tiers,
     contribution:
       v2.contributionMode === "split"
         ? {

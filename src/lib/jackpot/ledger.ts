@@ -6,7 +6,7 @@
  * the simulator engine. Third-party wallets call into these helpers to extract
  * the operator rake (House slice) deterministically per spin.
  */
-import type { ContributionSplitDTO, JackpotConfigDTO, TierDTO } from "./types";
+import type { ContributionSplitDTO, JackpotConfigDTO } from "./types";
 
 export interface ContributionSlice {
   pool: number;
@@ -15,7 +15,6 @@ export interface ContributionSlice {
 }
 
 export interface BetLedgerEntry extends ContributionSlice {
-  /** Tier rank when MULTI_LEVEL (undefined for flat jackpots). */
   tier?: number;
   label?: string;
 }
@@ -23,9 +22,7 @@ export interface BetLedgerEntry extends ContributionSlice {
 export interface BetLedger {
   wager: number;
   totalContribution: number;
-  /** Aggregated split across all tiers (or the single flat slice). */
   totals: ContributionSlice;
-  /** Per-target breakdown (one entry for CLASSIC, N entries for MULTI_LEVEL). */
   entries: BetLedgerEntry[];
 }
 
@@ -68,20 +65,7 @@ export function computeBetLedger(jp: JackpotConfigDTO, wager: number): BetLedger
     entries.push({ ...slice });
   };
 
-  if (jp.structuralType === "MULTI_LEVEL" && Array.isArray(jp.tiers) && jp.tiers.length > 0) {
-    jp.tiers.forEach((t: TierDTO) => {
-      const tierWager = w * (Number(t.multiLevelWeight) || 0);
-      const slice = resolveContributionSlice(
-        t.contribution,
-        { type: t.pool.contributionType, amount: Number(t.pool.contributionAmount) || 0 },
-        { type: t.seed.contributionType, amount: Number(t.seed.contributionAmount) || 0 },
-        tierWager,
-      );
-      entries.push({ ...slice, tier: t.multiLevelTier, label: t.label });
-    });
-  } else {
-    pushFlat();
-  }
+  pushFlat();
 
   const totals = entries.reduce<ContributionSlice>(
     (acc, e) => ({ pool: acc.pool + e.pool, seed: acc.seed + e.seed, house: acc.house + e.house }),

@@ -2,7 +2,6 @@ import type {
   JackpotConfigDTO,
   JackpotStructuralType,
   JackpotWinType,
-  TierDTO,
 } from "./types";
 import type { JackpotSavePayload } from "@/components/jackpot/JackpotCreationForm";
 
@@ -36,7 +35,7 @@ function splitAllocation(total: number, weights: number[], decimals = 4): number
 
 function mapStructural(formType: unknown): JackpotStructuralType {
   const t = String(formType ?? "").toLowerCase();
-  if (t === "multi_level" || t === "multilevel" || t === "multi-level") return "MULTI_LEVEL";
+  if (t === "must_drop" || t === "mustdrop" || t === "must-drop") return "MUST_DROP";
   if (t === "must_drop" || t === "mustdrop" || t === "must-drop") return "MUST_DROP";
   if (t === "frequency") return "FREQUENCY";
   return "CLASSIC";
@@ -109,51 +108,6 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
 
 
 
-  // ── MULTI_LEVEL — build tier array (fall back to even-weighted single tier).
-  let tiers: TierDTO[] | undefined;
-  if (structuralType === "MULTI_LEVEL" && payload.tiers && payload.tiers.length > 0) {
-    const raw = payload.tiers.slice(0, 4);
-    const evenWeight = raw.length > 0 ? 1 / raw.length : 1;
-    tiers = raw.map((t, idx) => {
-      const rank = Number(t.multiLevelTier) || idx + 1;
-      const weight = Number.isFinite(t.multiLevelWeight) && t.multiLevelWeight > 0
-        ? Math.max(0, Math.min(1, t.multiLevelWeight))
-        : evenWeight;
-      const tierReseed = num(t.reseedingAmount, reseed);
-      const tierAvgWin = num(t.averageWinAmount, avgWin);
-      return {
-        multiLevelTier: rank,
-        multiLevelWeight: weight,
-        label: t.label,
-        pool: {
-          currentAmount: tierReseed,
-          minimumAmount: tierReseed,
-          maximumAmount: num(t.maximumPoolAmount, 0),
-          minimumWinAmount: num(t.minWinAmount, minWin),
-          maximumWinAmount: num(t.maxWinAmount, maxWin),
-          // Per-tier CDF center — Mini=400, Major=4000, Mega=40000 in the
-          // default template. Falls back to global avgWin then maxWin.
-          targetAmount: num(t.averageWinAmount, tierAvgWin),
-          contributionAmount: num(t.poolContributionAmount, poolContributionAmount),
-          contributionType:
-            (t.poolContributionType ?? payload.contributionType) === "fixed"
-              ? "FIXED"
-              : "PERCENTAGE",
-          operatorShare: num(t.operatorShare, poolOperatorShare),
-        },
-        seed: {
-          currentAmount: num(t.seedInitialAmount, num(t.seedContributionAmount, seedContributionAmount)),
-          targetAmount: num(t.seedTargetAmount, tierAvgWin),
-          contributionAmount: num(t.seedContributionAmount, seedContributionAmount),
-          contributionType:
-            (t.seedContributionType ?? payload.seedContributionType) === "fixed"
-              ? "FIXED"
-              : "PERCENTAGE",
-          operatorShare: num(t.seedOperatorShare, seedOperatorShare),
-        },
-      };
-    });
-  }
 
   // ── Timed lifespan for MUST_DROP / FREQUENCY.
   let timed: JackpotConfigDTO["timed"];
@@ -183,48 +137,6 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
       : undefined;
   const triggerOdds = num(payload.triggerOdds, 0);
 
-  // Apply per-tier split / trigger odds onto the already-built tiers array.
-  if (tiers && payload.tiers) {
-    tiers = tiers.map((t, idx) => {
-      const src = payload.tiers![idx];
-      if (!src) return t;
-      const tSplit =
-        src.contributionMode === "split"
-          ? {
-              mode: "split" as const,
-              totalContributionAmount: num(src.totalContributionAmount, 0),
-              totalContributionType:
-                (src.totalContributionType ?? "fixed") === "fixed"
-                  ? ("FIXED" as const)
-                  : ("PERCENTAGE" as const),
-              poolWeight: num(src.poolWeight, 60),
-              seedWeight: num(src.seedWeight, 30),
-              houseWeight: num(src.houseWeight, 10),
-            }
-          : undefined;
-      // When the tier uses Split mode, override its pool/seed contribution
-      // amount + type from the split inputs (largest-remainder rounding so
-      // pool+seed+house sum exactly to the tier total).
-      let pool = t.pool;
-      let seed = t.seed;
-      if (tSplit) {
-        const [pAmt, sAmt] = splitAllocation(
-          tSplit.totalContributionAmount,
-          [tSplit.poolWeight, tSplit.seedWeight, tSplit.houseWeight],
-        );
-        pool = { ...pool, contributionAmount: pAmt, contributionType: tSplit.totalContributionType };
-        seed = { ...seed, contributionAmount: sAmt, contributionType: tSplit.totalContributionType };
-      }
-      return {
-        ...t,
-        pool,
-        seed,
-        ...(tSplit ? { contribution: tSplit } : {}),
-        ...(num(src.triggerOdds, 0) > 0 ? { triggerOdds: num(src.triggerOdds, 0) } : {}),
-      };
-
-    });
-  }
 
   return {
     id: 0,
@@ -234,7 +146,6 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
     volatility,
     pool: basePool,
     seed: baseSeed,
-    ...(tiers ? { tiers } : {}),
     ...(timed ? { timed } : {}),
     ...(payload.payoutModel === "fixed" ? { fixedWinAmount: num(payload.fixedWinAmount, 0) } : {}),
     ...(payload.payoutModel === "maximum" ? { maximumWinAmount: maxWin } : {}),

@@ -13,8 +13,6 @@ import type {
   PoolDTO,
   SeedDTO,
   SimulatorResponseDTO,
-  TierDTO,
-  TierResultDTO,
   WinEventDTO,
 } from "./types";
 
@@ -55,9 +53,6 @@ export function simulateEngine(
   const safeWager = Number(wager) || 0;
   const structuralType = jackpot.structuralType ?? "CLASSIC";
 
-  if (structuralType === "MULTI_LEVEL" && jackpot.tiers && jackpot.tiers.length > 0) {
-    return simulateMultiLevel(jackpot, safeWager, safeIterations, rng);
-  }
   if (structuralType === "MUST_DROP" || structuralType === "FREQUENCY") {
     return simulateTimed(jackpot, safeWager, safeIterations, structuralType, rng);
   }
@@ -319,284 +314,6 @@ function simulateClassic(
   };
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// MULTI_LEVEL — mirrors JackpotEngineMaths.calculateWin MULTI_LEVEL branch +
-// JackpotEngineSimulator loop with per-tier weight distribution.
-// ──────────────────────────────────────────────────────────────────────────────
-
-function simulateMultiLevel(
-  jackpot: JackpotConfigDTO,
-  wager: number,
-  iterations: number,
-  rng: RngSource,
-): SimulatorResponseDTO {
-  const liveTiers: TierDTO[] = [...(jackpot.tiers ?? [])]
-    .map((tier) => ({
-      ...tier,
-      pool: { ...tier.pool },
-      seed: { ...tier.seed },
-    }))
-    .sort((a, b) => b.multiLevelTier - a.multiLevelTier);
-  if (liveTiers.length === 0) return simulateClassic(jackpot, wager, iterations, rng);
-
-  const globalVolatility = Number(jackpot.volatility) || 0;
-  const winType = jackpot.type ?? "AVERAGE";
-  const isAverage = winType !== "MAXIMUM";
-  const fixedWinAmount = Number(jackpot.fixedWinAmount) || 0;
-  const globalMaximumWinAmount = Number(jackpot.maximumWinAmount) || 0;
-  const hasFixedOrMaxOverride = fixedWinAmount > 0 || globalMaximumWinAmount > 0;
-  const globalTriggerOdds = Number(jackpot.triggerOdds) || 0;
-
-  const tierStates = liveTiers.map((tier) => {
-    const tierRuntime = buildRuntime(tier.pool, tier.seed, wager);
-    return {
-      tier,
-      label: tier.label ?? defaultTierLabel(tier.multiLevelTier),
-      weight: Math.max(0, Math.min(1, Number(tier.multiLevelWeight) || 0)),
-      runtime: tierRuntime,
-      winCounter: 0,
-      winAmountCounter: 0,
-      maxWinAmount: 0,
-      rejectedByGate: 0,
-      totalContribution: 0,
-      houseContributions: 0,
-    };
-  });
-
-  let walletContributions = 0;
-  let operatorContributions = 0;
-  let houseContributionsTotal = 0;
-  let winCounter = 0;
-  let winAmountCounter = 0;
-  let maxWinAmount = 0;
-  let rejectedByGate = 0;
-  const tierCounts: Record<string, number> = {};
-  const winEvents: WinEventDTO[] = [];
-  const nowIso = new Date().toISOString();
-  let engineScopeAudit: EngineScopeAuditDTO | undefined;
-
-  for (let i = 0; i < iterations; i++) {
-    // ── Per-spin contribution pass: split weights or legacy pool/seed × tier weight.
-    for (const tierState of tierStates) {
-      const tierRuntime = tierState.runtime;
-      const tierInstance = tierState.tier;
-      const tierPool = tierInstance.pool;
-      const tierSeed = tierInstance.seed;
-      const tierWeight = tierState.weight;
-      const tierSplit = tierInstance.contribution;
-
-      let localPoolContribution = 0;
-      let localSeedContribution = 0;
-      let localHouseContribution = 0;
-
-      if (tierSplit && tierSplit.mode === "split") {
-        // Tier defines its own 3-way split — multiLevelWeight scales the
-        // declared total so cascade math stays additive across tiers.
-        const totalType = tierSplit.totalContributionType ?? "FIXED";
-        const totalRaw = Number(tierSplit.totalContributionAmount) || 0;
-        const totalForCalc = (totalType === "FIXED" ? totalRaw : wager * (totalRaw / 100)) * tierWeight;
-        const pw = Math.max(0, Number(tierSplit.poolWeight) || 0) / 100;
-        const sw = Math.max(0, Number(tierSplit.seedWeight) || 0) / 100;
-        const hw = Math.max(0, Number(tierSplit.houseWeight) || 0) / 100;
-        localPoolContribution = totalForCalc * pw;
-        localSeedContribution = totalForCalc * sw;
-        localHouseContribution = totalForCalc * hw;
-      } else {
-        const poolContributionBase =
-          tierPool.contributionType === "FIXED"
-            ? Number(tierPool.contributionAmount) || 0
-            : wager * ((Number(tierPool.contributionAmount) || 0) / 100);
-        const seedContributionBase =
-          tierSeed.contributionType === "FIXED"
-            ? Number(tierSeed.contributionAmount) || 0
-            : wager * ((Number(tierSeed.contributionAmount) || 0) / 100);
-        localPoolContribution = poolContributionBase * tierWeight;
-        localSeedContribution = seedContributionBase * tierWeight;
-      }
-
-      tierRuntime.poolCurrent = Math.min(
-        tierRuntime.poolCap,
-        tierRuntime.poolCurrent + localPoolContribution,
-      );
-      tierState.totalContribution += localPoolContribution;
-
-      const poolOperatorShare =
-        Math.min(100, Math.max(0, Number(tierPool.operatorShare) || 0)) / 100;
-      walletContributions += localPoolContribution * (1 - poolOperatorShare);
-      operatorContributions += localPoolContribution * poolOperatorShare;
-
-      if (tierRuntime.hasSeedConfig && localSeedContribution > 0) {
-        tierRuntime.seedCurrent = Math.min(
-          tierRuntime.seedCap,
-          tierRuntime.seedCurrent + localSeedContribution,
-        );
-        tierState.totalContribution += localSeedContribution;
-        const seedOperatorShare =
-          Math.min(100, Math.max(0, Number(tierSeed.operatorShare) || 0)) / 100;
-        walletContributions += localSeedContribution * (1 - seedOperatorShare);
-        operatorContributions += localSeedContribution * seedOperatorShare;
-      }
-
-      // Stash the math contribution + house cut on the tierState for the
-      // evaluation pass below, so we don't recompute or double-roll RNG.
-      (tierState as any)._mathContribution = localPoolContribution + localSeedContribution;
-      tierState.houseContributions += localHouseContribution;
-      houseContributionsTotal += localHouseContribution;
-    }
-
-    // ── Industry-standard reverse-rank cascade: one uniform RNG roll per spin.
-    const spinRoll = rng();
-    let spinAwarded = false;
-
-    for (const tierState of tierStates) {
-      if (spinAwarded) break;
-
-      const tierInstance = tierState.tier;
-      const tierRuntime = tierState.runtime;
-      const tierPool = tierInstance.pool;
-
-      const localMathContribution = Number((tierState as any)._mathContribution) || 0;
-      if (localMathContribution <= 0) continue;
-
-      const tierTargetAmount = Number(tierPool.targetAmount) || 0;
-      const tierMinimumWinAmount = Number(tierPool.minimumWinAmount) || 0;
-      const tierVolatility = globalVolatility;
-      const cdfTarget =
-        tierTargetAmount > 0
-          ? tierTargetAmount
-          : globalMaximumWinAmount > 0
-            ? globalMaximumWinAmount
-            : tierRuntime.poolCurrent;
-      const safeTarget = Math.max(cdfTarget, 2.0);
-
-      if (!engineScopeAudit && i === 0 && tierInstance.multiLevelTier === 1) {
-        engineScopeAudit = {
-          spinIndex: 0,
-          tier: tierInstance.multiLevelTier,
-          label: tierState.label,
-          runtimeTargetAmount: cdfTarget,
-          runtimeMinimumWinAmount: tierMinimumWinAmount,
-        };
-      }
-
-      const tierTriggerOdds = Number(tierInstance.triggerOdds) || globalTriggerOdds;
-      let hitChance: number;
-      if (tierTriggerOdds > 0) {
-        hitChance = fixedOddsHitChance(tierTriggerOdds, localMathContribution);
-      } else if (isAverage) {
-        hitChance = calculateAverageHitChance(
-          tierRuntime.poolCurrent,
-          cdfTarget,
-          localMathContribution,
-          tierVolatility,
-        );
-      } else {
-        hitChance = calculateMaximumHitChance(
-          tierRuntime.poolCurrent,
-          cdfTarget,
-          localMathContribution,
-          tierVolatility,
-        );
-      }
-
-      const scaled = spinRoll * safeTarget;
-      const result = scaled / safeTarget; // == spinRoll, but keeps Java-shape divisor
-      if (!(result < hitChance)) continue;
-
-      if (tierMinimumWinAmount > 0 && tierRuntime.poolCurrent < tierMinimumWinAmount) {
-        tierState.rejectedByGate++;
-        rejectedByGate++;
-        continue;
-      }
-      if (tierRuntime.hasSeedConfig && tierRuntime.seedCurrent < tierRuntime.poolMin) {
-        tierState.rejectedByGate++;
-        rejectedByGate++;
-        continue;
-      }
-
-      const tierMaximumWinAmount = Number(tierPool.maximumWinAmount) || 0;
-      const payoutCap = tierMaximumWinAmount > 0 ? tierMaximumWinAmount : globalMaximumWinAmount;
-      const winAmount = applyPayoutOverrides(tierRuntime.poolCurrent, fixedWinAmount, payoutCap);
-      const poolBeforeWin = tierRuntime.poolCurrent;
-
-      tierState.winCounter++;
-      tierState.winAmountCounter += winAmount;
-      if (winAmount > tierState.maxWinAmount) tierState.maxWinAmount = winAmount;
-
-      winCounter++;
-      winAmountCounter += winAmount;
-      if (winAmount > maxWinAmount) maxWinAmount = winAmount;
-
-      const tierKey = `T${tierInstance.multiLevelTier}-${tierState.label}`;
-      tierCounts[tierKey] = (tierCounts[tierKey] ?? 0) + 1;
-
-      if (winEvents.length < MAX_WIN_EVENTS_RETAINED) {
-        winEvents.push({
-          iteration: i + 1,
-          amount: winAmount,
-          poolBeforeWin,
-          timestamp: nowIso,
-          winningTier: tierInstance.multiLevelTier,
-        });
-      }
-
-      reseedAfterWin(tierRuntime, winAmount, hasFixedOrMaxOverride || payoutCap > 0);
-      spinAwarded = true;
-    }
-  }
-
-  const totalWagered = wager * iterations;
-  const totalContributions = walletContributions;
-  const denominator = walletContributions + operatorContributions;
-  const rtp = denominator > 0 ? (winAmountCounter / denominator) * 100 : 0;
-  const houseRatio = totalWagered > 0 ? houseContributionsTotal / totalWagered : 0;
-
-  const tierResults: TierResultDTO[] = tierStates
-    .slice()
-    .sort((a, b) => a.tier.multiLevelTier - b.tier.multiLevelTier)
-    .map((tierState) => ({
-      tier: tierState.tier.multiLevelTier,
-      label: tierState.label,
-      winCounter: tierState.winCounter,
-      winAmountCounter: tierState.winAmountCounter,
-      maxWinAmount: tierState.maxWinAmount,
-      finalPool: tierState.runtime.poolCurrent,
-      finalSeed: tierState.runtime.seedCurrent,
-      rejectedByGate: tierState.rejectedByGate,
-      totalContribution: tierState.totalContribution,
-      houseContributions: tierState.houseContributions,
-    }));
-
-  const finalPool = tierResults.reduce((sum, tierResult) => sum + tierResult.finalPool, 0);
-  const finalSeed = tierResults.reduce((sum, tierResult) => sum + tierResult.finalSeed, 0);
-
-  return {
-    iterations,
-    wager,
-    totalWagered,
-    totalContributions,
-    walletContributions,
-    operatorContributions,
-    winCounter,
-    rejectedByGate,
-    winAmountCounter,
-    rtp,
-    finalPool,
-    finalSeed,
-    winEvents,
-    maxWinAmount,
-    tierCounts,
-    tierResults,
-    engineScopeAudit,
-    structuralType: "MULTI_LEVEL",
-    houseContributions: houseContributionsTotal,
-    houseRatio,
-  };
-}
-
-function defaultTierLabel(tier: number): string {
-  return ["Mini", "Minor", "Major", "Mega"][Math.max(0, Math.min(3, tier - 1))] ?? `Tier ${tier}`;
-}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // MUST_DROP / FREQUENCY — real UTC-clock timed maximum win.
@@ -779,5 +496,189 @@ function simulateTimed(
     structuralType,
     houseContributions,
     houseRatio,
+  };
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Phase 3 — relational group fan-out simulator.
+// Posts batched concurrent spins to /api/v1/event/bet with `groupId` and
+// aggregates the returned perJackpot[] slices into a GroupSimResult roll-up
+// matching the legacy multi-level chart shape so existing UI keeps working.
+// ──────────────────────────────────────────────────────────────────────────────
+
+export interface GroupTierRollupDTO {
+  tierRank: number;
+  jackpotId: number;
+  jackpotName: string;
+  totalPool: number;
+  totalSeed: number;
+  totalHouse: number;
+  totalContribution: number;
+  wins: number;
+  totalWinAmount: number;
+  maxWinAmount: number;
+}
+
+export interface GroupSimResult {
+  groupId: number;
+  iterations: number;
+  completed: number;
+  failed: number;
+  wagerPerSpin: number;
+  totalWagered: number;
+  totalContribution: number;
+  totalHouse: number;
+  winCounter: number;
+  winAmountCounter: number;
+  perTier: GroupTierRollupDTO[];
+  winEvents: WinEventDTO[];
+}
+
+export interface SimulateGroupOpts {
+  iterations: number;
+  wagerPerSpin: number;
+  /** Chunk size for concurrent POST batches. Default 25. */
+  concurrency?: number;
+  /** Base URL override (default: window.location.origin or ''). */
+  baseUrl?: string;
+  /** INTERNAL_SERVICE_SECRET for the internal handshake. */
+  internalSecret?: string;
+  gameId?: string;
+  onProgress?: (done: number, total: number) => void;
+  signal?: AbortSignal;
+}
+
+export async function simulateGroup(
+  groupId: number,
+  brandId: number,
+  opts: SimulateGroupOpts,
+): Promise<GroupSimResult> {
+  const iterations = Math.max(0, Math.min(Number(opts.iterations) || 0, MAX_ITERATIONS));
+  const wager = Number(opts.wagerPerSpin) || 0;
+  const concurrency = Math.max(1, Math.min(Number(opts.concurrency) || 25, 100));
+  const baseUrl = opts.baseUrl ?? (typeof window !== "undefined" ? window.location.origin : "");
+  const gameId = opts.gameId ?? "sim";
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "x-brand-id": String(brandId),
+  };
+  if (opts.internalSecret) {
+    headers["X-Internal-Service-Secret"] = opts.internalSecret;
+  }
+
+  const perTier = new Map<number, GroupTierRollupDTO>();
+  const winEvents: WinEventDTO[] = [];
+  let completed = 0;
+  let failed = 0;
+  let totalContribution = 0;
+  let totalHouse = 0;
+  let winCounter = 0;
+  let winAmountCounter = 0;
+
+  async function postOne(i: number): Promise<void> {
+    if (opts.signal?.aborted) return;
+    const txId = `sim-${groupId}-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 10)}`;
+    try {
+      const res = await fetch(`${baseUrl}/api/v1/event/bet`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          transactionId: txId,
+          wager,
+          gameId,
+          groupId,
+        }),
+        signal: opts.signal,
+      });
+      if (!res.ok) {
+        failed++;
+        return;
+      }
+      const data = (await res.json()) as {
+        perJackpot?: Array<{
+          jackpotId: number;
+          jackpotName: string;
+          contribution: { pool: number; seed: number; house: number };
+          totalContribution: number;
+        }>;
+        totalContribution?: number;
+        contribution?: { pool: number; seed: number; house: number };
+        win?: {
+          jackpotId?: number;
+          tierRank?: number;
+          amount?: number;
+        } | null;
+      };
+      const list = Array.isArray(data.perJackpot) ? data.perJackpot : [];
+      list.forEach((entry, idx) => {
+        const tierRank = idx + 1;
+        const prev = perTier.get(entry.jackpotId) ?? {
+          tierRank,
+          jackpotId: entry.jackpotId,
+          jackpotName: entry.jackpotName,
+          totalPool: 0,
+          totalSeed: 0,
+          totalHouse: 0,
+          totalContribution: 0,
+          wins: 0,
+          totalWinAmount: 0,
+          maxWinAmount: 0,
+        };
+        prev.totalPool += entry.contribution.pool || 0;
+        prev.totalSeed += entry.contribution.seed || 0;
+        prev.totalHouse += entry.contribution.house || 0;
+        prev.totalContribution += entry.totalContribution || 0;
+        perTier.set(entry.jackpotId, prev);
+      });
+      totalContribution += Number(data.totalContribution) || 0;
+      totalHouse += Number(data.contribution?.house) || 0;
+      if (data.win && typeof data.win.amount === "number") {
+        winCounter++;
+        winAmountCounter += data.win.amount;
+        const target = data.win.jackpotId != null ? perTier.get(data.win.jackpotId) : undefined;
+        if (target) {
+          target.wins++;
+          target.totalWinAmount += data.win.amount;
+          if (data.win.amount > target.maxWinAmount) target.maxWinAmount = data.win.amount;
+        }
+        if (winEvents.length < MAX_WIN_EVENTS_RETAINED) {
+          winEvents.push({
+            iteration: i + 1,
+            amount: data.win.amount,
+            poolBeforeWin: 0,
+            timestamp: new Date().toISOString(),
+            winningTier: data.win.tierRank,
+          });
+        }
+      }
+      completed++;
+    } catch {
+      failed++;
+    }
+  }
+
+  for (let start = 0; start < iterations; start += concurrency) {
+    if (opts.signal?.aborted) break;
+    const batch: Promise<void>[] = [];
+    const end = Math.min(start + concurrency, iterations);
+    for (let i = start; i < end; i++) batch.push(postOne(i));
+    await Promise.all(batch);
+    opts.onProgress?.(completed + failed, iterations);
+  }
+
+  return {
+    groupId,
+    iterations,
+    completed,
+    failed,
+    wagerPerSpin: wager,
+    totalWagered: wager * completed,
+    totalContribution,
+    totalHouse,
+    winCounter,
+    winAmountCounter,
+    perTier: Array.from(perTier.values()).sort((a, b) => a.tierRank - b.tierRank),
+    winEvents,
   };
 }

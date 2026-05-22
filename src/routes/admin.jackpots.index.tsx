@@ -41,7 +41,7 @@ type StatusFilter = "all" | "active" | "template" | "disabled";
 const KIND_LABEL: Record<JackpotKind, string> = {
   classic: "Classic",
   must_drop: "Must Drop",
-  multi_level: "Multi-Level",
+  
   frequency: "Frequency",
 };
 

@@ -1,5 +1,5 @@
 // Java BigDecimal / Long -> number, Instant / ZonedDateTime -> ISO-8601 string
-export type JackpotKind = "classic" | "frequency" | "must_drop" | "multi_level";
+export type JackpotKind = "classic" | "frequency" | "must_drop";
 
 export interface JackpotDTO {
   id: number;
@@ -38,7 +38,7 @@ export type ContributionType = "PERCENTAGE" | "FIXED";
 /** Win math model — orthogonal to structural type. */
 export type JackpotWinType = "AVERAGE" | "MAXIMUM";
 /** Structural pipeline — selects engine branch (mirror of Java JackpotType). */
-export type JackpotStructuralType = "CLASSIC" | "MULTI_LEVEL" | "MUST_DROP" | "FREQUENCY";
+export type JackpotStructuralType = "CLASSIC" | "MUST_DROP" | "FREQUENCY";
 
 export interface PoolDTO {
   currentAmount: number;
@@ -87,21 +87,6 @@ export interface ContributionSplitDTO {
   overlappingRule?: "split" | "additive";
 }
 
-/** One tier in a MULTI_LEVEL jackpot (mirrors Java Pool+Seed with multiLevelTier/Weight). */
-export interface TierDTO {
-  /** Tier rank — 1 (Mini) … 4 (Mega). Higher rank evaluated FIRST per Java sort. */
-  multiLevelTier: number;
-  /** 0–1. Fraction of the global per-bet contribution routed to this tier. */
-  multiLevelWeight: number;
-  /** Human-readable label (Mini / Minor / Major / Mega). */
-  label?: string;
-  pool: PoolDTO;
-  seed: SeedDTO;
-  /** Per-tier 3-way contribution split. */
-  contribution?: ContributionSplitDTO;
-  /** Per-tier fixed-odds trigger override. N where p = 1/N per spin. */
-  triggerOdds?: number;
-}
 
 /** MUST_DROP / FREQUENCY timed config (virtual-clock mapping). */
 export interface TimedConfigDTO {
@@ -127,8 +112,6 @@ export interface JackpotConfigDTO {
   volatility: number;
   pool: PoolDTO;
   seed: SeedDTO;
-  /** Present when structuralType === "MULTI_LEVEL". 2–4 entries. */
-  tiers?: TierDTO[];
   /** Present when structuralType === "MUST_DROP" | "FREQUENCY". */
   timed?: TimedConfigDTO;
   fixedWinAmount?: number;
