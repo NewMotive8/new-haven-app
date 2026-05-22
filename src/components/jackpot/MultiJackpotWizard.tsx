@@ -2158,23 +2158,56 @@ function JackpotContributionCard({
           <p className="text-[11px] text-neutral-500 mb-4">
             Split how the contribution amount above is funded. 100/0 = fully player-funded, 0/100 = fully operator-funded.
           </p>
-          <div className="flex items-center gap-3">
-            <div className="flex flex-col items-center gap-1 w-20 shrink-0">
+
+          {/* Labels row */}
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-20 shrink-0 text-center">
               <span className="text-[11px] uppercase tracking-wide text-neutral-400">Player</span>
-              <div className="relative w-20">
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={playerSharePct}
-                  onChange={(e) => setPlayerSharePct(clampShare(parseInt(e.target.value, 10)))}
-                  className="bg-neutral-900 border-neutral-700 pr-6 tabular-nums h-9 text-center"
-                />
-                <span className="absolute inset-y-0 right-2 flex items-center text-neutral-400 pointer-events-none text-xs">%</span>
+            </div>
+            <div className="flex-1 px-2 text-center">
+              {/* Dynamic arrow indicator pointing to the dominant side */}
+              <div className="flex items-center justify-center gap-1 h-4">
+                {playerSharePct > operatorSharePct && (
+                  <span className="text-[10px] text-blue-400 font-medium flex items-center gap-0.5">
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-blue-400">
+                      <path d="M5 8L1 4h8L5 8z" fill="currentColor"/>
+                    </svg>
+                    Player
+                  </span>
+                )}
+                {operatorSharePct > playerSharePct && (
+                  <span className="text-[10px] text-amber-400 font-medium flex items-center gap-0.5">
+                    Operator
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-amber-400">
+                      <path d="M5 8L1 4h8L5 8z" fill="currentColor"/>
+                    </svg>
+                  </span>
+                )}
+                {playerSharePct === operatorSharePct && (
+                  <span className="text-[10px] text-neutral-500 font-medium">Balanced</span>
+                )}
               </div>
             </div>
-            <div className="flex-1 px-2">
+            <div className="w-20 shrink-0 text-center">
+              <span className="text-[11px] uppercase tracking-wide text-neutral-400">Operator</span>
+            </div>
+          </div>
+
+          {/* Inputs + slider row — all aligned to the same vertical center */}
+          <div className="flex items-center gap-3">
+            <div className="relative w-20 shrink-1">
+              <Input
+                type="number"
+                min={1}
+                max={100}
+                step={1}
+                value={playerSharePct}
+                onChange={(e) => setPlayerSharePct(clampShare(parseInt(e.target.value, 10)))}
+                className="bg-neutral-900 border-neutral-700 pr-6 tabular-nums h-9 text-center"
+              />
+              <span className="absolute inset-y-0 right-2 flex items-center text-neutral-400 pointer-events-none text-xs">%</span>
+            </div>
+            <div className="flex-1 px-2 self-center">
               <Slider
                 value={[playerSharePct]}
                 min={0}
@@ -2183,20 +2216,17 @@ function JackpotContributionCard({
                 onValueChange={(v) => setPlayerSharePct(clampShare(v[0] ?? 0))}
               />
             </div>
-            <div className="flex flex-col items-center gap-1 w-20 shrink-0">
-              <span className="text-[11px] uppercase tracking-wide text-neutral-400">Operator</span>
-              <div className="relative w-20">
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={operatorSharePct}
-                  onChange={(e) => setPlayerSharePct(clampShare(100 - parseInt(e.target.value, 10)))}
-                  className="bg-neutral-900 border-neutral-700 pr-6 tabular-nums h-9 text-center"
-                />
-                <span className="absolute inset-y-0 right-2 flex items-center text-neutral-400 pointer-events-none text-xs">%</span>
-              </div>
+            <div className="relative w-20 shrink-1">
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                value={operatorSharePct}
+                onChange={(e) => setPlayerSharePct(clampShare(100 - parseInt(e.target.value, 10)))}
+                className="bg-neutral-900 border-neutral-700 pr-6 tabular-nums h-9 text-center"
+              />
+              <span className="absolute inset-y-0 right-2 flex items-center text-neutral-400 pointer-events-none text-xs">%</span>
             </div>
           </div>
         </div>
