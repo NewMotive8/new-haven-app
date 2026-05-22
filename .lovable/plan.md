@@ -39,12 +39,37 @@ Shared CSV helper (local `parseCsvIds(file)` in this file): read as text, split 
 
 Add `includedPlayerIds` to the audience payload (alongside the existing `blacklistedPlayerIds`) so the new field flows through `buildAudience()` / saved payload.
 
-## 5. Trigger Probability — where it lives today (answer, no change)
+## 5. Trigger Probability — fix the missing field on Single Jackpot
 
-- **Single Jackpot form**: I am not adding a separate "Trigger Probability" field. The user enters a denominator `N` in **"Trigger Probability Denominator (N)"** (`JackpotCreationForm.tsx` ~line 4990). That value is saved as `triggerOdds` in the payload, and the engine treats it as `p = 1/N` per spin. Nothing is being written twice.
-- **MultiJackpot wizard**: Each tier dialog has its own "Trigger Denominator" input. On save (`MultiJackpotWizard.tsx` line 243–249) it converts the denominator to a probability via `denominatorToProbability(...)` and POSTs it as `triggerProbability` to `/api/v1/jackpot-groups/:id/children` — this is per-tier, not per-jackpot, and is unrelated to the Single Jackpot denominator field above.
+You're right: there is no Trigger Probability input on the Single Jackpot
+form today. The existing "Trigger Probability Denominator (N)" block
+(`JackpotCreationForm.tsx` ~line 4990) lives inside a per-tier loop
+(`t.triggerOdds`, `updateTier(idx, ...)`) and only renders for the legacy
+multi-level path. For Classic / Must-Drop / Frequency it never appears, and
+`triggerOdds` is never written to the payload.
 
-If you want a single visible "Trigger Probability (1 in N)" preview next to the existing denominator input on the Single Jackpot form, say the word and I will add a read-only computed line — but I will not introduce a second writable field.
+Fix:
+
+- Promote a single top-level `triggerOdds` state on `JackpotCreationForm`
+  (default `0` = disabled) and a `setTriggerOdds`.
+- Add a "Trigger Probability" card to the Single Jackpot form, placed
+  right after **Jackpot Contribution** (and visible for all three Single
+  types — Classic, Must-Drop, Frequency). It mirrors the per-tier UI:
+  - Numeric input "Trigger Probability Denominator (N)" capped at
+    10,000,000.
+  - Live read-only badge "1 in N spins" / "disabled".
+  - "RNG Boundary Limit: Max 10,000,000" amber chip and the
+    `p = 1/N per spin` helper line.
+- Wire `triggerOdds` into `JackpotSavePayload` and the object returned by
+  save. `buildCreateBody` already forwards `payload.triggerOdds` to
+  `engineV2.triggerOdds` and validates the ceiling, so no backend change.
+- The per-tier denominator inside the legacy multi-level block stays as-is.
+
+For context: the MultiJackpot wizard's tier dialog has its own
+"Trigger Denominator" that gets converted by `denominatorToProbability(...)`
+and POSTed as `triggerProbability` to `/api/v1/jackpot-groups/:id/children`
+(`MultiJackpotWizard.tsx` ~line 243). That is per-tier on a group and is
+unrelated to the new Single Jackpot field above.
 
 ## Out of scope
 
