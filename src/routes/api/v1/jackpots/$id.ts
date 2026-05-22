@@ -4,6 +4,7 @@ import {
   deleteJackpot,
   getJackpot,
   updateJackpot,
+  GroupConflictError,
 } from "@/lib/jackpot/store.server";
 import type { JackpotDTO } from "@/lib/jackpot/types";
 
@@ -21,9 +22,13 @@ export const Route = createFileRoute("/api/v1/jackpots/$id")({
         if (brand instanceof Response) return brand;
         const id = parseId(params.id);
         if (id == null) return errorJson("Invalid id", 400);
-        const jp = await getJackpot(brand, id);
-        if (!jp) return errorJson(`Jackpot ${id} not found`, 404);
-        return json(jp);
+        try {
+          const jp = await getJackpot(brand, id);
+          if (!jp) return errorJson(`Jackpot ${id} not found`, 404);
+          return json(jp);
+        } catch (e: any) {
+          return errorJson(e?.message ?? "Internal error", 500);
+        }
       },
       PUT: async ({ request, params }) => {
         const brand = requireBrandId(request);
@@ -36,18 +41,28 @@ export const Route = createFileRoute("/api/v1/jackpots/$id")({
         } catch {
           return errorJson("Invalid JSON body", 400);
         }
-        const updated = await updateJackpot(brand, id, body);
-        if (!updated) return errorJson(`Jackpot ${id} not found`, 404);
-        return json(updated);
+        try {
+          const updated = await updateJackpot(brand, id, body);
+          if (!updated) return errorJson(`Jackpot ${id} not found`, 404);
+          return json(updated);
+        } catch (e: any) {
+          if (e instanceof GroupConflictError) return errorJson(e.message, 409);
+          return errorJson(e?.message ?? "Update failed", 500);
+        }
       },
       DELETE: async ({ request, params }) => {
         const brand = requireBrandId(request);
         if (brand instanceof Response) return brand;
         const id = parseId(params.id);
         if (id == null) return errorJson("Invalid id", 400);
-        const removed = await deleteJackpot(brand, id);
-        if (!removed) return errorJson(`Jackpot ${id} not found`, 404);
-        return json({ id, deleted: true });
+        try {
+          const removed = await deleteJackpot(brand, id);
+          if (!removed) return errorJson(`Jackpot ${id} not found`, 404);
+          return json({ id, deleted: true });
+        } catch (e: any) {
+          if (e instanceof GroupConflictError) return errorJson(e.message, 409);
+          return errorJson(e?.message ?? "Delete failed", 500);
+        }
       },
     },
   },

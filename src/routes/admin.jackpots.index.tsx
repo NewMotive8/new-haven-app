@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import * as React from "react";
 import axios from "axios";
 import { useQuery, useQueryClient } from "react-query";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 import {
   Search,
   Plus,
@@ -157,8 +157,8 @@ function JackpotsPage() {
       out.push({
         key: `j-${j.id}`,
         id: j.id,
-        name: j.name,
-        typeLabel: j.jackpotType ? KIND_LABEL[j.jackpotType] : "Classic",
+        name: j.name ?? "(unnamed)",
+        typeLabel: (j.jackpotType && KIND_LABEL[j.jackpotType]) || "Classic",
         status: j.enabled ? "active" : "disabled",
         poolBalance: j.poolBalance ?? 0,
         createdAt: j.createdAt,
@@ -169,7 +169,7 @@ function JackpotsPage() {
       out.push({
         key: `g-${g.id}`,
         id: g.id,
-        name: g.name,
+        name: g.name ?? "(unnamed)",
         typeLabel: "Multi-Level",
         status: g.status,
         poolBalance: 0,
@@ -525,8 +525,11 @@ function JackpotsPage() {
               Delete {confirm?.kind === "group" ? "MultiJackpot" : "Jackpot"}?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-neutral-400">
-              This permanently removes <span className="font-semibold text-neutral-200">{confirm?.name}</span>.
-              This action cannot be undone.
+              This permanently removes{" "}
+              <span className="font-semibold text-neutral-200">
+                {confirm?.name ?? ""}
+              </span>
+              . This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -535,11 +538,13 @@ function JackpotsPage() {
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 hover:bg-red-700 text-white"
-              onClick={async () => {
-                if (!confirm) return;
+              onClick={(e) => {
+                e.preventDefault();
                 const row = confirm;
+                if (!row) return;
                 setConfirm(null);
-                await runAction(row, "delete");
+                // Fire and forget — runAction handles its own errors/toasts.
+                void runAction(row, "delete");
               }}
             >
               Delete

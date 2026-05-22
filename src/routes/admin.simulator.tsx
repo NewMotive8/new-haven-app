@@ -1,7 +1,7 @@
 import { createFileRoute, useRouterState, useNavigate, Link } from "@tanstack/react-router";
 import * as React from "react";
 import axios from "axios";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 import { BrandContext } from "../backoffice/app";
 import type { JackpotConfigDTO, SimulatorResponseDTO } from "@/lib/jackpot/types";
 import type { JackpotSavePayload } from "@/components/jackpot/JackpotCreationForm";

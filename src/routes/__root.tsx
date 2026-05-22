@@ -7,6 +7,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { Toaster as SonnerToaster } from "sonner";
 
 import appCss from "../styles.css?url";
 
@@ -152,6 +153,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <SandboxBanner />
       <Outlet />
+      <SonnerToaster richColors position="top-right" theme="dark" />
     </QueryClientProvider>
   );
 }
