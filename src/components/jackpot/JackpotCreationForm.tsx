@@ -275,11 +275,10 @@ export type JackpotSavePayload = {
       crmSegmentsExclude: string[];
       restrictedCountries: string[];
       blacklistedPlayerIds: string[];
+      includedPlayerIds: string[];
     };
   };
-  // ── Game Assignment — internal master categories + games catalog IDs.
-  assignedCategories?: string[];
-  assignedGameIds?: number[];
+
 };
 
 
