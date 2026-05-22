@@ -17,6 +17,7 @@ type JackpotRow = {
   assigned_categories?: string[] | null;
   assigned_game_ids?: Array<number | string> | null;
   group_id?: number | null;
+  tier_rank?: number | null;
   jackpot_pools: { id: number; current_balance: number }[] | null;
   jackpot_seeds: { id: number; base_seed_amount: number }[] | null;
 };
