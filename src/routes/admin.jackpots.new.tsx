@@ -101,7 +101,7 @@ function TabButton({
       className={`inline-flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
         active
           ? "bg-violet-500 text-white"
-          : "text-neutral-300 hover:text-white hover:bg-neutral-800"
+          : "text-neutral-300 bg-neutral-800 hover:text-white hover:bg-neutral-700"
       }`}
     >
       {children}
