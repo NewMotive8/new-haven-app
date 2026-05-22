@@ -1,6 +1,5 @@
 import * as React from "react";
 import axios from "axios";
-import { useQuery } from "react-query";
 import { toast } from "react-toastify";
 import { useNavigate } from "@tanstack/react-router";
 import {
@@ -42,7 +41,6 @@ interface GroupDTO {
 
 interface ChildDraft {
   uid: string;
-  jackpotId: number | null;
   tierName: string;
   tierRank: string;
   seedAmount: string;
@@ -56,7 +54,6 @@ const DEFAULT_DAILY_VOLUME = 25000;
 function newChildDraft(rank: number): ChildDraft {
   return {
     uid: crypto.randomUUID(),
-    jackpotId: null,
     tierName: "",
     tierRank: String(rank),
     seedAmount: "100.00",
