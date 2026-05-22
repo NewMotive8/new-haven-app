@@ -652,3 +652,50 @@ function ChildTierRow({
   );
 }
 
+/**
+ * Local error boundary scoped to Step 2 of the wizard. Prevents a render
+ * crash inside ChildTierRow (e.g. a transient bundler/HMR state where a
+ * primitive resolves to undefined) from collapsing the whole route to the
+ * global "This page didn't load" boundary.
+ */
+class Step2ErrorBoundary extends React.Component<
+  { children: React.ReactNode; onReset: () => void },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error) {
+    // eslint-disable-next-line no-console
+    console.error("[MultiJackpotWizard] Step 2 crashed:", error);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <Card className="p-6 bg-neutral-900/50 border-red-500/40">
+          <h2 className="text-lg font-semibold text-white mb-2">
+            Step 2 hit a rendering error
+          </h2>
+          <p className="text-sm text-neutral-400 mb-4">
+            {this.state.error.message ||
+              "An unexpected error occurred while rendering the tier editor."}
+          </p>
+          <Button
+            type="button"
+            onClick={() => {
+              this.props.onReset();
+              this.setState({ error: null });
+            }}
+            className="bg-blue-500 hover:bg-blue-600"
+          >
+            Reset step
+          </Button>
+        </Card>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+
