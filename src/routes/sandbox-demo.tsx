@@ -232,6 +232,7 @@ const QA_TEST_CASES: QaTestCase[] = [
 function SandboxDemoPage() {
   const [brandId, setBrandId] = useState<string>("1");
   const [pools, setPools] = useState<Jackpot[]>([]);
+  const [groups, setGroups] = useState<JackpotGroup[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [poolDisplays, setPoolDisplays] = useState<Record<number, number>>({});
   const [optIns, setOptIns] = useState<Record<number, boolean>>({});
