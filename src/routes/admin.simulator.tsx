@@ -689,18 +689,26 @@ function MathAudit({
   iterations,
   wins,
   rejectedByGate = 0,
+  triggerOdds = 0,
+  targetCap = 0,
 }: {
   title?: string;
   configuredProb: number;
   iterations: number;
   wins: number;
   rejectedByGate?: number;
+  /** > 0 means fixed-odds Classic; 0 means curve/must-drop model. */
+  triggerOdds?: number;
+  /** Pool target/max — drives curve cadence in must-drop mode. */
+  targetCap?: number;
 }) {
+  const isCurveMode = !(triggerOdds > 0);
   const configuredN = configuredProb > 0 ? 1 / configuredProb : 0;
   const actualN = wins > 0 ? iterations / wins : 0;
-  // Within ±25% of configured = compliant. Also pass if no configured target.
-  const ratio = configuredN > 0 && actualN > 0 ? actualN / configuredN : 0;
-  const compliant = configuredN === 0 || (ratio >= 0.75 && ratio <= 1.25);
+  // Variance compliance only makes sense in fixed-odds mode. A curve engine's
+  // hit rate is shaped by pool dynamics, so we don't compare it to a flat baseline.
+  const ratio = !isCurveMode && configuredN > 0 && actualN > 0 ? actualN / configuredN : 0;
+  const compliant = isCurveMode || configuredN === 0 || (ratio >= 0.75 && ratio <= 1.25);
 
   const cell: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 4 };
   const k: React.CSSProperties = { fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "#9fb0c8" };
@@ -711,15 +719,40 @@ function MathAudit({
       {title && <div style={{ fontSize: 13, fontWeight: 600, color: "#cbd5e1", marginBottom: 12 }}>{title}</div>}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 16, alignItems: "center" }}>
         <div style={cell}>
-          <span style={k}>Configured Probability</span>
-          <span style={v}>{configuredN > 0 ? `1 in ${fmt(configuredN, 0)}` : "—"}</span>
+          <span style={k}>{isCurveMode ? "Target Cap" : "Configured Probability"}</span>
+          <span style={v}>
+            {isCurveMode
+              ? targetCap > 0
+                ? `€ ${fmt(targetCap)}`
+                : "—"
+              : configuredN > 0
+                ? `1 in ${fmt(configuredN, 0)}`
+                : "—"}
+          </span>
         </div>
         <div style={cell}>
-          <span style={k}>Actual Hit Rate</span>
+          <span style={k}>{isCurveMode ? "Observed Drop Cadence" : "Actual Hit Rate"}</span>
           <span style={v}>{actualN > 0 ? `1 in ${fmt(actualN, 0)}` : "—"}</span>
         </div>
         <div>
-          {compliant ? (
+          {isCurveMode ? (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 14px",
+                background: "rgba(56, 189, 248, 0.12)",
+                color: "#7dd3fc",
+                border: "1px solid rgba(56, 189, 248, 0.35)",
+                borderRadius: 999,
+                fontSize: 13,
+                fontWeight: 700,
+              }}
+            >
+              ◐ Curve Model
+            </span>
+          ) : compliant ? (
             <span
               style={{
                 display: "inline-flex",
@@ -756,6 +789,7 @@ function MathAudit({
           )}
         </div>
       </div>
+
 
       {configuredN > 0 && (() => {
         const expectedWins = Math.round(iterations * configuredProb);
