@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      jackpot_groups: {
+        Row: {
+          activated_at: string | null
+          brand_id: number
+          created_at: string
+          id: number
+          name: string
+          overlapping_rule: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          activated_at?: string | null
+          brand_id: number
+          created_at?: string
+          id?: number
+          name: string
+          overlapping_rule?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          activated_at?: string | null
+          brand_id?: number
+          created_at?: string
+          id?: number
+          name?: string
+          overlapping_rule?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       jackpot_pools: {
         Row: {
           current_balance: number
@@ -66,15 +99,53 @@ export type Database = {
           },
         ]
       }
+      jackpot_transactions: {
+        Row: {
+          brand_id: number
+          group_id: number | null
+          processed_at: string
+          response: Json | null
+          totals: Json
+          transaction_id: string
+        }
+        Insert: {
+          brand_id: number
+          group_id?: number | null
+          processed_at?: string
+          response?: Json | null
+          totals?: Json
+          transaction_id: string
+        }
+        Update: {
+          brand_id?: number
+          group_id?: number | null
+          processed_at?: string
+          response?: Json | null
+          totals?: Json
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jackpot_transactions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "jackpot_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jackpots: {
         Row: {
           brand_id: number
           contribution_percentage: number
           created_at: string
           enabled: boolean
+          group_id: number | null
           id: number
           name: string
+          tier_rank: number | null
           trigger_condition: Json
+          trigger_probability: number
           updated_at: string
           volatility: number
         }
@@ -83,9 +154,12 @@ export type Database = {
           contribution_percentage?: number
           created_at?: string
           enabled?: boolean
+          group_id?: number | null
           id?: number
           name: string
+          tier_rank?: number | null
           trigger_condition?: Json
+          trigger_probability?: number
           updated_at?: string
           volatility?: number
         }
@@ -94,13 +168,24 @@ export type Database = {
           contribution_percentage?: number
           created_at?: string
           enabled?: boolean
+          group_id?: number | null
           id?: number
           name?: string
+          tier_rank?: number | null
           trigger_condition?: Json
+          trigger_probability?: number
           updated_at?: string
           volatility?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "jackpots_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "jackpot_groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
