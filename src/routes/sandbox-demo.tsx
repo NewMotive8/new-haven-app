@@ -709,6 +709,7 @@ function SandboxDemoPage() {
     const currentSecret = internalSecret;
 
     cancelRef.current = false;
+    batchRunningRef.current = true;
     setBatchRunning(true);
     setBatchProgress(0);
     setError(null);
@@ -718,6 +719,22 @@ function SandboxDemoPage() {
     const FLUSH = 25;
     const CONCURRENCY = 16;
     let next = 0;
+    const pendingDeltas: Record<number, number> = {};
+
+    const flushPoolDeltas = () => {
+      const ids = Object.keys(pendingDeltas);
+      if (ids.length === 0) return;
+      const snap = { ...pendingDeltas };
+      for (const k of ids) delete pendingDeltas[Number(k)];
+      setPoolDisplays((d) => {
+        const n = { ...d };
+        for (const [id, add] of Object.entries(snap)) {
+          const jid = Number(id);
+          n[jid] = (n[jid] ?? 0) + add;
+        }
+        return n;
+      });
+    };
 
     const worker = async () => {
       while (true) {
@@ -753,7 +770,8 @@ function SandboxDemoPage() {
             contribution?: { pool?: number; seed?: number; house?: number };
             totalContribution?: number;
             idempotentReplay?: boolean;
-            win?: { isCommunity?: boolean } | null;
+            perJackpot?: PerJackpotEntry[] | null;
+            win?: { jackpotId?: number; isCommunity?: boolean } | null;
           };
           stats.completed++;
           if (res.ok) {
@@ -764,9 +782,42 @@ function SandboxDemoPage() {
             stats.houseTotal += j.contribution?.house ?? 0;
             stats.totalContribution += j.totalContribution ?? 0;
             if (j.idempotentReplay) stats.idempotentReplays++;
+
+            // Per-tier breakdown + live tile updates from perJackpot slices.
+            const per = j.perJackpot ?? [];
+            for (const e of per) {
+              const jid = e.jackpotId;
+              const cur =
+                stats.perJackpot[jid] ??
+                (stats.perJackpot[jid] = {
+                  jackpotId: jid,
+                  jackpotName: e.jackpotName,
+                  poolTotal: 0,
+                  seedTotal: 0,
+                  houseTotal: 0,
+                  totalContribution: 0,
+                  hits: 0,
+                  spins: 0,
+                });
+              cur.jackpotName = e.jackpotName || cur.jackpotName;
+              cur.spins++;
+              cur.poolTotal += e.contribution.pool ?? 0;
+              cur.seedTotal += e.contribution.seed ?? 0;
+              cur.houseTotal += e.contribution.house ?? 0;
+              cur.totalContribution += e.totalContribution ?? 0;
+              const poolDelta = e.contribution.pool ?? 0;
+              if (poolDelta) {
+                pendingDeltas[jid] = (pendingDeltas[jid] ?? 0) + poolDelta;
+              }
+            }
+
             if (j.win) {
               stats.hits++;
               if (j.win.isCommunity) stats.communityHits++;
+              const wjid = j.win.jackpotId;
+              if (typeof wjid === "number" && stats.perJackpot[wjid]) {
+                stats.perJackpot[wjid].hits++;
+              }
             }
           } else {
             stats.blocked++;
@@ -777,7 +828,8 @@ function SandboxDemoPage() {
         }
         if (stats.completed % FLUSH === 0 || stats.completed === size) {
           setBatchProgress(stats.completed);
-          setBatchStats({ ...stats });
+          setBatchStats({ ...stats, perJackpot: { ...stats.perJackpot } });
+          flushPoolDeltas();
         }
       }
     };
@@ -786,9 +838,12 @@ function SandboxDemoPage() {
 
     stats.finishedAt = new Date().toISOString();
     stats.durationMs = Math.round(performance.now() - start);
-    setBatchStats({ ...stats });
+    flushPoolDeltas();
+    setBatchStats({ ...stats, perJackpot: { ...stats.perJackpot } });
+    batchRunningRef.current = false;
     setBatchRunning(false);
   };
+
 
   const cancelBatch = () => {
     cancelRef.current = true;
