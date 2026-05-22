@@ -699,6 +699,10 @@ export function MultiJackpotWizard() {
               />
             </div>
 
+            <PrizeEconomySelector value={prizeEconomy} onChange={setPrizeEconomy} />
+
+
+
             <JackpotContributionCard
               playerSharePct={playerSharePct}
               setPlayerSharePct={setPlayerSharePct}
