@@ -16,6 +16,7 @@ type JackpotRow = {
   updated_at: string;
   assigned_categories?: string[] | null;
   assigned_game_ids?: Array<number | string> | null;
+  group_id?: number | null;
   jackpot_pools: { id: number; current_balance: number }[] | null;
   jackpot_seeds: { id: number; base_seed_amount: number }[] | null;
 };
@@ -47,12 +48,13 @@ function rowToDTO(row: JackpotRow): JackpotDTO {
     assignedGameIds: Array.isArray(row.assigned_game_ids)
       ? row.assigned_game_ids.map((x) => Number(x))
       : [],
+    groupId: row.group_id ?? null,
   };
 }
 
 const SELECT = `
   id, name, brand_id, enabled, contribution_percentage, volatility,
-  trigger_condition, assigned_categories, assigned_game_ids, created_at, updated_at,
+  trigger_condition, assigned_categories, assigned_game_ids, group_id, created_at, updated_at,
   jackpot_pools ( id, current_balance ),
   jackpot_seeds ( id, base_seed_amount )
 `;
