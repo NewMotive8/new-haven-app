@@ -33,6 +33,14 @@ import { BrandContext } from "@/backoffice/app";
 import type { JackpotDTO } from "@/lib/jackpot/types";
 import { GameAssignmentStep, type GameAssignmentValue } from "@/components/jackpot/GameAssignmentStep";
 import { parseFrequencyJSON, pickFrequencyInterval, pickTime } from "@/lib/jackpot/hydrate-draft";
+import {
+  TriggerProbabilityPanel,
+  MIN_SPINS,
+  MAX_SPINS,
+  sliderToSpins,
+  spinsToSlider,
+  pickPureChanceVibe,
+} from "@/components/jackpot/TriggerProbabilityPanel";
 
 type ContributionSource = "player" | "operator";
 type ContributionType = "percentage" | "fixed";
