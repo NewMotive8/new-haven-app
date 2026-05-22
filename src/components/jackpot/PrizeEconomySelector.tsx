@@ -84,7 +84,7 @@ export function PrizeEconomySelector({
     <Card className="p-6 bg-neutral-900/50 border-neutral-800">
       <div className="mb-5">
         <div className="text-xs uppercase tracking-[0.18em] text-blue-300 mb-1">
-          Prize Economy
+          Currency
         </div>
         <h3 className="text-lg font-semibold text-white">
           Wallet Type & Funding Source
