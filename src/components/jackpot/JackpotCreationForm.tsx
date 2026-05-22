@@ -5079,18 +5079,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
           </section>
         )}
 
-        {/* Game Assignment — internal master categories + games catalog. */}
-        <section className="mt-8">
-          <GameAssignmentStep
-            value={{
-              assignedCategories: assignedCategories as MasterCategory[],
-              assignedGameIds,
-            }}
-            onChange={(next: GameAssignmentValue) => {
-              setAssignedCategories(next.assignedCategories);
-              setAssignedGameIds(next.assignedGameIds);
-            }}
-          />
+
 
         </section>
 
