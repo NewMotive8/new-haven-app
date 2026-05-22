@@ -243,6 +243,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_group_bet: {
+        Args: { p_payload: Json }
+        Returns: {
+          brand_id: number
+          group_id: number | null
+          processed_at: string
+          response: Json | null
+          totals: Json
+          transaction_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "jackpot_transactions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
