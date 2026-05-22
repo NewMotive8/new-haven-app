@@ -14,7 +14,13 @@ const CreateGroupSchema = z.object({
   contributionSource: z.enum(["player", "operator"]).optional(),
   contributionType: z.enum(["percentage", "fixed"]).optional(),
   masterContributionValue: z.number().min(0).max(1_000_000).optional(),
+  assignedCategories: z
+    .array(z.enum(["Slots", "Table Games", "Live Casino", "Crash Games", "Sports"]))
+    .max(5)
+    .optional(),
+  assignedGameIds: z.array(z.number().int().positive()).max(1000).optional(),
 });
+
 
 export const Route = createFileRoute("/api/v1/jackpot-groups/")({
   server: {
