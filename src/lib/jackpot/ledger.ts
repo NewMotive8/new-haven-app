@@ -6,7 +6,7 @@
  * the simulator engine. Third-party wallets call into these helpers to extract
  * the operator rake (House slice) deterministically per spin.
  */
-import type { ContributionSplitDTO, JackpotConfigDTO, TierDTO } from "./types";
+import type { ContributionSplitDTO, JackpotConfigDTO } from "./types";
 
 export interface ContributionSlice {
   pool: number;
