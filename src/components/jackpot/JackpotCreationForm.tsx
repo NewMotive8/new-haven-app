@@ -482,6 +482,10 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   const [houseWeight, setHouseWeight] = useState<number>(initial?.houseWeight ?? 10);
   // overlappingRule removed — see "Overlapping Jackpot Rule" cleanup
   const [triggerOdds, setTriggerOdds] = useState<number>(initial?.triggerOdds ?? 0);
+  // "classic" → fixed 1/N odds; "curve" → time-decay / must-drop curve (triggerOdds forced to 0).
+  const [triggerMode, setTriggerMode] = useState<'classic' | 'curve'>(
+    (initial?.triggerOdds ?? 0) > 0 ? 'classic' : 'curve',
+  );
   const [previewWager, setPreviewWager] = useState<number>(initial?.previewWager ?? 1.0);
 
   // --- Eligibility & Rules Engine — vertical-specific targeting
