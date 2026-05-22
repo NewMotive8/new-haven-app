@@ -149,9 +149,9 @@ export function BlueprintCenter({ host, onInjectSingle }: Props) {
             className="mt-6"
           >
             <TabsList className="bg-neutral-900 border border-neutral-800 w-full grid grid-cols-3 h-10">
-              <TabsTrigger value="high" className="text-xs">High Traffic</TabsTrigger>
-              <TabsTrigger value="medium" className="text-xs">Medium Traffic</TabsTrigger>
-              <TabsTrigger value="small" className="text-xs">Small Traffic</TabsTrigger>
+              <TabsTrigger value="high" className="text-xs text-neutral-300 data-[state=active]:bg-neutral-800 data-[state=active]:text-white">High Traffic</TabsTrigger>
+              <TabsTrigger value="medium" className="text-xs text-neutral-300 data-[state=active]:bg-neutral-800 data-[state=active]:text-white">Medium Traffic</TabsTrigger>
+              <TabsTrigger value="small" className="text-xs text-neutral-300 data-[state=active]:bg-neutral-800 data-[state=active]:text-white">Small Traffic</TabsTrigger>
             </TabsList>
 
             {(["high", "medium", "small"] as TrafficTier[]).map((tier) => (
