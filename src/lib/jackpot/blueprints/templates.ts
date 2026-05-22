@@ -341,7 +341,7 @@ const multiMid: MultiBlueprint = {
   objective: "Tight three-tier ladder — Bronze, Silver, Gold — with a capped Gold Elite drop.",
   targetGameTypes: ["Slots"],
   kind: "multi",
-  group: { contributionType: "percentage", masterPlayerPercent: 1.5, walletType: "external" },
+  group: { contributionType: "percentage", masterPlayerPercent: 1.5, walletType: "external", operatorShare: 15 },
   tiers: [
     { tierName: "Bronze Mini", tierRank: 1, tierType: "classic", splitSharePct: 20, seedAmount: 25, reseedingAmount: 25, triggerOdds: 8000 },
     { tierName: "Silver Mid", tierRank: 2, tierType: "classic", splitSharePct: 30, seedAmount: 200, reseedingAmount: 200, triggerOdds: 45000 },
