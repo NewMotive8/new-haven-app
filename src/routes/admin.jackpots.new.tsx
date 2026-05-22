@@ -18,13 +18,15 @@ type Tab = "single" | "multi";
 type NewSearch = {
   editId?: number;
   cloneFrom?: number;
+  draftId?: number;
+  tab?: Tab;
 };
 
 function NewJackpotPage() {
   const { brandId } = React.useContext(BrandContext);
   const navigate = useNavigate();
   const search = Route.useSearch();
-  const editId = search.editId;
+  const editId = search.editId ?? search.draftId;
   const cloneFrom = search.cloneFrom;
   const isEditing = editId != null && cloneFrom == null;
 
