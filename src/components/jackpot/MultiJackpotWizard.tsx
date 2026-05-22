@@ -153,6 +153,7 @@ function newChildDraft(rank: number): ChildDraft {
     tierName: "",
     tierRank: String(rank),
     tierType: "classic",
+    initialPoolAmount: "100.00",
     seedAmount: "100.00",
     reseedingAmount: "100.00",
     splitShare: "0.00",
@@ -175,6 +176,7 @@ function newChildDraft(rank: number): ChildDraft {
     fixedWinAmount: "",
     maxNumberOfWins: "",
     maxTotalPayout: "",
+    maxPoolAmount: "",
   };
 }
 
