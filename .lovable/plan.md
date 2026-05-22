@@ -1,104 +1,124 @@
-# MultiJackpot Creation Flow
+# MultiJackpot Wizard — 3-Step Build + Hydration Extraction
 
-A clearly-scoped, 3-step wizard for grouping multiple jackpots under one master campaign. Lives at `/admin/jackpots/new` → "MultiJackpot" tab.
+## Scope
 
-## Concepts
+Rebuild `src/components/jackpot/MultiJackpotWizard.tsx` around a clean 3-step state machine (Master → Tiers → Launch), extract shared draft-hydration logic into `src/lib/jackpot/hydrate-draft.ts`, and add a 3-way drop style selector that lives inside the tier card only.
 
-- **Master (group)**: one campaign owning a single contribution stream (source + type + value) and one set of eligible games/categories. Total of all tier shares must equal 100.00%.
-- **Tier (child jackpot)**: a slice of the master pool. Each tier sets its own name, rank (Bronze → Silver → Gold → Platinum), trigger model, seed, split share, and optional safeguards. Tiers inherit games and contribution from the master.
+---
 
-## Step 1 — Master Strategy
+## 1. Shared utility — `src/lib/jackpot/hydrate-draft.ts`
 
-User defines the campaign once.
+Move the existing `sanitizeIncomingDraft` function out of `JackpotCreationForm.tsx` (currently lines 306–394) into the new file. It will export:
 
-Fields:
-- MultiJackpot name (required, unique per brand — server returns clean 409 on duplicate).
-- Contribution source: `player` | `house`.
-- Contribution type: `percentage` (of wager) | `fixed` (per spin).
-- Master contribution value (1 input, formatted as % or currency based on type).
-- Game assignment (categories + specific game IDs). **Master only — tiers inherit and cannot narrow.**
+- `sanitizeIncomingDraft(raw)` — full Option A + Must-Drop + Frequency Happy-Hour reverse-parse, exactly as today.
+- `parseFrequencyJSON(s)` — small named helper (extracted from the inline `tryParse` + `pickInterval` + `pickTime` block) so the tier card can decode a Happy-Hour window without depending on the whole sanitizer.
 
-Action: **Continue to tier allocation** → POST `/api/v1/jackpot-groups`, persists draft group, advances to Step 2.
+`JackpotCreationForm.tsx` imports `sanitizeIncomingDraft` from the new path; behavior is byte-identical. The wizard imports `parseFrequencyJSON` for tier hydration.
 
-## Step 2 — Tier Allocation
+---
 
-User adds tiers until split shares total 100.00%.
+## 2. Step 1 — Master Strategy
 
-UI:
-- Shares progress bar (live total + valid/invalid state).
-- Master recap (read-only summary of Step 1).
-- Tier ladder (saved tiers sorted highest rank → lowest, with Bronze/Silver/Gold/Platinum theming).
-- "Add New Tier" button opens an inline **Draft Tier Card**.
+Fields collected into `MasterDraft` state:
 
-Draft Tier Card fields (curated subset of the standalone Jackpot form):
-- Tier name (with Mini / Minor / Major / Grand presets).
-- Tier rank (auto-suggested next rank; editable).
-- Trigger model — single selector, one of:
-  - **Must-Drop** — drop window (e.g. by amount or time) + target.
-  - **Frequency** — Happy Hour schedule (reuses parsing already in `JackpotCreationForm`).
-  - **Fixed probability** — 1-in-N denominator (today's default).
-- Seed amount.
-- Split share (% of master). Live "would push total to X%" guard prevents > 100%.
-- Optional safeguards: Max Number of Wins, Max Total Payout.
-- Derived rate preview (master value × share) shown read-only.
+- `name` (required text, unique per brand — 409 surfaces inline)
+- `contributionSource`: `player | house`
+- `contributionType`: `percentage | fixed`
+- `masterContributionValue` (single input; `%` suffix when percentage, currency prefix when fixed)
+- Game assignment via the existing `GameAssignmentStep` component (categories + game IDs).
 
-Per-tier games, contribution source/type, contribution value, wager eligibility limits, and brand are NOT shown — they are inherited from the master or not applicable to a tier.
+**Save action:** `POST /api/v1/jackpot-groups` with the master draft and `status: "draft"`. On success, store returned `groupId` in wizard state and advance to Step 2. On 409, show inline duplicate-name error and stay on Step 1.
 
-Actions:
-- **Save tier** → POST `/api/v1/jackpots` (child) then POST `/api/v1/jackpot-groups/:id/children` to attach with `tierRank`, `triggerProbability`, `splitShare`, plus the chosen trigger model + safeguards.
-- **Cancel** → discard the draft.
-- **Back** → Step 1 (draft group preserved).
-- **Continue to launch gate** → Step 3 (enabled only when ≥ 1 tier saved AND shares == 100.00%).
+---
 
-## Step 3 — Launch Gate
+## 3. Step 2 — Tier Allocation Ladder
+
+### Layout
+
+- Sticky top: horizontal progress bar showing `Σ splitShare`. Green at exactly `100.00%`, red otherwise, with the live numeric delta (e.g. `87.50% / 100.00% — 12.50% remaining`).
+- Read-only master recap chip row (name, source, type, value, game count).
+- Sorted vertical list of saved tiers themed by rank: Bronze / Silver / Gold / Platinum (rank 1 → 4+). Each row shows name, rank badge, split %, seed, trigger summary, edit/delete.
+- "Add New Tier" button reveals an inline **Draft Tier Card**.
+
+### Draft Tier Card — curated fields only
+
+Group A — Identity
+- Tier Name (text + preset chips: Mini / Minor / Major / Grand)
+- Rank (numeric)
+
+Group B — Allocation & Fuel
+- Initial Seed Amount
+- Re-seeding Amount  *(new on `ChildDraft`)*
+- Tier Split Share `%`
+- Derived rate preview (read-only): `master.value × splitShare / 100`
+
+Group C — Drop Style (3-way card selector, tier-card-local component)
+- **Pure Chance Roll** → logarithmic interval slider + pacing badges (reuse the helpers already in `JackpotCreationForm`).
+- **Hype Curve Engine** → win boundary + drop pacing inputs.
+- **Happy Hour** → calendar window (interval, day, contrib/win start+end times), decoded via `parseFrequencyJSON` when editing.
+
+Group D — Tier Safeguards (optional)
+- Max Number of Wins
+- Max Total Payout
+
+Master-inherited fields (games, contribution source/type/value, wager eligibility) are NOT rendered.
+
+### Tier save
+
+Two-call sequence on Save Tier:
+1. `POST /api/v1/jackpots` with the child payload (name, seedAmount, reseedingAmount, triggerCondition derived from the selected drop style, maxNumberOfWins, maxTotalPayout, splitShare, tierRank, empty game arrays — they inherit from group).
+2. `POST /api/v1/jackpot-groups/:groupId/children` mapping the returned child id under the group.
+
+Validation: tier saves skip the single-jackpot form's strict `recurrenceType` / Happy-Hour cross-field loops — the curated subset is the source of truth and is persisted directly into `trigger_condition`.
+
+### Step gate
+
+"Continue to Launch" enables only when `tiers.length ≥ 1` AND `Σ splitShare === 100.00` (compared on integer cents to avoid float drift).
+
+---
+
+## 4. Step 3 — Launch Gate
 
 Read-only review:
-- Master summary + game list count.
-- Tier ladder with rank, share, seed, trigger summary, derived rate.
-- Total share badge (must be 100.00%).
-- "Activate MultiJackpot" → POST `/api/v1/jackpot-groups/:id/status` `{ status: "active" }`. On success → `/admin/jackpot-groups`.
-- "Back" returns to Step 2 (no data loss).
+- Master Strategy panel (name, source, type, value, assigned game count).
+- Sorted tier ladder (rank, name, split%, seed, reseed, trigger mechanic summary, safeguards, derived rate).
+- Prominent green confirmation badge: `Splits aligned — 100.00%`.
 
-Group remains in `draft` status until activation. Drafts can be abandoned (group stays draft until cleaned up).
+**Activate MultiJackpot** button → `POST /api/v1/jackpot-groups/:id/status` with `{ status: "active" }` → navigate to `/admin/jackpot-groups` on success. Toast + stay on Step 3 on failure.
 
-## Flow diagram
-
-```text
-[ /admin/jackpots/new → MultiJackpot tab ]
-            │
-            ▼
-  Step 1 · Master Strategy
-   name, contribution, games
-            │  POST /jackpot-groups
-            ▼
-  Step 2 · Tier Allocation
-   ┌───────────────────────────┐
-   │ + Add New Tier            │ ← repeat until shares = 100%
-   │   name / rank / trigger / │
-   │   seed / share / safeguards
-   │   POST /jackpots          │
-   │   POST /groups/:id/children
-   └───────────────────────────┘
-            │  shares == 100.00%
-            ▼
-  Step 3 · Launch Gate
-   review → Activate
-            │  POST /groups/:id/status {active}
-            ▼
-   /admin/jackpot-groups
-```
+---
 
 ## Technical notes
 
-- **Component**: keep `MultiJackpotWizard.tsx` as the single entry; expand `ChildDraft` to include `triggerModel`, `mustDropConfig`, `frequencyConfig`, `maxNumberOfWins`, `maxTotalPayout`. Reuse the trigger-config sub-renderers from `JackpotCreationForm` (extract them into shared components if not already shared).
-- **Reverse hydration**: editing an existing tier in Step 2 must reuse the same Option A / Happy Hour reverse-parsing logic that already lives in `JackpotCreationForm`. Extract that logic into `src/lib/jackpot/hydrate-draft.ts` so both forms call the same helper.
-- **API**: `POST /api/v1/jackpot-groups/:groupId/children` extends to accept `triggerCondition`, `maxNumberOfWins`, `maxTotalPayout` per child, persisted onto the child jackpot row (`jackpots.trigger_condition` already exists). No schema migration required.
-- **Game assignment**: continues to live only on `jackpot_groups.assigned_*`; child jackpot game arrays are left empty for tiers belonging to a group.
-- **Validation**: server still enforces sum of `split_share` ≤ 100; client mirrors that with the progress bar + per-save projection guard.
-- **Auto-activation is out of scope** — explicit Step 3 stays.
+### Wizard state shape
 
-## Out of scope
+```text
+WizardState
+├── step: 1 | 2 | 3
+├── groupId: number | null
+├── master: MasterDraft
+└── tiers: ChildDraft[]      // sorted by rank for display
 
-- Editing an already-activated group's tiers (separate edit flow).
+ChildDraft (curated)
+├── id, name, rank, splitShare, seedAmount, reseedingAmount
+├── triggerModel: 'pure_chance' | 'hype_curve' | 'happy_hour'
+├── pureChance:  { spinsInterval }
+├── hypeCurve:   { minBoundary, maxBoundary, dropPacing }
+├── happyHour:   { interval, day, contribStart, contribEnd, winStart, winEnd, cloneContribToWin }
+├── maxNumberOfWins?: number
+└── maxTotalPayout?: number
+```
+
+### Files touched
+
+- **New:** `src/lib/jackpot/hydrate-draft.ts` (extracted sanitizer + `parseFrequencyJSON`).
+- **Edit:** `src/components/jackpot/JackpotCreationForm.tsx` — remove local `sanitizeIncomingDraft`, import from new path. No other behavior change. Drop style selector stays 2-way here.
+- **Rewrite:** `src/components/jackpot/MultiJackpotWizard.tsx` — replace current implementation with the 3-step machine + tier-card-local 3-way drop style selector built inline (no shared selector component, per your choice).
+- **Edit:** `src/routes/api/v1/jackpot-groups/index.ts` and `src/routes/api/v1/jackpot-groups/$id.children.ts` — verify they accept the per-child `triggerCondition`, `maxNumberOfWins`, `maxTotalPayout`, `reseedingAmount`. Patch only if a field is missing.
+
+### Out of scope (this turn)
+
+- Editing already-activated groups.
 - Per-tier game overrides.
-- Bulk-import of tiers.
+- Bulk tier import.
+- Lifting the 3-way selector into a shared component (explicitly declined — tier-card-local only).
