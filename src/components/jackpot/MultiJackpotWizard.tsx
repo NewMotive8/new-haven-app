@@ -1253,18 +1253,6 @@ function DraftTierCard({
             <div className="text-xs text-neutral-500">Starting pool value at launch.</div>
           </div>
           <div className="space-y-2">
-            <Label className="text-neutral-300">Initial seed amount</Label>
-            <Input
-              type="text"
-              inputMode="decimal"
-              value={draft.seedAmount}
-              onChange={(e) => onChange({ seedAmount: e.target.value })}
-              placeholder="100.00"
-              className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
-            />
-            <div className="text-xs text-neutral-500">Operator-funded floor the pool can never fall below.</div>
-          </div>
-          <div className="space-y-2">
             <Label className="text-neutral-300">Re-seeding amount</Label>
             <Input
               type="text"
@@ -1274,8 +1262,11 @@ function DraftTierCard({
               placeholder="100.00"
               className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
             />
-            <div className="text-xs text-neutral-500">Applied after each reset.</div>
+            <div className="text-xs text-neutral-500">
+              Starting pool for each new cycle after a win. Also acts as the floor the pool can never fall below.
+            </div>
           </div>
+
           <div className="space-y-2">
             <Label className="text-neutral-300">Tier split share (%)</Label>
             <div className="relative">
