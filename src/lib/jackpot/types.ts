@@ -112,8 +112,6 @@ export interface JackpotConfigDTO {
   volatility: number;
   pool: PoolDTO;
   seed: SeedDTO;
-  /** Present when structuralType === "MULTI_LEVEL". 2–4 entries. */
-  tiers?: TierDTO[];
   /** Present when structuralType === "MUST_DROP" | "FREQUENCY". */
   timed?: TimedConfigDTO;
   fixedWinAmount?: number;
