@@ -1325,7 +1325,7 @@ function DraftTierCard({
       {/* ── Group D — Tier Safeguards ──────────────────────────────── */}
       <section className="space-y-3">
         <SectionHeading>Tier safeguards (optional)</SectionHeading>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label className="text-neutral-300">Max number of wins</Label>
             <Input
@@ -1352,6 +1352,20 @@ function DraftTierCard({
             />
             <div className="text-xs text-neutral-500">
               Engine halts once cumulative payout passes this.
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-neutral-300">Max pool amount</Label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={draft.maxPoolAmount}
+              onChange={(e) => onChange({ maxPoolAmount: e.target.value })}
+              placeholder="Unlimited"
+              className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
+            />
+            <div className="text-xs text-neutral-500">
+              Hard cap on the pool — overflow stops accruing.
             </div>
           </div>
         </div>
