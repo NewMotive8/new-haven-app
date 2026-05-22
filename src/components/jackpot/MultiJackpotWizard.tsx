@@ -18,6 +18,11 @@ import {
   ShieldAlert,
   Coins,
   AlertCircle,
+  Dice5,
+  TrendingUp,
+  Clock,
+  Zap,
+  Flame,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,16 +32,12 @@ import { Slider } from "@/components/ui/slider";
 import { BrandContext } from "@/backoffice/app";
 import type { JackpotDTO } from "@/lib/jackpot/types";
 import { GameAssignmentStep, type GameAssignmentValue } from "@/components/jackpot/GameAssignmentStep";
-import type { MasterCategory } from "@/lib/jackpot/master-categories";
-
-import {
-  denominatorToProbability,
-  formatDropFrequency,
-  probabilityFixed8,
-} from "@/lib/jackpot/tier-forecast";
+import { parseFrequencyJSON, pickFrequencyInterval, pickTime } from "@/lib/jackpot/hydrate-draft";
 
 type ContributionSource = "player" | "operator";
 type ContributionType = "percentage" | "fixed";
+type TriggerModel = "pure_chance" | "hype_curve" | "happy_hour";
+type FreqInterval = "DAILY" | "WEEKLY" | "MONTHLY";
 
 interface GroupDTO {
   id: number;
@@ -46,19 +47,55 @@ interface GroupDTO {
   contributionSource: ContributionSource;
   contributionType: ContributionType;
   masterContributionValue: number;
+  assignedCategories?: string[];
+  assignedGameIds?: number[];
 }
 
 interface ChildDraft {
   uid: string;
   tierName: string;
   tierRank: string;
+  // Allocation & Fuel
   seedAmount: string;
-  triggerDenominator: string;
+  reseedingAmount: string;
   splitShare: string;
+  // Drop style
+  triggerModel: TriggerModel;
+  // Pure Chance Roll — interval in spins; we store the integer N where p = 1/N
+  spinsInterval: string;
+  // Hype Curve Engine — must-drop boundaries (currency)
+  minBoundary: string;
+  maxBoundary: string;
+  dropPacing: "fast" | "balanced" | "slow";
+  // Happy Hour — calendar window
+  freqInterval: FreqInterval;
+  freqDay: string;
+  contribStartTime: string;
+  contribEndTime: string;
+  winStartTime: string;
+  winEndTime: string;
+  cloneContribToWin: boolean;
+  // Tier Safeguards
+  maxNumberOfWins: string;
+  maxTotalPayout: string;
+}
+
+interface SavedChild {
+  jackpotId: number;
+  tierRank: number;
+  jackpotName: string;
+  tierName: string;
+  splitShare: number;
+  seedAmount: number;
+  reseedingAmount: number;
+  triggerModel: TriggerModel;
+  triggerSummary: string;
+  probability: number;
+  maxNumberOfWins?: number;
+  maxTotalPayout?: number;
 }
 
 const TIER_PRESETS = ["Mini", "Minor", "Major", "Grand"] as const;
-const DEFAULT_DAILY_VOLUME = 25000;
 
 function newChildDraft(rank: number): ChildDraft {
   return {
@@ -66,8 +103,22 @@ function newChildDraft(rank: number): ChildDraft {
     tierName: "",
     tierRank: String(rank),
     seedAmount: "100.00",
-    triggerDenominator: "10000",
+    reseedingAmount: "100.00",
     splitShare: "0.00",
+    triggerModel: "pure_chance",
+    spinsInterval: "50000",
+    minBoundary: "500.00",
+    maxBoundary: "5000.00",
+    dropPacing: "balanced",
+    freqInterval: "DAILY",
+    freqDay: "",
+    contribStartTime: "18:00",
+    contribEndTime: "22:00",
+    winStartTime: "18:00",
+    winEndTime: "22:00",
+    cloneContribToWin: true,
+    maxNumberOfWins: "",
+    maxTotalPayout: "",
   };
 }
 
@@ -113,10 +164,7 @@ function rankTheme(rank: number) {
   };
 }
 
-function formatMasterValue(
-  type: ContributionType,
-  value: number,
-): string {
+function formatMasterValue(type: ContributionType, value: number): string {
   if (type === "percentage") return `${(value * 100).toFixed(4)}%`;
   return value.toLocaleString(undefined, {
     minimumFractionDigits: 2,
@@ -134,6 +182,135 @@ function formatDerivedRate(
   return `${derived.toFixed(4)} / spin`;
 }
 
+/* ────────────────────────────────────────────────────────────────── */
+/* Logarithmic interval slider helpers (Pure Chance)                  */
+/* Mirrors the single-jackpot form: 1k–10M spins, log10 mapping.      */
+/* ────────────────────────────────────────────────────────────────── */
+const MIN_SPINS = 1000;
+const MAX_SPINS = 10_000_000;
+const LOG_MIN = Math.log10(MIN_SPINS);
+const LOG_MAX = Math.log10(MAX_SPINS);
+
+function sliderToSpins(pct: number): number {
+  const t = Math.min(1, Math.max(0, pct / 100));
+  const v = Math.pow(10, LOG_MIN + (LOG_MAX - LOG_MIN) * t);
+  return Math.round(v / 100) * 100;
+}
+function spinsToSlider(n: number): number {
+  const clamped = Math.min(MAX_SPINS, Math.max(MIN_SPINS, n || MIN_SPINS));
+  const t = (Math.log10(clamped) - LOG_MIN) / (LOG_MAX - LOG_MIN);
+  return Math.round(t * 1000) / 10;
+}
+
+function pickPureChanceVibe(spins: number) {
+  if (spins < 10_000)
+    return {
+      Icon: Zap,
+      label: "⚡ Rapid-Fire Mode",
+      chip: "bg-yellow-400/15 text-yellow-200 border-yellow-400/40",
+      copy: "Constant action — drops roughly every spin-cluster network-wide.",
+    };
+  if (spins < 100_000)
+    return {
+      Icon: Flame,
+      label: "🔥 Action-Packed",
+      chip: "bg-orange-400/15 text-orange-200 border-orange-400/40",
+      copy: "Frequent wins with healthy energy across the floor.",
+    };
+  if (spins < 500_000)
+    return {
+      Icon: TrendingUp,
+      label: "📈 Daily Driver",
+      chip: "bg-blue-400/15 text-blue-200 border-blue-400/40",
+      copy: "Reliable daily pacing for steady, consistent engagement.",
+    };
+  if (spins < 2_500_000)
+    return {
+      Icon: Trophy,
+      label: "🏆 Major Milestone",
+      chip: "bg-amber-400/15 text-amber-200 border-amber-400/40",
+      copy: "Buzz-worthy, high-value tracking event. Expect headline drops.",
+    };
+  return {
+    Icon: Gem,
+    label: "💎 The Mega Event",
+    chip: "bg-fuchsia-400/15 text-fuchsia-200 border-fuchsia-400/40",
+    copy: "Ultra-rare, legendary network event — your headline campaign.",
+  };
+}
+
+/* ────────────────────────────────────────────────────────────────── */
+/* Trigger condition assembly + summary                               */
+/* ────────────────────────────────────────────────────────────────── */
+function buildTriggerCondition(d: ChildDraft): Record<string, unknown> {
+  if (d.triggerModel === "pure_chance") {
+    const n = Math.max(1, Math.trunc(Number(d.spinsInterval) || 1));
+    return {
+      triggerModel: "pure_chance",
+      spinsInterval: n,
+      triggerOdds: n,
+    };
+  }
+  if (d.triggerModel === "hype_curve") {
+    return {
+      triggerModel: "hype_curve",
+      mustDrop: {
+        minBoundary: Number(d.minBoundary) || 0,
+        maxBoundary: Number(d.maxBoundary) || 0,
+        dropPacing: d.dropPacing,
+      },
+    };
+  }
+  // happy_hour — persist both contrib + win windows as JSON strings to mirror
+  // the single-jackpot Frequency payload shape the engine already understands.
+  const cs = d.contribStartTime;
+  const ce = d.contribEndTime;
+  const ws = d.cloneContribToWin ? cs : d.winStartTime;
+  const we = d.cloneContribToWin ? ce : d.winEndTime;
+  const window = (s: string, e: string) =>
+    JSON.stringify({
+      frequency: d.freqInterval,
+      day: d.freqDay || undefined,
+      startTime: s,
+      endTime: e,
+    });
+  return {
+    triggerModel: "happy_hour",
+    contributionFrequency: window(cs, ce),
+    winFrequency: window(ws, we),
+    freqInterval: d.freqInterval,
+    freqDay: d.freqDay,
+    contribStartTime: cs,
+    contribEndTime: ce,
+    winStartTime: ws,
+    winEndTime: we,
+    cloneContribToWin: d.cloneContribToWin,
+  };
+}
+
+function triggerSummary(d: ChildDraft): string {
+  if (d.triggerModel === "pure_chance") {
+    const n = Math.max(1, Math.trunc(Number(d.spinsInterval) || 1));
+    return `Pure Chance · 1 in ${n.toLocaleString()} spins`;
+  }
+  if (d.triggerModel === "hype_curve") {
+    return `Hype Curve · ${Number(d.minBoundary || 0).toLocaleString()} – ${Number(
+      d.maxBoundary || 0,
+    ).toLocaleString()} (${d.dropPacing})`;
+  }
+  const dayLabel = d.freqInterval === "DAILY" ? "" : d.freqDay ? ` · day ${d.freqDay}` : "";
+  return `Happy Hour · ${d.freqInterval}${dayLabel} · ${d.contribStartTime}–${d.contribEndTime}`;
+}
+
+function probabilityFromDraft(d: ChildDraft): number {
+  if (d.triggerModel === "pure_chance") {
+    const n = Math.max(1, Math.trunc(Number(d.spinsInterval) || 1));
+    return 1 / n;
+  }
+  return 0; // must-drop / happy-hour are time-gated, not fixed-odds
+}
+
+/* ────────────────────────────────────────────────────────────────── */
 export function MultiJackpotWizard() {
   const { brandId } = React.useContext(BrandContext);
   const navigate = useNavigate();
@@ -146,33 +323,24 @@ export function MultiJackpotWizard() {
     React.useState<ContributionSource>("player");
   const [contributionType, setContributionType] =
     React.useState<ContributionType>("percentage");
-  const [masterValueInput, setMasterValueInput] = React.useState("1.00"); // % when percentage, currency when fixed
+  const [masterValueInput, setMasterValueInput] = React.useState("1.00");
   const [assignment, setAssignment] = React.useState<GameAssignmentValue>({
     assignedCategories: [],
     assignedGameIds: [],
   });
   const [group, setGroup] = React.useState<GroupDTO | null>(null);
 
-
   // Step 2 — Tier Allocation
   const [draft, setDraft] = React.useState<ChildDraft | null>(null);
-  const [savedChildren, setSavedChildren] = React.useState<
-    Array<{
-      jackpotId: number;
-      tierRank: number;
-      jackpotName: string;
-      tierName: string;
-      probability: number;
-      splitShare: number;
-      seedAmount: number;
-    }>
-  >([]);
+  const [savedChildren, setSavedChildren] = React.useState<SavedChild[]>([]);
 
   const sharesTotal = React.useMemo(
     () => savedChildren.reduce((acc, c) => acc + c.splitShare, 0),
     [savedChildren],
   );
-  const sharesValid = Math.abs(sharesTotal - 100) <= 0.01;
+  // Compare as integer hundredths to avoid float drift.
+  const sharesValid =
+    savedChildren.length > 0 && Math.round(sharesTotal * 100) === 10000;
 
   function nextRank() {
     return Math.max(0, ...savedChildren.map((c) => c.tierRank)) + 1;
@@ -181,13 +349,10 @@ export function MultiJackpotWizard() {
   function openDraft() {
     setDraft(newChildDraft(nextRank()));
   }
-
   function patchDraft(patch: Partial<ChildDraft>) {
     setDraft((prev) => (prev ? { ...prev, ...patch } : prev));
   }
 
-  /** Convert the human-facing master input to the stored value.
-   *  Percentage → fraction (1.00% input → 0.01 stored). Fixed → currency as-is. */
   function masterValueAsStored(): number {
     const raw = Number.parseFloat(masterValueInput) || 0;
     return contributionType === "percentage" ? raw / 100 : raw;
@@ -212,7 +377,6 @@ export function MultiJackpotWizard() {
           masterContributionValue: masterValue,
           assignedCategories: assignment.assignedCategories,
           assignedGameIds: assignment.assignedGameIds,
-
         },
         {
           headers: {
@@ -221,7 +385,11 @@ export function MultiJackpotWizard() {
           },
         },
       );
-      setGroup(res.data);
+      setGroup({
+        ...res.data,
+        assignedCategories: assignment.assignedCategories,
+        assignedGameIds: assignment.assignedGameIds,
+      });
       setStep(2);
     } catch (err: any) {
       toast.error(
@@ -240,25 +408,36 @@ export function MultiJackpotWizard() {
     const tierName = draft.tierName.trim();
     if (!tierName) return toast.error("Tier Name is required");
     const tierRank = Math.max(0, Math.trunc(Number(draft.tierRank) || 0));
-    const probability = denominatorToProbability(draft.triggerDenominator);
     const splitShare = Number.parseFloat(draft.splitShare) || 0;
     if (splitShare <= 0 || splitShare > 100) {
       return toast.error("Split share must be between 0 and 100");
     }
     const seedAmount = Number.parseFloat(draft.seedAmount) || 0;
+    const reseedingAmount = Number.parseFloat(draft.reseedingAmount) || 0;
+    const probability = probabilityFromDraft(draft);
     const triggerProbability = Number(probability.toFixed(8));
 
-    // Prevent total > 100 before hitting the backend
     const projected = sharesTotal + splitShare;
-    if (projected > 100.01) {
+    if (Math.round(projected * 100) > 10000) {
       return toast.error(
         `Adding ${splitShare.toFixed(2)}% would push the total to ${projected.toFixed(2)}%. Max is 100.00%.`,
       );
     }
 
+    const maxWins = draft.maxNumberOfWins.trim()
+      ? Math.max(0, Math.trunc(Number(draft.maxNumberOfWins)))
+      : undefined;
+    const maxPayout = draft.maxTotalPayout.trim()
+      ? Math.max(0, Number(draft.maxTotalPayout))
+      : undefined;
+
     setSubmitting(true);
     try {
-      // 1) Create the inline child jackpot (rate is derived server-side on attach)
+      // 1) Create child jackpot. Trigger config + safeguards + reseed travel
+      //    via `config` → server merges into `trigger_condition`. Game arrays
+      //    stay empty: tiers inherit from the group's master assignment.
+      //    NOTE: tier saves skip the single-jackpot form's strict recurrenceType
+      //    cross-field validators — the curated subset is the source of truth.
       const createRes = await axios.post<JackpotDTO>(
         "/api/v1/jackpots",
         {
@@ -267,6 +446,14 @@ export function MultiJackpotWizard() {
           seedAmount,
           poolBalance: seedAmount,
           triggerThreshold: seedAmount * 2,
+          assignedCategories: [],
+          assignedGameIds: [],
+          config: {
+            ...buildTriggerCondition(draft),
+            reseedingAmount,
+            ...(maxWins !== undefined ? { maxNumberOfWins: maxWins } : {}),
+            ...(maxPayout !== undefined ? { maxTotalPayout: maxPayout } : {}),
+          },
         },
         {
           headers: {
@@ -282,7 +469,7 @@ export function MultiJackpotWizard() {
       }
       const newJackpotId = created.id;
 
-      // 2) Attach it to the parent MultiJackpot group with its split share.
+      // 2) Attach to the parent group with split share.
       const attachRes = await axios.post(
         `/api/v1/jackpot-groups/${group.id}/children`,
         {
@@ -309,9 +496,14 @@ export function MultiJackpotWizard() {
           tierRank,
           jackpotName,
           tierName,
-          probability,
           splitShare,
           seedAmount,
+          reseedingAmount,
+          triggerModel: draft.triggerModel,
+          triggerSummary: triggerSummary(draft),
+          probability,
+          maxNumberOfWins: maxWins,
+          maxTotalPayout: maxPayout,
         },
       ]);
       setDraft(null);
@@ -403,9 +595,7 @@ export function MultiJackpotWizard() {
                   <option value="player">Player (deducted from wager)</option>
                   <option value="operator">Operator (house-funded)</option>
                 </select>
-                <div className="text-xs text-neutral-500">
-                  Who finances the pools.
-                </div>
+                <div className="text-xs text-neutral-500">Who finances the pools.</div>
               </div>
 
               <div className="space-y-2">
@@ -426,9 +616,7 @@ export function MultiJackpotWizard() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-neutral-300">
-                  Master Contribution Value
-                </Label>
+                <Label className="text-neutral-300">Master Contribution Value</Label>
                 <div className="relative">
                   <Input
                     type="text"
@@ -458,14 +646,14 @@ export function MultiJackpotWizard() {
               />
             </div>
 
-
             <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4 flex gap-3">
               <Coins className="w-5 h-5 text-blue-300 shrink-0 mt-0.5" />
               <div className="text-sm text-blue-100">
                 <div className="font-medium mb-0.5">Parent-governed split</div>
-                Children inherit this master value. Their absolute contribution
-                is derived from <span className="font-mono">master × share%</span>
-                {" "}and saved to the transaction engine automatically.
+                Children inherit this master value and game assignment. Their
+                absolute contribution is derived from{" "}
+                <span className="font-mono">master × share%</span> and saved to
+                the transaction engine automatically.
               </div>
             </div>
           </div>
@@ -476,8 +664,7 @@ export function MultiJackpotWizard() {
               disabled={submitting || !name.trim()}
               className="bg-blue-500 hover:bg-blue-600 h-11 px-6"
             >
-              Continue to tier allocation{" "}
-              <ChevronRight className="ml-1 w-4 h-4" />
+              Continue to tier allocation <ChevronRight className="ml-1 w-4 h-4" />
             </Button>
           </div>
         </Card>
@@ -505,10 +692,7 @@ export function MultiJackpotWizard() {
 
             <MasterRecap group={group} />
 
-            <TierLadder
-              savedChildren={savedChildren}
-              group={group}
-            />
+            <TierLadder savedChildren={savedChildren} group={group} />
 
             {draft ? (
               <DraftTierCard
@@ -543,8 +727,7 @@ export function MultiJackpotWizard() {
                 disabled={savedChildren.length === 0 || !sharesValid}
                 className="bg-blue-500 hover:bg-blue-600 h-11 px-6"
               >
-                Continue to launch gate{" "}
-                <ChevronRight className="ml-1 w-4 h-4" />
+                Continue to launch gate <ChevronRight className="ml-1 w-4 h-4" />
               </Button>
             </div>
           </Card>
@@ -618,10 +801,7 @@ function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
               </div>
             </li>
             {i < items.length - 1 && (
-              <span
-                className="w-4 self-center h-px bg-neutral-700"
-                aria-hidden
-              />
+              <span className="w-4 self-center h-px bg-neutral-700" aria-hidden />
             )}
           </React.Fragment>
         );
@@ -670,7 +850,9 @@ function SharesBar({
   };
   const c = colors[tone];
   return (
-    <div className={`rounded-lg border ${c.border} bg-neutral-950/50 p-4 mb-4`}>
+    <div
+      className={`sticky top-2 z-10 rounded-lg border ${c.border} bg-neutral-950/80 backdrop-blur p-4 mb-4`}
+    >
       <div className="flex items-center justify-between mb-2">
         <div className="text-xs uppercase tracking-wider text-neutral-400">
           Allocated split shares
@@ -698,8 +880,10 @@ function SharesBar({
 }
 
 function MasterRecap({ group }: { group: GroupDTO }) {
+  const gameCount = (group.assignedGameIds?.length ?? 0);
+  const catCount = (group.assignedCategories?.length ?? 0);
   return (
-    <div className="rounded-lg border border-neutral-800 bg-neutral-900/40 p-4 mb-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+    <div className="rounded-lg border border-neutral-800 bg-neutral-900/40 p-4 mb-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
       <div>
         <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 mb-0.5">
           Source
@@ -711,9 +895,7 @@ function MasterRecap({ group }: { group: GroupDTO }) {
           Type
         </div>
         <div className="text-white capitalize">
-          {group.contributionType === "percentage"
-            ? "Percentage of wager"
-            : "Fixed amount per spin"}
+          {group.contributionType === "percentage" ? "Percentage" : "Fixed"}
         </div>
       </div>
       <div>
@@ -722,6 +904,14 @@ function MasterRecap({ group }: { group: GroupDTO }) {
         </div>
         <div className="text-white font-mono">
           {formatMasterValue(group.contributionType, group.masterContributionValue)}
+        </div>
+      </div>
+      <div>
+        <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 mb-0.5">
+          Game scope
+        </div>
+        <div className="text-white">
+          {catCount} cats · {gameCount} games
         </div>
       </div>
     </div>
@@ -735,15 +925,7 @@ function TierLadder({
   savedChildren,
   group,
 }: {
-  savedChildren: Array<{
-    jackpotId: number;
-    tierRank: number;
-    jackpotName: string;
-    tierName: string;
-    probability: number;
-    splitShare: number;
-    seedAmount: number;
-  }>;
+  savedChildren: SavedChild[];
   group: GroupDTO;
 }) {
   if (savedChildren.length === 0) {
@@ -790,32 +972,24 @@ function TierLadder({
                   </span>
                 )}
               </div>
-              <div className="text-white font-medium mt-1 truncate">
-                {c.tierName}
-              </div>
-              <div className="text-xs text-neutral-500 font-mono mt-0.5">
-                #{c.jackpotId}
+              <div className="text-white font-medium mt-1 truncate">{c.tierName}</div>
+              <div className="text-xs text-neutral-500 mt-0.5 truncate">
+                {c.triggerSummary}
               </div>
             </div>
             <div className="hidden md:grid grid-cols-3 gap-6 text-right text-xs">
               <div>
-                <div className="text-neutral-500 uppercase tracking-wider">
-                  Odds
-                </div>
+                <div className="text-neutral-500 uppercase tracking-wider">Seed</div>
                 <div className="text-white font-mono">
-                  1 in{" "}
-                  {Math.round(
-                    1 / Math.max(c.probability, 1e-12),
-                  ).toLocaleString()}
+                  {c.seedAmount.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </div>
               </div>
               <div>
-                <div className="text-neutral-500 uppercase tracking-wider">
-                  Share
-                </div>
-                <div className="text-white font-mono">
-                  {c.splitShare.toFixed(2)}%
-                </div>
+                <div className="text-neutral-500 uppercase tracking-wider">Share</div>
+                <div className="text-white font-mono">{c.splitShare.toFixed(2)}%</div>
               </div>
               <div>
                 <div className="text-neutral-500 uppercase tracking-wider">
@@ -857,10 +1031,6 @@ function DraftTierCard({
   onSave: () => void;
   submitting: boolean;
 }) {
-  const [dailyVolume, setDailyVolume] =
-    React.useState<number>(DEFAULT_DAILY_VOLUME);
-  const probability = denominatorToProbability(draft.triggerDenominator);
-  const dropText = formatDropFrequency(probability, dailyVolume);
   const theme = rankTheme(Number(draft.tierRank) || 1);
   const splitShare = Number.parseFloat(draft.splitShare) || 0;
   const derivedText = formatDerivedRate(
@@ -896,140 +1066,176 @@ function DraftTierCard({
         </Button>
       </div>
 
-      {/* Tier Name + quick chips */}
-      <div className="space-y-2">
-        <Label className="text-neutral-300">Tier Name</Label>
-        <Input
-          value={draft.tierName}
-          onChange={(e) => onChange({ tierName: e.target.value })}
-          placeholder="e.g. Friday Booster"
-          className="bg-neutral-800 border-neutral-700 text-white h-10"
-        />
-        <div className="flex flex-wrap gap-2 pt-1">
-          {TIER_PRESETS.map((preset) => (
-            <button
-              key={preset}
-              type="button"
-              onClick={() => onChange({ tierName: preset })}
-              className={`text-xs px-3 py-1 rounded-full border transition-colors ${
-                draft.tierName === preset
-                  ? "border-blue-500 bg-blue-500/15 text-blue-200"
-                  : "border-neutral-700 bg-neutral-800 text-neutral-300 hover:border-neutral-500"
-              }`}
-            >
-              {preset}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="space-y-2">
-          <Label className="text-neutral-300">Tier rank</Label>
-          <Input
-            type="number"
-            min={1}
-            value={draft.tierRank}
-            onChange={(e) => onChange({ tierRank: e.target.value })}
-            className="bg-neutral-800 border-neutral-700 text-white h-10"
-          />
-          <div className="text-xs text-neutral-500">
-            Higher numbers sit at the top of the ladder.
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label className="text-neutral-300">Seed Amount</Label>
-          <Input
-            type="text"
-            inputMode="decimal"
-            value={draft.seedAmount}
-            onChange={(e) => onChange({ seedAmount: e.target.value })}
-            placeholder="100.00"
-            className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
-          />
-          <div className="text-xs text-neutral-500">
-            Starting pool value after each reset.
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label className="text-neutral-300">Group Split Share (%)</Label>
-          <div className="relative">
+      {/* ── Group A — Identity ─────────────────────────────────────── */}
+      <section className="space-y-3">
+        <SectionHeading>Tier identity</SectionHeading>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="md:col-span-2 space-y-2">
+            <Label className="text-neutral-300">Tier name</Label>
             <Input
-              type="text"
-              inputMode="decimal"
-              value={draft.splitShare}
-              onChange={(e) => onChange({ splitShare: e.target.value })}
-              placeholder="25.00"
-              className={`bg-neutral-800 border-neutral-700 text-white font-mono h-10 pr-8 ${shareInvalid && draft.splitShare !== "" ? "border-red-500/60" : ""}`}
+              value={draft.tierName}
+              onChange={(e) => onChange({ tierName: e.target.value })}
+              placeholder="e.g. Friday Booster"
+              className="bg-neutral-800 border-neutral-700 text-white h-10"
             />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">
-              %
-            </span>
-          </div>
-          <div className="text-xs text-neutral-500">
-            Derived rate: <span className="text-neutral-300 font-mono">{derivedText}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Probability + ephemeral volume + forecast */}
-      <div className="rounded-lg border border-neutral-800 bg-neutral-950/50 p-5 space-y-5">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <Label className="text-neutral-400 text-xs uppercase tracking-wider">
-              Trigger probability
-            </Label>
-            <div className="flex items-center gap-2">
-              <span className="text-neutral-300 text-sm">1 in</span>
-              <Input
-                type="number"
-                inputMode="numeric"
-                min={1}
-                step={1}
-                value={draft.triggerDenominator}
-                onChange={(e) =>
-                  onChange({ triggerDenominator: e.target.value })
-                }
-                placeholder="50000"
-                className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
-              />
-              <span className="text-neutral-300 text-sm">spins</span>
-            </div>
-            <div className="text-xs text-neutral-500 font-mono pt-1">
-              Raw p = {probabilityFixed8(probability)}
+            <div className="flex flex-wrap gap-2 pt-1">
+              {TIER_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => onChange({ tierName: preset })}
+                  className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                    draft.tierName === preset
+                      ? "border-blue-500 bg-blue-500/15 text-blue-200"
+                      : "border-neutral-700 bg-neutral-800 text-neutral-300 hover:border-neutral-500"
+                  }`}
+                >
+                  {preset}
+                </button>
+              ))}
             </div>
           </div>
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-neutral-400 text-xs uppercase tracking-wider">
-                Simulated daily volume
-              </Label>
-              <span className="font-mono text-xs text-white">
-                {dailyVolume.toLocaleString()} spins/day
+            <Label className="text-neutral-300">Tier rank</Label>
+            <Input
+              type="number"
+              min={1}
+              value={draft.tierRank}
+              onChange={(e) => onChange({ tierRank: e.target.value })}
+              className="bg-neutral-800 border-neutral-700 text-white h-10"
+            />
+            <div className="text-xs text-neutral-500">
+              Higher numbers sit at the top of the ladder.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Group B — Allocation & Fuel ────────────────────────────── */}
+      <section className="space-y-3">
+        <SectionHeading>Allocation & fuel</SectionHeading>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label className="text-neutral-300">Initial seed amount</Label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={draft.seedAmount}
+              onChange={(e) => onChange({ seedAmount: e.target.value })}
+              placeholder="100.00"
+              className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
+            />
+            <div className="text-xs text-neutral-500">Starting pool value.</div>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-neutral-300">Re-seeding amount</Label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={draft.reseedingAmount}
+              onChange={(e) => onChange({ reseedingAmount: e.target.value })}
+              placeholder="100.00"
+              className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
+            />
+            <div className="text-xs text-neutral-500">Applied after each reset.</div>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-neutral-300">Tier split share (%)</Label>
+            <div className="relative">
+              <Input
+                type="text"
+                inputMode="decimal"
+                value={draft.splitShare}
+                onChange={(e) => onChange({ splitShare: e.target.value })}
+                placeholder="25.00"
+                className={`bg-neutral-800 border-neutral-700 text-white font-mono h-10 pr-8 ${
+                  shareInvalid && draft.splitShare !== "" ? "border-red-500/60" : ""
+                }`}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">
+                %
               </span>
             </div>
-            <Slider
-              value={[dailyVolume]}
-              min={1000}
-              max={500000}
-              step={1000}
-              onValueChange={(v) =>
-                setDailyVolume(v[0] ?? DEFAULT_DAILY_VOLUME)
-              }
-            />
-            <div className="text-[11px] text-neutral-500">
-              Preview only — never saved.
+            <div className="text-xs text-neutral-500">
+              Derived rate:{" "}
+              <span className="text-neutral-300 font-mono">{derivedText}</span>
             </div>
           </div>
         </div>
+      </section>
 
-        <div className="rounded-md border border-blue-500/30 bg-blue-500/5 p-4">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-blue-300 mb-1">
-            Tier Forecast
-          </div>
-          <div className="text-sm text-white">{dropText}</div>
+      {/* ── Group C — Drop Style ───────────────────────────────────── */}
+      <section className="space-y-3">
+        <SectionHeading>Drop style</SectionHeading>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <ModeCard
+            active={draft.triggerModel === "pure_chance"}
+            onClick={() => onChange({ triggerModel: "pure_chance" })}
+            Icon={Dice5}
+            title="Pure Chance Roll"
+            blurb="Static 1-in-N odds for uniform, predictable drops."
+          />
+          <ModeCard
+            active={draft.triggerModel === "hype_curve"}
+            onClick={() => onChange({ triggerModel: "hype_curve" })}
+            Icon={TrendingUp}
+            title="Hype Curve Engine"
+            blurb="Dynamic must-drop between win boundaries."
+          />
+          <ModeCard
+            active={draft.triggerModel === "happy_hour"}
+            onClick={() => onChange({ triggerModel: "happy_hour" })}
+            Icon={Clock}
+            title="Happy Hour"
+            blurb="Calendar-gated contribution + win windows."
+          />
         </div>
-      </div>
+
+        {draft.triggerModel === "pure_chance" && (
+          <PureChancePanel draft={draft} onChange={onChange} />
+        )}
+        {draft.triggerModel === "hype_curve" && (
+          <HypeCurvePanel draft={draft} onChange={onChange} />
+        )}
+        {draft.triggerModel === "happy_hour" && (
+          <HappyHourPanel draft={draft} onChange={onChange} />
+        )}
+      </section>
+
+      {/* ── Group D — Tier Safeguards ──────────────────────────────── */}
+      <section className="space-y-3">
+        <SectionHeading>Tier safeguards (optional)</SectionHeading>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-neutral-300">Max number of wins</Label>
+            <Input
+              type="number"
+              min={0}
+              value={draft.maxNumberOfWins}
+              onChange={(e) => onChange({ maxNumberOfWins: e.target.value })}
+              placeholder="Unlimited"
+              className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
+            />
+            <div className="text-xs text-neutral-500">
+              Engine halts the tier after this many drops.
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-neutral-300">Max total payout</Label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={draft.maxTotalPayout}
+              onChange={(e) => onChange({ maxTotalPayout: e.target.value })}
+              placeholder="Unlimited"
+              className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
+            />
+            <div className="text-xs text-neutral-500">
+              Engine halts once cumulative payout passes this.
+            </div>
+          </div>
+        </div>
+      </section>
 
       <div className="flex items-center justify-between pt-1">
         <Button
@@ -1045,13 +1251,264 @@ function DraftTierCard({
           type="button"
           size="sm"
           onClick={onSave}
-          disabled={
-            submitting || !draft.tierName.trim() || shareInvalid
-          }
+          disabled={submitting || !draft.tierName.trim() || shareInvalid}
           className="bg-blue-500 hover:bg-blue-600"
         >
           Save tier
         </Button>
+      </div>
+    </div>
+  );
+}
+
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-400 border-b border-neutral-800 pb-1.5">
+      {children}
+    </div>
+  );
+}
+
+function ModeCard({
+  active,
+  onClick,
+  Icon,
+  title,
+  blurb,
+}: {
+  active: boolean;
+  onClick: () => void;
+  Icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  blurb: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`text-left rounded-xl border-2 p-4 transition-all ${
+        active
+          ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/30"
+          : "border-neutral-700 bg-neutral-900 hover:border-neutral-500"
+      }`}
+    >
+      <div className="flex items-center gap-2 mb-1">
+        <Icon className={`w-4 h-4 ${active ? "text-blue-300" : "text-neutral-400"}`} />
+        <div className={`font-medium text-sm ${active ? "text-white" : "text-neutral-200"}`}>
+          {title}
+        </div>
+      </div>
+      <div className="text-xs text-neutral-500 leading-relaxed">{blurb}</div>
+    </button>
+  );
+}
+
+/* ── Drop-style panels ──────────────────────────────────────────────── */
+function PureChancePanel({
+  draft,
+  onChange,
+}: {
+  draft: ChildDraft;
+  onChange: (patch: Partial<ChildDraft>) => void;
+}) {
+  const spins = Math.max(1, Math.trunc(Number(draft.spinsInterval) || 1));
+  const vibe = pickPureChanceVibe(spins);
+  const sliderPct = spinsToSlider(spins);
+  return (
+    <div className="rounded-lg border border-neutral-800 bg-neutral-950/50 p-5 space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-end">
+        <div className="space-y-2">
+          <Label className="text-neutral-400 text-xs uppercase tracking-wider">
+            Interval (logarithmic — 1k to 10M spins)
+          </Label>
+          <Slider
+            value={[sliderPct]}
+            min={0}
+            max={100}
+            step={0.1}
+            onValueChange={(v) =>
+              onChange({ spinsInterval: String(sliderToSpins(v[0] ?? 0)) })
+            }
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-neutral-300 text-sm">1 in</span>
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={MIN_SPINS}
+            max={MAX_SPINS}
+            step={100}
+            value={draft.spinsInterval}
+            onChange={(e) => onChange({ spinsInterval: e.target.value })}
+            className="bg-neutral-800 border-neutral-700 text-white font-mono h-10 w-32"
+          />
+          <span className="text-neutral-300 text-sm">spins</span>
+        </div>
+      </div>
+      <div
+        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs ${vibe.chip}`}
+      >
+        <vibe.Icon className="w-3.5 h-3.5" />
+        {vibe.label}
+      </div>
+      <div className="text-sm text-neutral-300">{vibe.copy}</div>
+    </div>
+  );
+}
+
+function HypeCurvePanel({
+  draft,
+  onChange,
+}: {
+  draft: ChildDraft;
+  onChange: (patch: Partial<ChildDraft>) => void;
+}) {
+  return (
+    <div className="rounded-lg border border-neutral-800 bg-neutral-950/50 p-5 space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label className="text-neutral-300">Min win boundary</Label>
+          <Input
+            type="text"
+            inputMode="decimal"
+            value={draft.minBoundary}
+            onChange={(e) => onChange({ minBoundary: e.target.value })}
+            className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-neutral-300">Max win boundary</Label>
+          <Input
+            type="text"
+            inputMode="decimal"
+            value={draft.maxBoundary}
+            onChange={(e) => onChange({ maxBoundary: e.target.value })}
+            className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-neutral-300">Drop pacing</Label>
+          <select
+            value={draft.dropPacing}
+            onChange={(e) =>
+              onChange({ dropPacing: e.target.value as ChildDraft["dropPacing"] })
+            }
+            className="w-full h-10 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-white"
+          >
+            <option value="fast">Fast — front-loaded drops</option>
+            <option value="balanced">Balanced — even distribution</option>
+            <option value="slow">Slow — back-loaded drops</option>
+          </select>
+        </div>
+      </div>
+      <div className="text-xs text-neutral-500">
+        Dynamic must-drop engine forces a win between the boundaries; pacing
+        controls how aggressively probability rises as the pool grows.
+      </div>
+    </div>
+  );
+}
+
+function HappyHourPanel({
+  draft,
+  onChange,
+}: {
+  draft: ChildDraft;
+  onChange: (patch: Partial<ChildDraft>) => void;
+}) {
+  const isDaily = draft.freqInterval === "DAILY";
+  const dayLabel =
+    draft.freqInterval === "WEEKLY"
+      ? "Day of week (0=Sun … 6=Sat)"
+      : "Day of month (1–31)";
+  return (
+    <div className="rounded-lg border border-neutral-800 bg-neutral-950/50 p-5 space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label className="text-neutral-300">Recurrence</Label>
+          <select
+            value={draft.freqInterval}
+            onChange={(e) =>
+              onChange({ freqInterval: e.target.value as FreqInterval, freqDay: "" })
+            }
+            className="w-full h-10 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-white"
+          >
+            <option value="DAILY">Daily</option>
+            <option value="WEEKLY">Weekly</option>
+            <option value="MONTHLY">Monthly</option>
+          </select>
+        </div>
+        <div className="space-y-2 md:col-span-2">
+          <Label className="text-neutral-300">{isDaily ? "—" : dayLabel}</Label>
+          <Input
+            type="text"
+            disabled={isDaily}
+            value={draft.freqDay}
+            onChange={(e) => onChange({ freqDay: e.target.value })}
+            placeholder={isDaily ? "Not used for daily" : ""}
+            className="bg-neutral-800 border-neutral-700 text-white font-mono h-10 disabled:opacity-50"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label className="text-neutral-300">Contribution window start (UTC)</Label>
+          <Input
+            type="time"
+            value={draft.contribStartTime}
+            onChange={(e) => onChange({ contribStartTime: e.target.value })}
+            className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-neutral-300">Contribution window end (UTC)</Label>
+          <Input
+            type="time"
+            value={draft.contribEndTime}
+            onChange={(e) => onChange({ contribEndTime: e.target.value })}
+            className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
+          />
+        </div>
+      </div>
+
+      <label className="flex items-center gap-2 text-sm text-neutral-300">
+        <input
+          type="checkbox"
+          checked={draft.cloneContribToWin}
+          onChange={(e) => onChange({ cloneContribToWin: e.target.checked })}
+          className="accent-blue-500"
+        />
+        Use the same window for win eligibility
+      </label>
+
+      {!draft.cloneContribToWin && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-neutral-300">Win window start (UTC)</Label>
+            <Input
+              type="time"
+              value={draft.winStartTime}
+              onChange={(e) => onChange({ winStartTime: e.target.value })}
+              className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-neutral-300">Win window end (UTC)</Label>
+            <Input
+              type="time"
+              value={draft.winEndTime}
+              onChange={(e) => onChange({ winEndTime: e.target.value })}
+              className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
+            />
+          </div>
+        </div>
+      )}
+      <div className="text-xs text-neutral-500">
+        Spins outside the contribution window accrue zero; spins outside the win
+        window cannot trigger drops. Curated subset — full Frequency
+        recurrenceType validation is skipped here.
       </div>
     </div>
   );
@@ -1070,15 +1527,7 @@ function LaunchGate({
   onActivate,
 }: {
   group: GroupDTO;
-  savedChildren: Array<{
-    jackpotId: number;
-    tierRank: number;
-    jackpotName: string;
-    tierName: string;
-    probability: number;
-    splitShare: number;
-    seedAmount: number;
-  }>;
+  savedChildren: SavedChild[];
   sharesTotal: number;
   sharesValid: boolean;
   submitting: boolean;
@@ -1086,11 +1535,9 @@ function LaunchGate({
   onActivate: () => void;
 }) {
   const sorted = [...savedChildren].sort((a, b) => b.tierRank - a.tierRank);
-  const totalSeedExposure = savedChildren.reduce(
-    (sum, c) => sum + c.seedAmount,
-    0,
-  );
-  const REFERENCE_DAILY = 50000;
+  const totalSeedExposure = savedChildren.reduce((sum, c) => sum + c.seedAmount, 0);
+  const gameCount = group.assignedGameIds?.length ?? 0;
+  const catCount = group.assignedCategories?.length ?? 0;
 
   return (
     <Card className="p-8 bg-neutral-900/60 border-neutral-800">
@@ -1113,13 +1560,11 @@ function LaunchGate({
         />
         <SummaryStat
           label="Type"
-          value={
-            group.contributionType === "percentage" ? "Percentage" : "Fixed"
-          }
+          value={group.contributionType === "percentage" ? "Percentage" : "Fixed"}
         />
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4 mb-6">
+      <div className="grid md:grid-cols-4 gap-4 mb-6">
         <SummaryStat
           label="Master value"
           value={formatMasterValue(
@@ -1129,9 +1574,8 @@ function LaunchGate({
           accent="emerald"
         />
         <SummaryStat
-          label="Allocated shares"
-          value={`${sharesTotal.toFixed(2)}% / 100.00%`}
-          accent={sharesValid ? "emerald" : "red"}
+          label="Assigned games"
+          value={`${catCount} cats · ${gameCount} games`}
         />
         <SummaryStat
           label="Combined seed exposure"
@@ -1140,7 +1584,22 @@ function LaunchGate({
             maximumFractionDigits: 2,
           })}
         />
+        <SummaryStat
+          label="Allocated shares"
+          value={`${sharesTotal.toFixed(2)}% / 100.00%`}
+          accent={sharesValid ? "emerald" : "red"}
+        />
       </div>
+
+      {sharesValid && (
+        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 mb-6 flex items-center gap-3">
+          <Check className="w-5 h-5 text-emerald-300" />
+          <div className="text-sm text-emerald-100">
+            <span className="font-semibold">Splits aligned — 100.00%.</span>{" "}
+            Ready to activate.
+          </div>
+        </div>
+      )}
 
       <div className="rounded-xl border border-neutral-800 overflow-hidden mb-6">
         <div className="bg-neutral-900/80 px-5 py-3 text-xs uppercase tracking-[0.2em] text-neutral-400 border-b border-neutral-800">
@@ -1165,7 +1624,7 @@ function LaunchGate({
                     <div className="text-white text-sm font-medium truncate">
                       {c.tierName}
                     </div>
-                    <div className="text-[11px] text-neutral-500 font-mono">
+                    <div className="text-[11px] text-neutral-500 font-mono truncate">
                       {theme.label} · rank {c.tierRank} · #{c.jackpotId}
                     </div>
                   </div>
@@ -1178,11 +1637,19 @@ function LaunchGate({
                     {c.splitShare.toFixed(2)}%
                   </div>
                 </div>
-                <div className="col-span-3 text-xs">
+                <div className="col-span-2 text-xs">
+                  <div className="text-neutral-500 uppercase tracking-wider">
+                    Seed / Reseed
+                  </div>
+                  <div className="text-white font-mono truncate">
+                    {c.seedAmount.toFixed(2)} / {c.reseedingAmount.toFixed(2)}
+                  </div>
+                </div>
+                <div className="col-span-2 text-xs">
                   <div className="text-neutral-500 uppercase tracking-wider">
                     Derived
                   </div>
-                  <div className="text-white font-mono">
+                  <div className="text-white font-mono truncate">
                     {formatDerivedRate(
                       group.contributionType,
                       group.masterContributionValue,
@@ -1190,13 +1657,25 @@ function LaunchGate({
                     )}
                   </div>
                 </div>
-                <div className="col-span-3 text-xs">
+                <div className="col-span-2 text-xs">
                   <div className="text-neutral-500 uppercase tracking-wider">
-                    Expected drop
+                    Trigger
                   </div>
-                  <div className="text-white">
-                    {formatDropFrequency(c.probability, REFERENCE_DAILY)}
+                  <div className="text-white truncate" title={c.triggerSummary}>
+                    {c.triggerSummary}
                   </div>
+                  {(c.maxNumberOfWins !== undefined ||
+                    c.maxTotalPayout !== undefined) && (
+                    <div className="text-[10px] text-amber-300 mt-0.5 truncate">
+                      {c.maxNumberOfWins !== undefined &&
+                        `≤ ${c.maxNumberOfWins} wins`}
+                      {c.maxNumberOfWins !== undefined &&
+                        c.maxTotalPayout !== undefined &&
+                        " · "}
+                      {c.maxTotalPayout !== undefined &&
+                        `≤ ${c.maxTotalPayout.toLocaleString()} payout`}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -1306,3 +1785,7 @@ class Step2ErrorBoundary extends React.Component<
     return this.props.children;
   }
 }
+
+// Re-export parseFrequencyJSON helpers so future edit flows can hydrate a
+// saved tier card from a child jackpot's stored trigger_condition.
+export { parseFrequencyJSON, pickFrequencyInterval, pickTime };
