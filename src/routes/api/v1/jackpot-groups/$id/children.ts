@@ -16,7 +16,7 @@ const AttachSchema = z.object({
   jackpotId: z.number().int().positive(),
   tierRank: z.number().int().min(0),
   triggerProbability: z.number().min(0).max(1).optional(),
-  contributionRate: z.number().min(0).max(1).optional(),
+  splitShare: z.number().min(0).max(100).optional(),
   name: z.string().min(1).max(255).optional(),
 });
 
@@ -64,7 +64,7 @@ export const Route = createFileRoute("/api/v1/jackpot-groups/$id/children")({
             parsed.data.tierRank,
             {
               triggerProbability: parsed.data.triggerProbability,
-              contributionRate: parsed.data.contributionRate,
+              splitShare: parsed.data.splitShare,
               name: parsed.data.name,
             },
           );
