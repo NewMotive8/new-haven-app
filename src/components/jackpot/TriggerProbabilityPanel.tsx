@@ -12,8 +12,15 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Zap, Flame, TrendingUp, Trophy, Gem, Info } from "lucide-react";
-import { BlockMath } from "react-katex";
-import "katex/dist/katex.min.css";
+import { ClientOnly } from "@tanstack/react-router";
+
+const LazyBlockMath = React.lazy(async () => {
+  const [mod] = await Promise.all([
+    import("react-katex"),
+    import("katex/dist/katex.min.css"),
+  ]);
+  return { default: mod.BlockMath };
+});
 
 /* Logarithmic interval slider helpers (Pure Chance) — 1k–10M spins. */
 export const MIN_SPINS = 1000;
@@ -170,7 +177,11 @@ function DropPaceInfoDialog() {
             formula to predict your daily drops:
           </p>
           <div className="rounded-md border border-neutral-800 bg-neutral-900/70 px-4 py-3 overflow-x-auto">
-            <BlockMath math={"\\text{Expected Payouts Per Day} = \\frac{\\text{Total Daily Network Spins}}{\\text{Drop Pace (Target Spin Interval)}}"} />
+            <ClientOnly fallback={<code className="text-sm text-neutral-300">Expected Payouts Per Day = Total Daily Network Spins / Drop Pace</code>}>
+              <React.Suspense fallback={<code className="text-sm text-neutral-300">Loading formula…</code>}>
+                <LazyBlockMath math={"\\text{Expected Payouts Per Day} = \\frac{\\text{Total Daily Network Spins}}{\\text{Drop Pace (Target Spin Interval)}}"} />
+              </React.Suspense>
+            </ClientOnly>
           </div>
           <p className="text-sm leading-relaxed">
             <strong>Example:</strong> If your players generate 100,000 total spins a day on your
