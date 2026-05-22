@@ -88,6 +88,16 @@ function JackpotGroupDetailPage() {
   const navigate = useNavigate();
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  const nameInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  function focusEditor() {
+    requestAnimationFrame(() => {
+      nameInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      nameInputRef.current?.focus();
+      nameInputRef.current?.select?.();
+    });
+  }
+
 
   const query = useQuery<GroupDetailDTO>({
     queryKey: ["jackpot-group", id, brandId],
