@@ -163,6 +163,7 @@ const mustDropMid: SingleBlueprint = {
     maxWinAmount: 2500,
     mustDropPeriod: 1,
     triggerOdds: 0,
+    operatorShare: 15,
   },
 };
 
