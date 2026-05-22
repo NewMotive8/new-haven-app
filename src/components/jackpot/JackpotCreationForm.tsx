@@ -585,11 +585,20 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
 
   function buildPayload(): JackpotSavePayload {
+    // ── Option A: strict mutually exclusive modes ─────────────────────────
+    // Classic Progressive = fixed-odds only (triggerOdds, NO win/budget caps).
+    // Must-Drop          = value-driven (Min/Max Win + caps, NO triggerOdds).
+    // Frequency          = time-driven (scheduling only, NO triggerOdds, NO caps).
+    // Wager limits only apply when contributionType === 'percentage'.
+    const isClassic = selectedType === 'classic';
+    const isMustDrop = selectedType === 'must_drop';
+    const isPercentage = contributionType === 'percentage';
+
     return {
       name: name.trim(),
       description: description.trim(),
       type: selectedType,
-      payoutModel,
+      payoutModel: isClassic ? ('maximum' as PayoutModel) : payoutModel,
       contributionType,
       seedContributionType,
       volatility: volatility[0],
@@ -624,12 +633,14 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       },
       isTemplate,
       selectedWidget,
-      fixedWinAmount,
-      averageWinAmount,
-      minWinAmount,
-      maxWinAmount,
-      minWagerAmount,
-      maxWagerAmount,
+      // Win-amount fields — only valid for Must-Drop.
+      fixedWinAmount: isMustDrop ? fixedWinAmount : 0,
+      averageWinAmount: isMustDrop ? averageWinAmount : 0,
+      minWinAmount: isMustDrop ? minWinAmount : 0,
+      maxWinAmount: isMustDrop ? maxWinAmount : 0,
+      // Wager limits — only valid for percentage contributions.
+      minWagerAmount: isPercentage ? minWagerAmount : 0,
+      maxWagerAmount: isPercentage ? maxWagerAmount : 0,
       reseedingAmount,
       maximumSeedAmount,
       initialPoolAmount,
@@ -644,7 +655,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       poolWeight,
       seedWeight,
       houseWeight,
-      triggerOdds,
+      // Trigger Probability — only valid for Classic Progressive.
+      triggerOdds: isClassic ? triggerOdds : 0,
       previewWager,
       eligibility: buildEligibility(),
     };
@@ -1654,327 +1666,27 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                 </div>
               </section>
 
-              {/* Win Logic & Model Section */}
+              {/* Win Logic & Model Section — Classic Progressive is fixed-odds:
+                  win-amount caps, payout models, and lifetime budget caps are
+                  disabled in this mode (see Trigger Probability below). */}
               <section ref={modelRef} className="scroll-mt-20">
                 <h2 className="text-xl font-semibold mb-6">Win Logic & Model</h2>
-                
-                <div className="grid gap-6">
-                  <Card className="p-6 bg-neutral-900/50 border-neutral-800">
-                    <div className="space-y-6">
-                      <div className="space-y-3">
-                        <BrightLabel className="text-sm font-medium">Payout Model</BrightLabel>
-                        <RadioGroup value={payoutModel} onValueChange={(v) => setPayoutModel(v as PayoutModel)}>
-                          <div className="grid grid-cols-3 gap-4">
-                            <label className={`relative flex flex-col p-5 rounded-lg border-2 cursor-pointer transition-all ${
-                              payoutModel === 'fixed' 
-                                ? 'border-blue-500 bg-blue-500/10' 
-                                : 'border-neutral-700 bg-neutral-800/30 hover:border-neutral-600'
-                            }`}>
-                              <RadioGroupItem value="fixed" className="sr-only" />
-                              <div className="flex items-center justify-between mb-3">
-                                <span className="font-medium text-white">Fixed Payout</span>
-                                {payoutModel === 'fixed' && (
-                                  <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
-                                    <div className="w-2 h-2 rounded-full bg-white" />
-                                  </div>
-                                )}
-                              </div>
-                              <span className="text-xs text-neutral-400 leading-relaxed">
-                                Jackpot pays a predetermined fixed amount every time
-                              </span>
-                            </label>
-                            
-                            <label className={`relative flex flex-col p-5 rounded-lg border-2 cursor-pointer transition-all ${
-                              payoutModel === 'average' 
-                                ? 'border-blue-500 bg-blue-500/10' 
-                                : 'border-neutral-700 bg-neutral-800/30 hover:border-neutral-600'
-                            }`}>
-                              <RadioGroupItem value="average" className="sr-only" />
-                              <div className="flex items-center justify-between mb-3">
-                                <span className="font-medium text-white">Average Payout</span>
-                                {payoutModel === 'average' && (
-                                  <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
-                                    <div className="w-2 h-2 rounded-full bg-white" />
-                                  </div>
-                                )}
-                              </div>
-                              <span className="text-xs text-neutral-400 leading-relaxed">
-                                Payout varies around a target average with volatility control
-                              </span>
-                            </label>
-                            
-                            <label className={`relative flex flex-col p-5 rounded-lg border-2 cursor-pointer transition-all ${
-                              payoutModel === 'maximum' 
-                                ? 'border-blue-500 bg-blue-500/10' 
-                                : 'border-neutral-700 bg-neutral-800/30 hover:border-neutral-600'
-                            }`}>
-                              <RadioGroupItem value="maximum" className="sr-only" />
-                              <div className="flex items-center justify-between mb-3">
-                                <span className="font-medium text-white">Maximum Payout</span>
-                                {payoutModel === 'maximum' && (
-                                  <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
-                                    <div className="w-2 h-2 rounded-full bg-white" />
-                                  </div>
-                                )}
-                              </div>
-                              <span className="text-xs text-neutral-400 leading-relaxed">
-                                Payout varies with a defined maximum cap
-                              </span>
-                            </label>
-                          </div>
-                        </RadioGroup>
-                      </div>
-
-                      {/* Model-specific fields */}
-                      {payoutModel === 'fixed' && (
-                        <div className="space-y-6 pt-4">
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="fixed-amount">Fixed Win Amount</BrightLabel>
-                              <CurrencyInput
-                                id="fixed-amount"
-                                type="number"
-                                placeholder="0"
-                                value={fixedWinAmount || ''}
-                                onChange={(e) => setFixedWinAmount(parseFloat(e.target.value) || 0)}
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                              <p className="text-xs text-red-400">This field is required</p>
-                            </div>
-                            <div></div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="volatility">Volatility</BrightLabel>
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm text-neutral-400">0</span>
-                                  <Slider
-                                    value={volatility}
-                                    onValueChange={setVolatility}
-                                    max={10}
-                                    step={1}
-                                    className="flex-1"
-                                  />
-                                  <span className="text-sm text-neutral-400">10</span>
-                                </div>
-                                <div className="flex justify-center">
-                                  <span className="text-sm text-neutral-400">{volatility[0]}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div></div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="min-wager-fixed">Minimum Wager Amount</BrightLabel>
-                              <CurrencyInput
-                                id="min-wager-fixed"
-                                type="number"
-                                placeholder="0"
-                                value={minWagerAmount || ''}
-                                onChange={(e) => setMinWagerAmount(parseFloat(e.target.value) || 0)}
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="max-wager-fixed">Maximum Wager Amount</BrightLabel>
-                              <CurrencyInput
-                                id="max-wager-fixed"
-                                type="number"
-                                placeholder="0"
-                                value={maxWagerAmount || ''}
-                                onChange={(e) => setMaxWagerAmount(parseFloat(e.target.value) || 0)}
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
-                        </div>
-                      )}
-
-                      {payoutModel === 'average' && (
-                        <div className="space-y-6 pt-4">
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="avg-target">Average Win Amount</BrightLabel>
-                              <CurrencyInput
-                                id="avg-target"
-                                type="number"
-                                placeholder="0"
-                                value={averageWinAmount || ''}
-                                onChange={(e) => setAverageWinAmount(parseFloat(e.target.value) || 0)}
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                              <p className="text-xs text-red-400">This field is required</p>
-                            </div>
-                            <div></div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="min-win">Minimum Win Amount</BrightLabel>
-                              <CurrencyInput
-                                id="min-win"
-                                type="number"
-                                placeholder="0"
-                                value={minWinAmount || ''}
-                                onChange={(e) => setMinWinAmount(parseFloat(e.target.value) || 0)}
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="max-win">Maximum Win Amount</BrightLabel>
-                              <CurrencyInput
-                                id="max-win"
-                                type="number"
-                                placeholder="0"
-                                value={maxWinAmount || ''}
-                                onChange={(e) => setMaxWinAmount(parseFloat(e.target.value) || 0)}
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="volatility-avg">Volatility</BrightLabel>
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm text-neutral-400">0</span>
-                                  <Slider
-                                    value={volatility}
-                                    onValueChange={setVolatility}
-                                    max={10}
-                                    step={1}
-                                    className="flex-1"
-                                  />
-                                  <span className="text-sm text-neutral-400">10</span>
-                                </div>
-                                <div className="flex justify-center">
-                                  <span className="text-sm text-neutral-400">{volatility[0]}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div></div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="min-wager">Minimum Wager Amount</BrightLabel>
-                              <CurrencyInput
-                                id="min-wager"
-                                type="number"
-                                placeholder="0"
-                                value={minWagerAmount || ''}
-                                onChange={(e) => setMinWagerAmount(parseFloat(e.target.value) || 0)}
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="max-wager">Maximum Wager Amount</BrightLabel>
-                              <CurrencyInput
-                                id="max-wager"
-                                type="number"
-                                placeholder="0"
-                                value={maxWagerAmount || ''}
-                                onChange={(e) => setMaxWagerAmount(parseFloat(e.target.value) || 0)}
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
-                        </div>
-                      )}
-
-                      {payoutModel === 'maximum' && (
-                        <div className="space-y-6 pt-4">
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="min-win-max">Minimum Win Amount</BrightLabel>
-                              <CurrencyInput
-                                id="min-win-max"
-                                type="number"
-                                placeholder="0"
-                                value={minWinAmount || ''}
-                                onChange={(e) => setMinWinAmount(parseFloat(e.target.value) || 0)}
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="max-win-max">Maximum Win Amount</BrightLabel>
-                              <CurrencyInput
-                                id="max-win-max"
-                                type="number"
-                                placeholder="0"
-                                value={maxWinAmount || ''}
-                                onChange={(e) => setMaxWinAmount(parseFloat(e.target.value) || 0)}
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="volatility-max">Volatility</BrightLabel>
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm text-neutral-400">0</span>
-                                  <Slider
-                                    value={volatility}
-                                    onValueChange={setVolatility}
-                                    max={10}
-                                    step={1}
-                                    className="flex-1"
-                                  />
-                                  <span className="text-sm text-neutral-400">10</span>
-                                </div>
-                                <div className="flex justify-center">
-                                  <span className="text-sm text-neutral-400">{volatility[0]}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div></div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="min-wager-max">Minimum Wager Amount</BrightLabel>
-                              <CurrencyInput
-                                id="min-wager-max"
-                                type="number"
-                                placeholder="0"
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="max-wager-max">Maximum Wager Amount</BrightLabel>
-                              <CurrencyInput
-                                id="max-wager-max"
-                                type="number"
-                                placeholder="0"
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
-                        </div>
-                      )}
+                <Card className="p-5 bg-amber-500/5 border-amber-500/30">
+                  <div className="flex gap-3">
+                    <div className="text-amber-300 text-lg leading-none mt-0.5">⚠</div>
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-amber-200">Fixed-Odds Mode (Classic Progressive)</div>
+                      <p className="text-xs text-amber-100/80 leading-relaxed">
+                        Classic Progressive pays the <strong>full pool balance</strong> on each trigger.
+                        Win-amount caps (Min/Max Win), payout models (Fixed/Average/Maximum), and lifetime
+                        budget limits (Max # of Wins, Max Total Payout) are <strong>completely disabled</strong>
+                        to guarantee math alignment, prevent silent engine rejections, and meet regulatory
+                        compliance standards. Configure the RNG denominator in the
+                        <strong> Trigger Probability</strong> section below.
+                      </p>
                     </div>
-                  </Card>
-                </div>
+                  </div>
+                </Card>
               </section>
 
               {jackpotContributionSection}
@@ -2478,37 +2190,9 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                         <div></div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <BrightLabel htmlFor="max-wins">Maximum Number of Wins</BrightLabel>
-                          <Input
-                            id="max-wins"
-                            type="number"
-                            placeholder="0"
-                            className="bg-neutral-800 border-neutral-700"
-                          />
-                          <p className="text-xs text-neutral-500">
-                            Jackpot deactivates after this many wins (0 = unlimited)
-                          </p>
-                        </div>
-                        <div></div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <BrightLabel htmlFor="max-payout">Maximum Total Payout Amount</BrightLabel>
-                          <CurrencyInput
-                            id="max-payout"
-                            type="number"
-                            placeholder="0"
-                            className="bg-neutral-800 border-neutral-700"
-                          />
-                          <p className="text-xs text-neutral-500">
-                            Jackpot stops after total payouts reach this amount
-                          </p>
-                        </div>
-                        <div></div>
-                      </div>
+                      {/* Max Number of Wins / Max Total Payout — disabled for
+                          Classic Progressive (fixed-odds mode). Configure those
+                          caps in a Must-Drop jackpot instead. */}
                     </div>
                   </Card>
                 </div>
@@ -2793,31 +2477,35 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                         <div></div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <BrightLabel htmlFor="min-wager-must-drop">Minimum Wager Amount</BrightLabel>
-                          <CurrencyInput
-                            id="min-wager-must-drop"
-                            type="number"
-                            placeholder="0"
-                            className="bg-neutral-800 border-neutral-700"
-                          />
-                        </div>
-                        <div></div>
-                      </div>
+                      {contributionType === 'percentage' && (
+                        <>
+                          <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                              <BrightLabel htmlFor="min-wager-must-drop">Minimum Wager Amount</BrightLabel>
+                              <CurrencyInput
+                                id="min-wager-must-drop"
+                                type="number"
+                                placeholder="0"
+                                className="bg-neutral-800 border-neutral-700"
+                              />
+                            </div>
+                            <div></div>
+                          </div>
 
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <BrightLabel htmlFor="max-wager-must-drop">Maximum Wager Amount</BrightLabel>
-                          <CurrencyInput
-                            id="max-wager-must-drop"
-                            type="number"
-                            placeholder="0"
-                            className="bg-neutral-800 border-neutral-700"
-                          />
-                        </div>
-                        <div></div>
-                      </div>
+                          <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                              <BrightLabel htmlFor="max-wager-must-drop">Maximum Wager Amount</BrightLabel>
+                              <CurrencyInput
+                                id="max-wager-must-drop"
+                                type="number"
+                                placeholder="0"
+                                className="bg-neutral-800 border-neutral-700"
+                              />
+                            </div>
+                            <div></div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </Card>
                 </div>
@@ -3547,7 +3235,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
               {eligibilitySection}
               {communityWinSection}
-              {triggerProbabilitySection}
+              {/* Trigger Probability is disabled for Must-Drop (value-driven). */}
               {playerTargetingSection}
 
               {/* Widget Configuration Section */}
@@ -3907,30 +3595,34 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                             </div>
                             <div></div>
                           </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="frequency-min-wager-fixed">Minimum Wager Amount</BrightLabel>
-                              <CurrencyInput
-                                id="frequency-min-wager-fixed"
-                                type="number"
-                                placeholder="0"
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="frequency-max-wager-fixed">Maximum Wager Amount</BrightLabel>
-                              <CurrencyInput
-                                id="frequency-max-wager-fixed"
-                                type="number"
-                                placeholder="0"
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
+                          {contributionType === 'percentage' && (
+                            <>
+                              <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                  <BrightLabel htmlFor="frequency-min-wager-fixed">Minimum Wager Amount</BrightLabel>
+                                  <CurrencyInput
+                                    id="frequency-min-wager-fixed"
+                                    type="number"
+                                    placeholder="0"
+                                    className="bg-neutral-800 border-neutral-700"
+                                  />
+                                </div>
+                                <div></div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                  <BrightLabel htmlFor="frequency-max-wager-fixed">Maximum Wager Amount</BrightLabel>
+                                  <CurrencyInput
+                                    id="frequency-max-wager-fixed"
+                                    type="number"
+                                    placeholder="0"
+                                    className="bg-neutral-800 border-neutral-700"
+                                  />
+                                </div>
+                                <div></div>
+                              </div>
+                            </>
+                          )}
                         </div>
                       )}
 
@@ -3995,30 +3687,34 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                             </div>
                             <div></div>
                           </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="frequency-min-wager">Minimum Wager Amount</BrightLabel>
-                              <CurrencyInput
-                                id="frequency-min-wager"
-                                type="number"
-                                placeholder="0"
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="frequency-max-wager">Maximum Wager Amount</BrightLabel>
-                              <CurrencyInput
-                                id="frequency-max-wager"
-                                type="number"
-                                placeholder="0"
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
+                          {contributionType === 'percentage' && (
+                            <>
+                              <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                  <BrightLabel htmlFor="frequency-min-wager">Minimum Wager Amount</BrightLabel>
+                                  <CurrencyInput
+                                    id="frequency-min-wager"
+                                    type="number"
+                                    placeholder="0"
+                                    className="bg-neutral-800 border-neutral-700"
+                                  />
+                                </div>
+                                <div></div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                  <BrightLabel htmlFor="frequency-max-wager">Maximum Wager Amount</BrightLabel>
+                                  <CurrencyInput
+                                    id="frequency-max-wager"
+                                    type="number"
+                                    placeholder="0"
+                                    className="bg-neutral-800 border-neutral-700"
+                                  />
+                                </div>
+                                <div></div>
+                              </div>
+                            </>
+                          )}
                         </div>
                       )}
 
@@ -4070,30 +3766,34 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                             </div>
                             <div></div>
                           </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="frequency-min-wager-max">Minimum Wager Amount</BrightLabel>
-                              <CurrencyInput
-                                id="frequency-min-wager-max"
-                                type="number"
-                                placeholder="0"
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="frequency-max-wager-max">Maximum Wager Amount</BrightLabel>
-                              <CurrencyInput
-                                id="frequency-max-wager-max"
-                                type="number"
-                                placeholder="0"
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
+                          {contributionType === 'percentage' && (
+                            <>
+                              <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                  <BrightLabel htmlFor="frequency-min-wager-max">Minimum Wager Amount</BrightLabel>
+                                  <CurrencyInput
+                                    id="frequency-min-wager-max"
+                                    type="number"
+                                    placeholder="0"
+                                    className="bg-neutral-800 border-neutral-700"
+                                  />
+                                </div>
+                                <div></div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                  <BrightLabel htmlFor="frequency-max-wager-max">Maximum Wager Amount</BrightLabel>
+                                  <CurrencyInput
+                                    id="frequency-max-wager-max"
+                                    type="number"
+                                    placeholder="0"
+                                    className="bg-neutral-800 border-neutral-700"
+                                  />
+                                </div>
+                                <div></div>
+                              </div>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
@@ -4720,7 +4420,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
               {eligibilitySection}
               {communityWinSection}
-              {triggerProbabilitySection}
+              {/* Trigger Probability is disabled for Frequency (time-driven). */}
               {playerTargetingSection}
 
             </>

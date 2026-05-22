@@ -32,6 +32,43 @@ function validateSplitWeights(p: JackpotSavePayload): void {
   }
 }
 
+/** Option A — strict mutual exclusivity between jackpot mode + caps + wager limits. */
+function validateModeExclusivity(p: JackpotSavePayload): void {
+  const t = p.type;
+  const odds = Number(p.triggerOdds) || 0;
+  const minWin = Number(p.minWinAmount) || 0;
+  const maxWin = Number(p.maxWinAmount) || 0;
+  const minWager = Number(p.minWagerAmount) || 0;
+  const maxWager = Number(p.maxWagerAmount) || 0;
+
+  if (t === "classic") {
+    if (odds <= 0) {
+      throw new Error("Classic Progressive requires a Trigger Probability denominator (N > 0).");
+    }
+    if (minWin > 0 || maxWin > 0) {
+      throw new Error(
+        "Classic Progressive cannot define Min/Max Win — fixed-odds mode pays the full pool balance.",
+      );
+    }
+  }
+  if (t === "must_drop" && odds > 0) {
+    throw new Error("Must-Drop jackpots cannot define a Trigger Probability — value-driven mode only.");
+  }
+  if (t === "frequency") {
+    if (odds > 0) {
+      throw new Error("Frequency jackpots cannot define a Trigger Probability — time-driven mode only.");
+    }
+    if (minWin > 0 || maxWin > 0) {
+      throw new Error("Frequency jackpots cannot define Min/Max Win caps — time-driven mode only.");
+    }
+  }
+  if (p.contributionType === "fixed" && (minWager > 0 || maxWager > 0)) {
+    throw new Error(
+      "Min/Max Wager limits only apply to Percentage contributions; Fixed contributions are flat-fee side bets.",
+    );
+  }
+}
+
 export function buildTriggerCondition(p: JackpotSavePayload): Record<string, unknown> {
   return {
     type: p.type,
@@ -94,6 +131,7 @@ export function buildCreateBody(payload: JackpotSavePayload) {
     );
   }
   validateSplitWeights(payload);
+  validateModeExclusivity(payload);
 
   const seedAmount = 1000;
   const contributionRate = payload.poolPercentageValue / 100;

@@ -1,77 +1,107 @@
-# Clean up Single Jackpot form + add CSV upload
 
-UI-only changes inside `src/components/jackpot/JackpotCreationForm.tsx` plus
-removal of dead plumbing. No DB / API changes.
+# Option A — Strict Mutually Exclusive Jackpot Modes
 
-## 1. Fully remove the Game Assignment block
+Goal: make Single Jackpot mode + Contribution Type drive what fields exist, both visually and in the payload that hits the API. Forbidden combinations get rejected before they reach the engine.
 
-Drop everything tied to the new bottom-of-page `<GameAssignmentStep />` in the Single Jackpot form:
+## 1. Mode matrix (new contract)
 
-- Remove the `<section>` rendering `<GameAssignmentStep />` (~lines 5083–5096).
-- Remove `assignedCategories` / `assignedGameIds` state, the `initial?.assignedCategories` / `initial?.assignedGameIds` reads, and the `assignedCategories` / `assignedGameIds` fields from `JackpotSavePayload` and from the object returned by `handleContinue`/save.
-- Remove the `GameAssignmentStep` + `MasterCategory` + `GameAssignmentValue` imports.
-- In `src/lib/jackpot/build-create-body.ts`, drop the `assignedCategories` / `assignedGameIds` fields from the POST body.
-- Leave `src/components/jackpot/GameAssignmentStep.tsx`, `src/lib/games.functions.ts`, the `games` table, and the Multi-Jackpot wizard untouched — that is where the new picker still belongs.
+| Mode | Trigger Probability (N) | Min/Max Win | Max # Wins | Max Total Payout | Scheduling (start/end + recurrence) | Min/Max Wager |
+|---|---|---|---|---|---|---|
+| **Classic Progressive** (fixed-odds) | required | hidden + nulled | hidden + nulled | hidden + nulled | start/end only | per Contribution Type (rule 2) |
+| **Must-Drop** (value-driven) | hidden + nulled | shown | shown | shown | start/end + must-drop recurrence | per Contribution Type (rule 2) |
+| **Frequency** (time-driven) | hidden + nulled | hidden + nulled | hidden + nulled | hidden + nulled | full frequency schedule | per Contribution Type (rule 2) |
 
-## 2. Remove "Overlapping Jackpot Rule"
+`payoutModel` (fixed / average / maximum) is removed from Classic (it only made sense alongside a target win amount, which is gone). It stays inside Must-Drop and Frequency.
 
-- Delete the `overlappingSection` block (~lines 798–823) and the line that renders it.
-- Remove the `overlappingRule` state + `setOverlappingRule`, the field on `JackpotSavePayload`, and the `overlappingRule` entry in the saved payload.
-- In `build-create-body.ts`, drop `overlappingRule` from `engineV2`.
+## 2. Contribution Type matrix
 
-## 3. Add a CSV upload control to "Eligibility & Rules Engine"
+| Contribution Type | Min Wager | Max Wager |
+|---|---|---|
+| `percentage` | shown | shown |
+| `fixed` (side bet) | hidden + nulled | hidden + nulled |
 
-Inside the Casino branch of the Eligibility card, add a small "Bulk upload from CSV" row at the top of the card:
+Applies in all three modes, everywhere wager limits currently render (classic payoutModel branches, must-drop section, frequency section).
 
-- A `Bulk Game IDs (CSV)` file input (`accept=".csv,text/csv"`) + tiny help text: "Upload a CSV with a single `game_id` column. Rows are merged into Specific Game IDs."
-- On change, parse client-side (split lines, ignore header `game_id`, trim, dedupe against `eligGameIds`), then `setEligGameIds([...existing, ...parsed])`.
-- Show a toast with how many IDs were imported / skipped. Reset the input value so the same file can be re-uploaded.
-- Existing manual Game Categories / Providers / Specific Game IDs inputs stay as they are.
+## 3. Frontend changes — `src/components/jackpot/JackpotCreationForm.tsx`
 
-## 4. CSV upload in "Custom Target Segments & Restrictions"
+### 3a. State + lift the missing caps
+- Promote currently-uncontrolled inputs to state: `maxNumberOfWins: number`, `maxTotalPayout: number`. Add to `JackpotSavePayload` and to the `onSave` payload assembly (~line 590).
+- Wire the existing `triggerOdds` state to be **set to 0** whenever `selectedType` is `must_drop` or `frequency` (via a `useEffect` on `selectedType`).
+- On mode change, also reset: `minWinAmount`, `maxWinAmount`, `maxNumberOfWins`, `maxTotalPayout` when leaving Must-Drop; reset `triggerOdds` when leaving Classic.
+- On `contributionType` change to `fixed`, reset `minWagerAmount` and `maxWagerAmount` to 0.
 
-Add a CSV upload to both columns (only visible when `audienceMode === 'custom'`):
+### 3b. Classic Progressive section (lines ~1628–2710)
+- Remove the `payoutModel` RadioGroup and all three `payoutModel === 'fixed' | 'average' | 'maximum'` blocks — they carry Min/Max Win and target-amount inputs that no longer belong to Classic.
+- Remove the Scheduling sub-card holding `max-wins` (line 2483) and `max-payout` (line 2499) inputs from the Classic section.
+- Keep: name/description, contribution setup, eligibility, community, **triggerProbabilitySection**, player targeting, widget, start/end dates (only).
+- Add a prominent `Alert` / callout above `triggerProbabilitySection` (or as its lead-in card):
+  > **Fixed-odds mode pays the full pool balance on each trigger. Win amount caps and lifetime budget limits are completely disabled to guarantee math alignment, prevent silent engine rejections, and meet regulatory compliance standards.**
 
-- **Inclusions column (left, after the Target CRM Segments input)**: "Bulk upload included Player IDs (CSV)" → file input that parses a single-column `player_id` CSV and pushes unique IDs into a new state list `includedPlayerIds` rendered as emerald chips just below. Add a small helper text + per-import toast.
-- **Exclusions column (right, after the existing Blacklisted Player IDs textarea)**: "Bulk upload blacklisted Player IDs (CSV)" → file input that appends parsed IDs into the existing `blacklistedIdsRaw` textarea (one per line, deduped), so it keeps the existing payload shape.
+### 3c. Must-Drop section (lines ~2711–3739)
+- Remove `{triggerProbabilitySection}` from this branch (line ~3550).
+- Move the **Maximum Number of Wins** and **Maximum Total Payout Amount** inputs into Must-Drop's scheduling/budget card, bound to the new state.
+- Keep `payoutModel` + Min/Max Win here.
 
-Shared CSV helper (local `parseCsvIds(file)` in this file): read as text, split on `\r?\n`, drop the optional header row if it starts with the column name, trim, filter empties, dedupe. Cap at 10 000 rows with a toast warning if exceeded. No new npm dependency.
+### 3d. Frequency section (lines ~3772+)
+- Remove `{triggerProbabilitySection}` from this branch (line ~4723).
+- Remove any Min/Max Win, Max #Wins, Max Total Payout inputs that exist in the frequency tree (audit and strip — they're forbidden in this mode).
+- Keep target deadline / recurrence scheduling.
 
-Add `includedPlayerIds` to the audience payload (alongside the existing `blacklistedPlayerIds`) so the new field flows through `buildAudience()` / saved payload.
+### 3e. Wager visibility (rule 2)
+- In every place a `Minimum Wager Amount` / `Maximum Wager Amount` input renders (Classic payoutModel branches were removed, but the Must-Drop and Frequency renders at lines ~1775, 1873, 3912, 3924, etc. still exist), wrap with `{contributionType === 'percentage' && (...)}`. The existing `contributionType === 'percentage' ? ... : ...` ternaries (lines 1992, 2838) need their `:fixed` branch to not render wager inputs.
 
-## 5. Trigger Probability — fix the missing field on Single Jackpot
+### 3f. Payload assembly (~line 590)
+Strip forbidden fields before calling `onSave` so the backend receives a clean payload:
+```ts
+const payload: JackpotSavePayload = {
+  ...base,
+  // Mode-gated nulling
+  triggerOdds: selectedType === 'classic' ? triggerOdds : 0,
+  minWinAmount: selectedType === 'must_drop' ? minWinAmount : 0,
+  maxWinAmount: selectedType === 'must_drop' ? maxWinAmount : 0,
+  maxNumberOfWins: selectedType === 'must_drop' ? maxNumberOfWins : 0,
+  maxTotalPayout: selectedType === 'must_drop' ? maxTotalPayout : 0,
+  // Contribution-type-gated nulling
+  minWagerAmount: contributionType === 'percentage' ? minWagerAmount : 0,
+  maxWagerAmount: contributionType === 'percentage' ? maxWagerAmount : 0,
+  payoutModel: selectedType === 'classic' ? undefined : payoutModel,
+};
+```
 
-You're right: there is no Trigger Probability input on the Single Jackpot
-form today. The existing "Trigger Probability Denominator (N)" block
-(`JackpotCreationForm.tsx` ~line 4990) lives inside a per-tier loop
-(`t.triggerOdds`, `updateTier(idx, ...)`) and only renders for the legacy
-multi-level path. For Classic / Must-Drop / Frequency it never appears, and
-`triggerOdds` is never written to the payload.
+## 4. Backend payload validation — `src/lib/jackpot/build-create-body.ts`
 
-Fix:
+Add `validateModeExclusivity(p)` called from `buildCreateBody` alongside `validateSplitWeights`. Throws `Error` (caller surfaces via toast) when any of:
 
-- Promote a single top-level `triggerOdds` state on `JackpotCreationForm`
-  (default `0` = disabled) and a `setTriggerOdds`.
-- Add a "Trigger Probability" card to the Single Jackpot form, placed
-  right after **Jackpot Contribution** (and visible for all three Single
-  types — Classic, Must-Drop, Frequency). It mirrors the per-tier UI:
-  - Numeric input "Trigger Probability Denominator (N)" capped at
-    10,000,000.
-  - Live read-only badge "1 in N spins" / "disabled".
-  - "RNG Boundary Limit: Max 10,000,000" amber chip and the
-    `p = 1/N per spin` helper line.
-- Wire `triggerOdds` into `JackpotSavePayload` and the object returned by
-  save. `buildCreateBody` already forwards `payload.triggerOdds` to
-  `engineV2.triggerOdds` and validates the ceiling, so no backend change.
-- The per-tier denominator inside the legacy multi-level block stays as-is.
+- `type === 'classic'` AND any of `minWinAmount > 0`, `maxWinAmount > 0`, `maxNumberOfWins > 0`, `maxTotalPayout > 0`, `payoutModel != null`.
+- `type === 'must_drop'` AND `triggerOdds > 0`.
+- `type === 'frequency'` AND any of `triggerOdds > 0`, `minWinAmount > 0`, `maxWinAmount > 0`, `maxNumberOfWins > 0`, `maxTotalPayout > 0`.
+- `contributionType === 'fixed'` AND any of `minWagerAmount > 0`, `maxWagerAmount > 0`.
+- `type === 'classic'` AND `(triggerOdds ?? 0) <= 0` → require a positive denominator.
 
-For context: the MultiJackpot wizard's tier dialog has its own
-"Trigger Denominator" that gets converted by `denominatorToProbability(...)`
-and POSTed as `triggerProbability` to `/api/v1/jackpot-groups/:id/children`
-(`MultiJackpotWizard.tsx` ~line 243). That is per-tier on a group and is
-unrelated to the new Single Jackpot field above.
+Error messages name the offending field + mode, e.g. `"Classic Progressive jackpots cannot define maxWinAmount — fixed-odds mode pays the full pool."`
 
-## Out of scope
+Mirror the same checks in `src/lib/jackpot/payload-to-config.ts` (the inverse mapper) so reloading a draft can't smuggle forbidden combos back into state.
 
-- Multi-Jackpot wizard layout and its tier-level Trigger Denominator UI.
-- Backend schema / API changes. `games` table, `assigned_categories`, `assigned_game_ids`, and `overlappingRule` columns stay in place; the Single Jackpot form just stops writing to them.
+## 5. Type updates — `JackpotSavePayload`
+
+Add to the exported type in `JackpotCreationForm.tsx`:
+```ts
+maxNumberOfWins?: number;
+maxTotalPayout?: number;
+payoutModel?: PayoutModel;  // already there — make optional
+triggerOdds?: number;        // already optional
+```
+
+## 6. Files touched
+
+- `src/components/jackpot/JackpotCreationForm.tsx` — state, conditional rendering, callout, payload assembly, wager guards.
+- `src/lib/jackpot/build-create-body.ts` — `validateModeExclusivity`.
+- `src/lib/jackpot/payload-to-config.ts` — symmetric guard on inbound config.
+- No DB migration; `jackpots.trigger_condition` is `jsonb` and the engine already reads `engineV2.triggerOdds`.
+
+## 7. Out of scope
+
+- MultiJackpot wizard (`MultiJackpotWizard.tsx`) — unchanged; its tier-level triggerProbability is independent.
+- The legacy multi-level branch inside `JackpotCreationForm.tsx` — already gated by `selectedType === 'multi_level'` and not part of the three Single modes.
+- No styling refactor beyond adding the compliance callout (uses existing `Alert` component / neutral card styling).
+
