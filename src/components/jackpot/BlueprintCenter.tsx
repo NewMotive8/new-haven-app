@@ -3,10 +3,10 @@ import axios from "axios";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
 import {
-  Sparkles, Copy, Zap, Save, Library, Crown, Layers, Flame,
+  Sparkles, Copy, Zap, Save, Library, Crown, Layers, Flame, X,
 } from "lucide-react";
 import {
-  Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+  Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose,
 } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
