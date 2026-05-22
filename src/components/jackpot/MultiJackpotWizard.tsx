@@ -1486,52 +1486,12 @@ function PureChancePanel({
   draft: ChildDraft;
   onChange: (patch: Partial<ChildDraft>) => void;
 }) {
-  const spins = Math.max(1, Math.trunc(Number(draft.spinsInterval) || 1));
-  const vibe = pickPureChanceVibe(spins);
-  const sliderPct = spinsToSlider(spins);
+  const value = Math.max(0, Math.trunc(Number(draft.spinsInterval) || 0));
   return (
-    <div className="rounded-lg border border-neutral-800 bg-neutral-950/50 p-5 space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-end">
-        <div className="space-y-2">
-          <Label className="text-neutral-400 text-xs uppercase tracking-wider">
-            Drop Pace
-          </Label>
-          <p className="text-sm text-neutral-300">
-            How often do you want players to win? Move the slider to set the target number of total spins needed to trigger a drop.
-          </p>
-          <Slider
-            value={[sliderPct]}
-            min={0}
-            max={100}
-            step={0.1}
-            onValueChange={(v) =>
-              onChange({ spinsInterval: String(sliderToSpins(v[0] ?? 0)) })
-            }
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-neutral-300 text-sm">1 in</span>
-          <Input
-            type="number"
-            inputMode="numeric"
-            min={MIN_SPINS}
-            max={MAX_SPINS}
-            step={100}
-            value={draft.spinsInterval}
-            onChange={(e) => onChange({ spinsInterval: e.target.value })}
-            className="bg-neutral-800 border-neutral-700 text-white font-mono h-10 w-32"
-          />
-          <span className="text-neutral-300 text-sm">spins</span>
-        </div>
-      </div>
-      <div
-        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs ${vibe.chip}`}
-      >
-        <vibe.Icon className="w-3.5 h-3.5" />
-        {vibe.label}
-      </div>
-      <div className="text-sm text-neutral-300">{vibe.copy}</div>
-    </div>
+    <TriggerProbabilityPanel
+      value={value}
+      onChange={(n) => onChange({ spinsInterval: String(n) })}
+    />
   );
 }
 
