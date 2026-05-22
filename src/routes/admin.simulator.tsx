@@ -287,8 +287,25 @@ function SimulatorPage() {
                   ← Back to Editor
                 </button>
                 <button
+                  onClick={handleSaveDraft}
+                  disabled={saving || savingDraft || loading}
+                  style={{
+                    flex: 1,
+                    background: savingDraft ? "#1e293b" : "transparent",
+                    color: "#93c5fd",
+                    border: "1px solid #3b82f6",
+                    padding: "10px 14px",
+                    borderRadius: 8,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: savingDraft ? "wait" : "pointer",
+                  }}
+                >
+                  {savingDraft ? "Saving…" : "Save as Draft"}
+                </button>
+                <button
                   onClick={handleSave}
-                  disabled={saving || loading}
+                  disabled={saving || savingDraft || loading}
                   style={{
                     flex: 1,
                     background: saving ? "#1e293b" : "linear-gradient(135deg, #10b981, #059669)",
