@@ -1,81 +1,97 @@
 
-# Goal
+# Why Edit is broken today
 
-Make every action on `/admin/jackpots` and `/admin/jackpot-groups` — **View, Edit, Enable, Disable, Clone, Delete** — work reliably for both single jackpots and MultiJackpots, with no "This page didn't load" crash, and verify each one.
+`/admin/jackpots` builds two row kinds:
+- `kind: "single"` — from `/api/v2/jackpots` (excluding tier children with `groupId != null`)
+- `kind: "group"` — from `/api/v1/jackpot-groups`
 
----
+`goEdit(row)` already branches on `row.kind`:
+- group → `/admin/jackpot-groups/$id` ✅
+- single → `/admin/jackpots/new?editId=<id>` ❌
 
-# What's actually broken (root cause of "This page didn't load")
+But `/admin/jackpots/new`:
+1. has no `validateSearch`, so `editId` is silently dropped
+2. always mounts `<JackpotCreationForm />` with no `initialDraft` prop (the form doesn't even accept one)
+3. always POSTs a new record on save — there is no PUT path
 
-The browser console shows a **React render crash** (`Element type is invalid… got undefined`) caught by the root `errorComponent` — not a network failure. The Network panel shows no DELETE call ever fires. So the crash happens on **client render**, the moment the AlertDialog action runs, before the request leaves the browser. The dev-server / DB layer for `DELETE /api/v1/jackpots/$id` is actually fine (FKs on `jackpot_pools` / `jackpot_seeds` already `ON DELETE CASCADE`).
+`/admin/jackpot-groups/$id` loads the group fine but the user reports landing on the **single** page when editing a MultiJackpot. That means the row they clicked was `kind: "single"` (id 9 is a tier child whose `groupId` filter didn't apply, OR groups list failed to load and the tier child was shown as a standalone). Either way the root cause is the same: **edit was never implemented for singles, and tier-child rows must never be editable as standalones.**
 
-Suspected triggers we'll confirm and fix during step 1 below:
-1. `admin.jackpots.index.tsx` mixes `toast` from `react-toastify` while the rest of the app uses `sonner` — `react-toastify`'s `<ToastContainer />` is only mounted in the legacy `backoffice/app` shell, so calling `toast.error()` from this route can throw mid-render in some paths.
-2. The `<AlertDialog>` close + immediate `runAction` re-render races with the dropdown's portal teardown, and a stale `row` reference (`row.kind` becomes undefined after invalidate) can render an icon as `undefined`.
-3. `View` / `Edit` navigate to `/admin/jackpots/new?editId=…` but that route has **no `validateSearch`** and never loads the record — so post-delete navigation feels broken too.
+# Fix plan
 
----
+## 1. Route plumbing — make `?editId` / `?cloneFrom` first-class
 
-# Plan — six tight phases, each ends with a verification step
+`src/routes/admin.jackpots.new.tsx`:
+- Add `validateSearch` with zod adapter: `{ editId?: number; cloneFrom?: number; readonly?: boolean }`.
+- Read search via `Route.useSearch()`.
+- When `editId` is set: `GET /api/v1/jackpots/{editId}` on mount → hydrate the form.
+  - If the response has `groupId != null` → **redirect** to `/admin/jackpot-groups/$id` (params.id = groupId). Tier children must be edited via their parent group.
+- When `cloneFrom` is set: same GET, suffix name with " (Copy)", strip id, force POST.
+- Force the tab to "single" while editing (hide the Multi tab) so users can't accidentally switch context.
 
-### 1. Reproduce & pinpoint the crash (no fix yet)
-- Open `/admin/jackpots` in the preview browser, click Delete on a draft jackpot, capture the React stack from console + network tab.
-- Confirm whether the crash is from `react-toastify`, the stale row in the dialog, or the dropdown portal.
+## 2. Hydration — feed real data into the form
 
-### 2. Unify the toast layer
-- Replace `import { toast } from "react-toastify"` with `import { toast } from "sonner"` in:
-  - `src/routes/admin.jackpots.index.tsx`
-  - `src/routes/admin.jackpot-groups.$id.tsx`
-  - `src/routes/admin.simulator.tsx`
-- Ensure `<Toaster />` (sonner) is mounted once at the root (`__root.tsx`); remove duplicate mounts if found.
+`JackpotCreationForm` currently has no `initialDraft` prop. Add one:
+- `initialDraft?: JackpotSavePayload` — when present, seed all state from it (run through existing `sanitizeIncomingDraft`).
+- New helper `src/lib/jackpot/dto-to-payload.ts` (mirror of `build-create-body.ts` in reverse): convert `JackpotDTO` (+ `config`, `pool`, `seed`, `timed`, `contribution`, `assignedCategories`, `assignedGameIds`) back into `JackpotSavePayload`.
+- Reuse `sanitizeIncomingDraft` to lock down Must-Drop, decode Frequency Happy-Hour JSON, etc.
 
-### 3. Make the confirm dialog crash-proof
-- Snapshot the row **before** closing the dialog: capture `const row = confirm` into a local ref, then close, then await.
-- Wrap the whole action in `try / catch / finally` that always clears `busyId` and never lets a thrown error bubble into React render.
-- Render the dialog body from the snapshot (`row?.name`, `row?.kind`) — never from a value that can flip to `undefined` mid-await.
-- Guard `KIND_LABEL[j.jackpotType]` with a fallback so an unknown legacy `jackpotType` renders `"Jackpot"` instead of `undefined`.
+## 3. Save path — PUT when editing, POST when creating/cloning
 
-### 4. Harden the server side (defensive, even though FKs cascade)
-- `DELETE /api/v1/jackpots/$id`: return `409` (not 500) when `assertJackpotEditable` throws `GroupConflictError` — already covered for groups, mirror it for singles.
-- `DELETE /api/v1/jackpot-groups/$id`: confirm it 409s when `status === 'active'` and 200s otherwise; today it already detaches children first.
-- All five endpoints (`enable.$id`, `disable.$id`, `clone.$id`, `$id` DELETE, `jackpot-groups/$id` DELETE + `…/status` + `…/clone`) return JSON `{ error }` on any thrown path — never a raw 500 HTML page (prevents the "didn't load" symptom on real backend failures too).
+`admin.jackpots.new.tsx#handleSave`:
+- If `editId` and not `cloneFrom`: `PUT /api/v1/jackpots/{editId}` with `buildCreateBody(payload)` (server already supports PUT and returns 409 on group conflicts).
+- Else: existing POST.
+- Toast "Jackpot updated" / "Jackpot created" accordingly, then navigate back to `/admin/jackpots`.
 
-### 5. Fix Edit / View navigation so post-CRUD flows complete
-- Add `validateSearch` to `/admin/jackpots/new` accepting `{ editId?: number; cloneFrom?: number }`.
-- When `editId` is present, hydrate the wizard from `GET /api/v1/jackpots/{id}` (or the group endpoint when the row is `kind: "group"`) and switch to PATCH on save.
-- When `cloneFrom` is present, hydrate and POST as a new draft suffixed `(Copy)`.
-- For single-jackpot **View** (no detail page exists yet), route to a read-only wizard view (`editId` + `?readonly=1` flag) instead of the editor — keeps the action working without a new page.
+## 4. Group edit — verify the existing path actually hydrates
 
-### 6. Verification matrix (run in the preview browser, document each)
+`admin.jackpot-groups.$id.tsx` already loads the group; confirm it also:
+- Loads tier children via `/api/v1/jackpot-groups/$id/children`
+- Mounts `MultiJackpotWizard` with those children as initial state (add `initialDraft` support if missing)
+- PUTs on save instead of POSTing a new group
 
-| Entity | Status | Action | Expected outcome |
+If the wizard doesn't accept an initial state, add `initialGroup` / `initialTiers` props and seed its reducers from them.
+
+## 5. List page — make sure groups always render and tier children never appear as singles
+
+In `admin.jackpots.index.tsx`:
+- If `groupsQuery.isError`, show an inline banner (not silent) — today the tier-child filter still hides children, so a failed groups fetch makes a MultiJackpot vanish from the UI entirely.
+- Defensive: also hide rows where `j.groupId != null` even if the v2 endpoint forgets to set it, by cross-referencing the groups' children list when available.
+- Add a small "Multi" badge column for `kind: "group"` rows (already partially done with the Layers icon) — confirm it's visible at this viewport.
+
+## 6. Server hardening (small, defensive)
+
+- `GET /api/v1/jackpots/{id}` already returns the DTO — confirm `config`, `assignedCategories`, `assignedGameIds`, and `groupId` are populated (add to the SELECT if missing).
+- `PUT /api/v1/jackpots/{id}` — return 409 with a clear message if `groupId != null` (cannot edit tier child directly; edit the parent group). Already throws `GroupConflictError`; verify the message text.
+
+## 7. Verification matrix (run in preview, record HTTP + UI for each)
+
+| Row kind | Status | Action | Expected |
 |---|---|---|---|
-| Single jackpot | draft | Enable | row flips to Active, toast success |
-| Single jackpot | draft | Clone | new "(Copy)" row appears as draft |
-| Single jackpot | draft | Delete | confirm → row gone, no crash |
-| Single jackpot | active | Disable | row flips to Disabled |
-| Single jackpot | active | Delete | menu hidden — not offered |
-| Single jackpot | disabled | Enable / Clone / Delete | all succeed |
-| Single jackpot | any | View / Edit | wizard opens hydrated |
-| MultiJackpot | draft / disabled | Enable / Clone / Delete | same as singles |
-| MultiJackpot | active | Disable only, no Delete / Clone | enforced 409 if attempted via API |
-| MultiJackpot detail page | any | Back button | returns to list |
+| single | draft | View | wizard opens hydrated, read-only banner |
+| single | draft | Edit | wizard opens hydrated, Save → PUT 200 |
+| single | draft | Clone | new "(Copy)" row in list as draft |
+| single | draft | Delete | row gone, no crash |
+| single | active | Disable / Enable | status flips, toast |
+| single | any | Edit on a **tier child** | redirects to group editor |
+| group  | draft / disabled | View / Edit | `/admin/jackpot-groups/$id` opens hydrated |
+| group  | draft / disabled | Clone | new draft group with tiers |
+| group  | draft / disabled | Delete | row gone |
+| group  | active | Disable | flips to disabled |
+| group  | active | Delete / Clone | 409 surfaced as toast |
 
-For every row I'll record: HTTP status, JSON body, toast, and final list state. Anything red → fix, re-run.
-
----
+For each row I record HTTP status, response body, toast text, and final list state. Any red → fix → re-run.
 
 # Files touched
 
-- `src/routes/admin.jackpots.index.tsx` — toast swap, snapshot row, label fallback
-- `src/routes/admin.jackpot-groups.index.tsx` — toast swap (consistency)
-- `src/routes/admin.jackpot-groups.$id.tsx` — toast swap
-- `src/routes/admin.jackpots.new.tsx` — `validateSearch`, hydrate-from-editId, clone, readonly
-- `src/routes/api/v1/jackpots/$id.ts` — error containment (no 500), 409 mapping
-- `src/routes/api/v1/jackpot-groups/$id.ts` — confirm 409 path on active
-- `src/lib/jackpot/store.server.ts` — small wrap so `deleteJackpot` surfaces a typed conflict instead of a generic Error
+- `src/routes/admin.jackpots.new.tsx` — `validateSearch`, hydrate via GET, redirect tier children, PUT vs POST
+- `src/components/jackpot/JackpotCreationForm.tsx` — accept `initialDraft`, seed state from it
+- `src/components/jackpot/MultiJackpotWizard.tsx` — accept `initialGroup` / `initialTiers`, PUT on save when editing
+- `src/routes/admin.jackpot-groups.$id.tsx` — pass loaded group + children into the wizard, ensure save uses PUT
+- `src/lib/jackpot/dto-to-payload.ts` — new reverse mapper (DTO → `JackpotSavePayload`)
+- `src/routes/api/v1/jackpots/$id.ts` — confirm GET returns full config + `groupId`; PUT 409 message on tier children
+- `src/routes/admin.jackpots.index.tsx` — surface groups-query errors, defensive tier-child hiding
 
 # Out of scope
 
-- Audit log / soft-delete (already deferred per previous decision).
-- A dedicated single-jackpot detail page (View reuses the wizard in read-only mode for now).
+- A dedicated read-only single-jackpot detail page (View reuses the wizard with `readonly=1`).
+- Audit log / soft delete (still deferred).

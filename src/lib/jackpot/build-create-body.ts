@@ -56,6 +56,9 @@ export function buildTriggerCondition(p: JackpotSavePayload): Record<string, unk
     eligibility: { games: p.eligibility ?? null },
     // ── Community Win Mechanics — mirrors Java Community.java
     community: p.community ?? null,
+    // ── Full wizard payload for round-trip edit fidelity. Read by
+    //    dto-to-payload.ts when re-opening an existing jackpot in the editor.
+    _draft: p,
   };
 }
 
