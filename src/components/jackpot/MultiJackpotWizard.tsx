@@ -279,64 +279,6 @@ function formatDerivedRate(
 }
 
 /* ────────────────────────────────────────────────────────────────── */
-/* Logarithmic interval slider helpers (Pure Chance)                  */
-/* Mirrors the single-jackpot form: 1k–10M spins, log10 mapping.      */
-/* ────────────────────────────────────────────────────────────────── */
-const MIN_SPINS = 1000;
-const MAX_SPINS = 10_000_000;
-const LOG_MIN = Math.log10(MIN_SPINS);
-const LOG_MAX = Math.log10(MAX_SPINS);
-
-function sliderToSpins(pct: number): number {
-  const t = Math.min(1, Math.max(0, pct / 100));
-  const v = Math.pow(10, LOG_MIN + (LOG_MAX - LOG_MIN) * t);
-  return Math.round(v / 100) * 100;
-}
-function spinsToSlider(n: number): number {
-  const clamped = Math.min(MAX_SPINS, Math.max(MIN_SPINS, n || MIN_SPINS));
-  const t = (Math.log10(clamped) - LOG_MIN) / (LOG_MAX - LOG_MIN);
-  return Math.round(t * 1000) / 10;
-}
-
-function pickPureChanceVibe(spins: number) {
-  const n = spins.toLocaleString();
-  if (spins < 10_000)
-    return {
-      Icon: Zap,
-      label: "⚡ Rapid-Fire Mode",
-      chip: "bg-yellow-400/15 text-yellow-200 border-yellow-400/40",
-      copy: `Expect a hit roughly every ${n} spins network-wide. Ideal for ultra-high engagement or promotional happy hours.`,
-    };
-  if (spins < 100_000)
-    return {
-      Icon: Flame,
-      label: "🔥 Action-Packed",
-      chip: "bg-orange-400/15 text-orange-200 border-orange-400/40",
-      copy: `Expect a hit roughly every ${n} spins network-wide. Perfect for keeping players glued during peak weekend traffic windows.`,
-    };
-  if (spins < 500_000)
-    return {
-      Icon: TrendingUp,
-      label: "📈 Daily Driver",
-      chip: "bg-blue-400/15 text-blue-200 border-blue-400/40",
-      copy: `Expect a hit roughly every ${n} spins network-wide. This provides a classic, steady promotional heartbeat across your games.`,
-    };
-  if (spins < 2_500_000)
-    return {
-      Icon: Trophy,
-      label: "🏆 Major Milestone",
-      chip: "bg-amber-400/15 text-amber-200 border-amber-400/40",
-      copy: `Expect a rare, high-anticipation drop roughly every ${n} spins network-wide. Builds significant community buzz.`,
-    };
-  return {
-    Icon: Gem,
-    label: "💎 The Mega Event",
-    chip: "bg-fuchsia-400/15 text-fuchsia-200 border-fuchsia-400/40",
-    copy: `An ultra-rare, legendary network event. Expect a drop roughly once every ${n} spins network-wide. This is your headline-grabbing marketing campaign.`,
-  };
-}
-
-/* ────────────────────────────────────────────────────────────────── */
 /* Trigger condition assembly + summary                               */
 /* ────────────────────────────────────────────────────────────────── */
 function buildTriggerCondition(d: ChildDraft): Record<string, unknown> {
