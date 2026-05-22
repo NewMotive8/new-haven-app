@@ -1,38 +1,61 @@
-# Fix: crash when saving a child tier in the MultiJackpot wizard
+# Parent-Governed Split Funding Model
 
-## What we know
+Move funding rules from individual child jackpots up to the Multi-Jackpot **group**, and have each child store only its proportional share of the parent's master contribution.
 
-- Console reports `Element type is invalid: expected … got: undefined` immediately after a click on the wizard.
-- Stack is fully minified (`Check the render method of N`) — no clear culprit component.
-- Reproducing the path in the browser (open MultiJackpot tab → name group → Continue → step 2 renders) does **not** crash on its own. Step 2 mounts the new Tier Name input, the "1 in X spins" probability, the Slider, and the drop-frequency panel cleanly.
-- The crash is therefore triggered specifically by the **Save tier** click (or its immediate re-render), not by mounting Step 2.
+## 1. Database
 
-## Most likely root causes
+Migration on `public.jackpot_groups`:
+- `contribution_source text NOT NULL DEFAULT 'player'` — `'player' | 'operator'`
+- `contribution_type   text NOT NULL DEFAULT 'percentage'` — `'percentage' | 'fixed'`
+- `master_contribution_value double precision NOT NULL DEFAULT 0` — fraction (e.g. `0.01` = 1%) when type=percentage, currency units when type=fixed
+- CHECK constraints on the two enums and `>= 0` on the value
+- `overlapping_rule` is retained but defaulted/locked to `'split'` (parent-governed split is the only supported model)
 
-1. **Stale module after the structural edits.** The wizard's `ChildDraft` shape changed (`triggerProbability` → `triggerDenominator`, added `tierName`). If the browser was running a pre-edit bundle and clicked Save, an old `ChildTierRow` would try to render a now-removed field and bomb out. A hard refresh would fix it but the underlying brittleness should be removed.
-2. **Save tier's success path renders something that depends on the API response shape.** After a successful POST the wizard:
-   - Pushes `{ jackpotId: attached.id, tierRank, jackpotName: attached.name }` into `savedChildren`.
-   - Re-renders the green "Attached" panel using `<Check />` from lucide-react.
-   - Resets `children` to a new draft via `newChildDraft(tierRank + 1)`.
+Migration on `public.jackpots`:
+- `split_share numeric(7,4) NOT NULL DEFAULT 0` — percentage 0–100 with up to 4 decimals
+- `contribution_percentage` stays as the **derived** absolute rate the transaction engine reads (unchanged hot path)
+- Backfill: for existing grouped children, set `split_share = 100 / siblings_count` and recompute `contribution_percentage` from current parent values (or 0 / leave as-is for ungrouped rows)
 
-   If `attached` is missing fields (e.g. the API returned an error envelope as a 2xx, or `getJackpot` returned `undefined` and the server still sent 200 in some path), nothing renders an undefined component — but the sorted `.map` over `savedChildren` plus the lucide `Check` icon is the only new JSX in the success branch. If the project's lucide-react export surface drifted, `Check` could be undefined under a stale dep cache.
-3. **HMR drift on `src/components/ui/slider.tsx`.** The Slider is the only newly-introduced UI primitive imported by both the wizard and the detail page. If Vite's pre-bundled `@radix-ui/react-slider` got into a partial state, `SliderPrimitive.Root` can become undefined and trigger exactly this error inside `ChildTierRow`.
+The existing `jackpot_groups_guard` / `jackpots_group_guard` triggers already lock fields while parent is `active` — the new columns inherit that lock automatically.
 
-## Plan
+## 2. Backend (`src/lib/jackpot/store.server.ts` + routes)
 
-1. **Reproduce deterministically.** Open `/admin/jackpots/new` in the live preview, click MultiJackpot, create a draft group, then on Step 2 select an existing jackpot and click "Save tier". Capture the network response from `POST /api/v1/jackpot-groups/{id}/children` and any console errors so the failing render frame is unambiguous.
-2. **Harden the wizard success path:**
-   - Treat the API response defensively: only push to `savedChildren` when `attached?.id` is a number; otherwise toast an error.
-   - Use `attached.name ?? "Attached jackpot"` everywhere the success panel reads `jackpotName`.
-3. **Wrap Step 2 in a local error boundary** that renders an inline message + "Reset step" button instead of unmounting the whole route to the global error page. This isolates the crash to the wizard surface and prevents the full-page "This page didn't load" experience.
-4. **Eliminate the stale-bundle class of failures:**
-   - Restart the Vite dev server to flush any partial pre-bundle of `@radix-ui/react-slider`.
-   - Verify in the browser after restart that Save tier completes end-to-end (attached row appears, draft resets, no console error).
-5. **Verify the detail page mirror.** Open `/admin/jackpot-groups/{id}` for the newly-created group and confirm `ChildTierEditor` renders, the Slider works, and "Save tier" PUTs successfully without re-triggering the error.
+- Extend `JackpotGroupDTO` with `contributionSource`, `contributionType`, `masterContributionValue`; extend child DTO with `splitShare`.
+- `createGroup` / `updateGroupProfile`: accept and persist the three new master fields.
+- `addChildJackpot` / `updateChild`: accept `splitShare`, derive `contributionRate = masterValue * splitShare / 100` (works for both `percentage` and `fixed` storage — engine already treats the column as its absolute per-spin amount), write both `split_share` and `contribution_percentage` atomically.
+- When a group's master settings change in `updateGroupProfile`, recompute and update every child's `contribution_percentage` in the same transaction.
+- Zod schemas updated in:
+  - `routes/api/v1/jackpot-groups/index.ts` (POST create)
+  - `routes/api/v1/jackpot-groups/$id.ts` (PATCH group)
+  - `routes/api/v1/jackpot-groups/$id/children.ts` (POST attach — replace `contributionRate` with `splitShare`, server derives the rate)
+- Server-side validation: reject group activation (`/status.ts`) unless the sum of child `splitShare` values equals `100.00` (±0.01 tolerance).
 
-## Technical detail
+## 3. Wizard (`src/components/jackpot/MultiJackpotWizard.tsx`)
 
-- Files touched: `src/components/jackpot/MultiJackpotWizard.tsx` (defensive success-path + local error boundary), no API/schema changes.
-- Error boundary lives in the same file as a small class component; only wraps Step 2's content so Step 1 / Step 3 stay unaffected.
-- Dev-server restart is a one-shot operation, not a code change.
-- If step 1 of the plan reveals a different root cause (e.g. the POST returns 500), we tighten the actual failure (RLS / payload validation) instead of just hardening the UI.
+- **Step 1 — Master Strategy:** replace the Overlapping Rule cards with three controls:
+  - Contribution Source (select: Player / Operator)
+  - Contribution Type (select: Percentage of Wager / Fixed Amount)
+  - Master Contribution Value (numeric input; `%` suffix when percentage, currency suffix when fixed)
+- **Step 2 — Tier Stack:** remove per-tier contribution-rate input from `DraftTierCard`; replace with **Group Split Share (%)** input (0–100, 2 decimals). Live-display the derived absolute rate (`masterValue × share/100`) underneath so operators see the actual engine value.
+  - Sum bar at top of the tier list showing `Σ shares = X.XX% / 100.00%` with red/green state.
+  - "Continue" / "Save Tier" disabled unless sum equals exactly 100.00 (with 0.01 tolerance).
+- **Step 3 — Launch Gate:** total exposure calc rewritten to use parent `masterValue` × Σ shares; show parent funding block (source / type / value) and per-tier share + derived rate side-by-side.
+- Submission flow:
+  1. `POST /api/v1/jackpot-groups` with master funding fields
+  2. For each tier: `POST /api/v1/jackpots` (name only — contribution comes from derivation)
+  3. `POST /api/v1/jackpot-groups/$id/children` with `{ jackpotId, tierRank, triggerProbability, splitShare, name }`
+
+## 4. Backoffice (`src/routes/admin.jackpot-groups.$id.tsx` + `index.tsx`)
+
+- Detail page parent summary: new "Funding" card showing Source, Type, Master Value, and Σ shares health indicator. Inputs editable only when `status !== 'active'` (existing `<fieldset disabled>` wrapper).
+- Children table: add **Split Share (%)** column and **Derived Rate** column next to Name and Probability. Inline edits update `splitShare`; server re-derives `contributionRate`.
+- Group list page (`admin.jackpot-groups.index.tsx`): show Source + Master Value chip in each row.
+
+## 5. Out of scope
+
+- No changes to the runtime transaction engine, simulator, or ledger — they keep reading the already-derived `contribution_percentage`.
+- `overlapping_rule` column stays in the DB for backward compatibility but is hidden from the UI and forced to `'split'`.
+
+## Migration ordering note
+
+The DB migration must land first (separate approval step). Then store + routes + wizard + detail page ship together in one code pass so types stay consistent.
