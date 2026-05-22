@@ -425,8 +425,9 @@ export function MultiJackpotWizard() {
   // Step 1 — Master Strategy
   const [name, setName] = React.useState("");
   // Contribution card (mirrors the Single Jackpot "Jackpot Contribution" block)
-  const [contributionSource, setContributionSource] =
-    React.useState<ContributionSource>("player");
+  const [playerSharePct, setPlayerSharePct] = React.useState<number>(100);
+  const contributionSource: ContributionSource =
+    playerSharePct >= 50 ? "player" : "operator";
   const [contributionType, setContributionType] =
     React.useState<ContributionType>("fixed");
   const [totalContributionAmount, setTotalContributionAmount] =
