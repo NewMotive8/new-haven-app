@@ -36,8 +36,10 @@ interface GroupDTO {
 interface ChildDraft {
   uid: string;
   jackpotId: number | null;
+  tierName: string;
   tierRank: string;
-  triggerProbability: string; // string until submit
+  /** "1 in X" denominator as typed by the operator (string for precision/UX). */
+  triggerDenominator: string;
   contributionRate: string; // string until submit
 }
 
@@ -45,11 +47,15 @@ function newChildDraft(rank: number): ChildDraft {
   return {
     uid: crypto.randomUUID(),
     jackpotId: null,
+    tierName: "",
     tierRank: String(rank),
-    triggerProbability: "0.00010000",
+    triggerDenominator: "10000",
     contributionRate: "0.01000000",
   };
 }
+
+/** Default ephemeral daily-volume slider value. NEVER persisted. */
+const DEFAULT_DAILY_VOLUME = 25000;
 
 /**
  * Precision-safe parser: round-trip via parseFloat → toFixed(8) → Number so
