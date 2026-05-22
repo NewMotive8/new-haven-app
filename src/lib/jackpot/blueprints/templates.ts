@@ -242,6 +242,7 @@ const happyHigh: SingleBlueprint = {
         maximumSeedAmount: 2000,
         initialPoolAmount: 2000,
         maxTotalPayout: 10000,
+        operatorShare: 15,
       },
       "WEEKLY",
       "FRIDAY",
