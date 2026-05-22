@@ -302,7 +302,7 @@ function ChildTierEditor({
   onSaved,
 }: {
   child: ChildDTO;
-  brandId: string | number | null;
+  brandId: string | number | null | undefined;
   onSaved: () => void;
 }) {
   const [name, setName] = React.useState(child.name);
