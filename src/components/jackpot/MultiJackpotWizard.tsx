@@ -541,6 +541,7 @@ export function MultiJackpotWizard() {
         `Contribution Weight must sum to 100% (currently ${weightSum.toFixed(2)}%)`,
       );
     }
+    const initialPoolAmount = Number.parseFloat(draft.initialPoolAmount) || 0;
     const seedAmount = Number.parseFloat(draft.seedAmount) || 0;
     const reseedingAmount = Number.parseFloat(draft.reseedingAmount) || 0;
     const probability = probabilityFromDraft(draft);
@@ -558,6 +559,9 @@ export function MultiJackpotWizard() {
       : undefined;
     const maxPayout = draft.maxTotalPayout.trim()
       ? Math.max(0, Number(draft.maxTotalPayout))
+      : undefined;
+    const maxPool = draft.maxPoolAmount.trim()
+      ? Math.max(0, Number(draft.maxPoolAmount))
       : undefined;
     const maxWin = draft.maxWinAmount.trim()
       ? Math.max(0, Number(draft.maxWinAmount))
