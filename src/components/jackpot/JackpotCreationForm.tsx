@@ -644,14 +644,11 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       poolWeight,
       seedWeight,
       houseWeight,
-      overlappingRule,
       triggerOdds,
       previewWager,
       eligibility: buildEligibility(),
-      assignedCategories,
-      assignedGameIds,
-
     };
+
   }
 
   function handleContinue() {
