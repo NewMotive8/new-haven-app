@@ -326,16 +326,41 @@ export function MultiJackpotWizard() {
 
   // Step 1 — Master Strategy
   const [name, setName] = React.useState("");
-  const [contributionSource, setContributionSource] =
-    React.useState<ContributionSource>("player");
+  // Contribution card (mirrors the Single Jackpot "Jackpot Contribution" block)
   const [contributionType, setContributionType] =
-    React.useState<ContributionType>("percentage");
-  const [masterValueInput, setMasterValueInput] = React.useState("1.00");
+    React.useState<ContributionType>("fixed");
+  const [totalContributionAmount, setTotalContributionAmount] =
+    React.useState<number>(0.1);
+  const [poolWeight, setPoolWeight] = React.useState<number>(60);
+  const [seedWeight, setSeedWeight] = React.useState<number>(30);
+  const [houseWeight, setHouseWeight] = React.useState<number>(10);
+  const [minWagerAmount, setMinWagerAmount] = React.useState<number>(0);
+  const [maxWagerAmount, setMaxWagerAmount] = React.useState<number>(0);
   const [assignment, setAssignment] = React.useState<GameAssignmentValue>({
     assignedCategories: [],
     assignedGameIds: [],
   });
   const [group, setGroup] = React.useState<GroupDTO | null>(null);
+
+  // Update only the edited weight; cap so the trio never exceeds 100.
+  function setSingleWeight(
+    changed: "pool" | "seed" | "house",
+    nextRaw: number,
+  ) {
+    const others = (["pool", "seed", "house"] as const).filter(
+      (k) => k !== changed,
+    );
+    const current = { pool: poolWeight, seed: seedWeight, house: houseWeight };
+    const otherSum = current[others[0]] + current[others[1]];
+    const max = Math.max(0, 100 - otherSum);
+    const next = Math.max(0, Math.min(max, Number(nextRaw) || 0));
+    const set = {
+      pool: setPoolWeight,
+      seed: setSeedWeight,
+      house: setHouseWeight,
+    };
+    set[changed](next);
+  }
 
   // Step 2 — Tier Allocation
   const [draft, setDraft] = React.useState<ChildDraft | null>(null);
@@ -360,8 +385,10 @@ export function MultiJackpotWizard() {
     setDraft((prev) => (prev ? { ...prev, ...patch } : prev));
   }
 
+  // "Master value" persisted to the API mirrors the Single form's logic:
+  // store fraction for percent (1% → 0.01), absolute amount for fixed.
   function masterValueAsStored(): number {
-    const raw = Number.parseFloat(masterValueInput) || 0;
+    const raw = Number(totalContributionAmount) || 0;
     return contributionType === "percentage" ? raw / 100 : raw;
   }
 
