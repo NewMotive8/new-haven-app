@@ -1906,6 +1906,20 @@ const widgetCss = `
 .jooba-badge-split { background: rgba(16,185,129,.15); color: #6ee7b7; border: 1px solid rgba(16,185,129,.35); }
 .jooba-badge-additive { background: rgba(244,114,182,.15); color: #f9a8d4; border: 1px solid rgba(244,114,182,.4); }
 .jooba-info-label { font-size: 12px; color: #94a3b8; text-align: center; }
+.jooba-tier-list {
+  display: flex; flex-direction: column; gap: 4px;
+  width: 100%; max-width: 260px;
+  padding: 8px 12px; margin: 4px 0;
+  border-radius: 8px;
+  background: rgba(15,23,42,.6);
+  border: 1px solid rgba(148,163,184,.2);
+}
+.jooba-tier-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 12px; gap: 12px;
+}
+.jooba-tier-name { color: #cbd5e1; font-weight: 500; }
+.jooba-tier-amount { color: #facc15; font-weight: 700; font-variant-numeric: tabular-nums; }
 .jooba-dots { display: flex; gap: 6px; padding: 4px 0 0; }
 .jooba-dot {
   width: 8px; height: 8px; border-radius: 50%; border: none;
