@@ -980,7 +980,7 @@ function SandboxDemoPage() {
                         ))}
                       </div>
                     </div>
-                  ) : pools.length === 0 ? (
+                  ) : displayPools.length === 0 ? (
                     <div className="jooba-info-label">Awaiting jackpot…</div>
                   ) : (
                     <>
@@ -989,11 +989,39 @@ function SandboxDemoPage() {
                           className="jooba-carousel-track"
                           style={{ transform: `translateX(-${activeIndex * 100}%)` }}
                         >
-                          {pools.map((p) => {
+                          {displayPools.map((dp) => {
+                            if (dp.kind === "group") {
+                              const anyIn = dp.tiers.some((t) => !!optIns[t.id]);
+                              return (
+                                <div className="jooba-slide" key={dp.id}>
+                                  <div className="jooba-coin" aria-hidden>
+                                    <span>€</span>
+                                  </div>
+                                  <div className="jooba-jackpot-name">{dp.name}</div>
+                                  <div className="jooba-badge jooba-badge-split">
+                                    MULTI-JACKPOT · {dp.tiers.length} TIERS
+                                  </div>
+                                  <div className="jooba-tier-list">
+                                    {dp.tiers.map((t) => (
+                                      <div className="jooba-tier-row" key={t.id}>
+                                        <span className="jooba-tier-name">{t.name}</span>
+                                        <span className="jooba-tier-amount">
+                                          {fmt(poolDisplays[t.id] ?? t.poolBalance)}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <div className="jooba-info-label">
+                                    {anyIn ? texts.userInLabel : texts.userOutLabel}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            const p = dp.jackpot;
                             const rule = readOverlappingRule(p);
                             const inIt = !!optIns[p.id];
                             return (
-                              <div className="jooba-slide" key={p.id}>
+                              <div className="jooba-slide" key={dp.id}>
                                 <div className="jooba-coin" aria-hidden>
                                   <span>€</span>
                                 </div>
@@ -1013,12 +1041,12 @@ function SandboxDemoPage() {
                       </div>
                       {multi && (
                         <div className="jooba-dots">
-                          {pools.map((p, i) => (
+                          {displayPools.map((dp, i) => (
                             <button
-                              key={p.id}
+                              key={dp.id}
                               className={`jooba-dot ${i === activeIndex ? "jooba-dot-active" : ""}`}
                               onClick={() => setActiveIndex(i)}
-                              aria-label={`Show pool ${p.name}`}
+                              aria-label={`Show pool ${dp.name}`}
                             />
                           ))}
                         </div>
