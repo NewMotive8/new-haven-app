@@ -1,28 +1,28 @@
-## Remove the Game Assignment block from Step 1
+## Update "Drop Pace" slider copy in Pure Chance panel
 
-The dedicated **Game Assignment** card (Master Categories + Specific Games picker) is redundant — the **Eligibility & Rules Engine** section below it already covers casino vertical / category / game-level targeting.
+File: `src/components/jackpot/MultiJackpotWizard.tsx`
 
-### Change
+### 1. Rewrite `pickPureChanceVibe` (lines 293-328) with new tier copy
 
-In `src/components/jackpot/MultiJackpotWizard.tsx`, delete the Game Assignment block in Step 1 (lines 757–763):
+Use dynamic `spins.toLocaleString()` inside the copy so it always reflects the current slider value, with five tiers keyed off thresholds aligned to the requested anchor points (5k, 50k, 250k, 1M, 5M):
 
-```tsx
-<div className="pt-2 border-t border-neutral-800">
-  <GameAssignmentStep
-    value={assignment}
-    onChange={setAssignment}
-    disabled={submitting}
-  />
-</div>
-```
+- `< 10,000` → ⚡ **Rapid-Fire Mode** — "Expect a hit roughly every {N} spins network-wide. Ideal for ultra-high engagement or promotional happy hours."
+- `< 100,000` → 🔥 **Action-Packed** — "Expect a hit roughly every {N} spins network-wide. Perfect for keeping players glued during peak weekend traffic windows."
+- `< 500,000` → 📈 **Daily Driver** — "Expect a hit roughly every {N} spins network-wide. This provides a classic, steady promotional heartbeat across your games."
+- `< 2,500,000` → 🏆 **Major Milestone** — "Builds significant community buzz. Expect a rare, high-anticipation drop roughly every {N} spins network-wide."
+- otherwise → 💎 **The Mega Event** — "An ultra-rare, legendary network event. Expect a drop roughly once every {N} spins network-wide. This is your headline-grabbing marketing campaign."
 
-### Keep (no risky cleanup)
+Change `copy: string` to accept `spins` as a parameter (either pass `spins` into the helper and build the string there, or return a function — simplest: take `spins` arg and return the resolved string in the object).
 
-- Leave the `assignment` state, the `GameAssignmentStep` import, and the `assignedCategories` / `assignedGameIds` fields on the group/child create payloads. They keep defaulting to empty arrays — the backend stays happy and we don't have to touch the API schema.
-- The Tier Ladder summary chips that read `group.assignedCategories` / `assignedGameIds` will just show "All games" naturally when both are empty.
+### 2. Update the panel header (lines 1545-1547)
+
+Replace the small uppercase label "Interval (logarithmic — 1k to 10M spins)" with the two-line treatment matching the reference:
+
+- Title: **"Drop Pace"** (uppercase, same tracking style)
+- Description below it: *"How often do you want players to win? Move the slider to set the target number of total spins needed to trigger a drop."*
+
+Slider range/log mapping and the `1 in [N] spins` numeric input stay unchanged.
 
 ### Out of scope
-
-- Deleting `GameAssignmentStep.tsx` or the related fields from `GroupDTO` / API — can be cleaned up later once we're sure Eligibility fully replaces it everywhere (single-jackpot form still uses it).
-
-Confirm and I'll apply.
+- No backend/payload changes; `spinsInterval` value semantics are unchanged.
+- No changes to HypeCurve / other panels.
