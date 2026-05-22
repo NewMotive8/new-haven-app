@@ -344,6 +344,10 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   const [reseedingAmount, setReseedingAmount] = useState<number>(initial?.reseedingAmount ?? 0);
   const [maximumSeedAmount, setMaximumSeedAmount] = useState<number>(initial?.maximumSeedAmount ?? 0);
   const [initialPoolAmount, setInitialPoolAmount] = useState<number>(initial?.initialPoolAmount ?? 0);
+  // Operation Safeguards (Must-Drop) — global per-jackpot caps.
+  const [maxNumberOfWins, setMaxNumberOfWins] = useState<number>(0);
+  const [maxTotalPayout, setMaxTotalPayout] = useState<number>(0);
+
 
   // --- MUST_DROP / FREQUENCY virtual lifespan
   const [lifespanMinutes, setLifespanMinutes] = useState<number>(initial?.lifespanMinutes ?? 1440);
