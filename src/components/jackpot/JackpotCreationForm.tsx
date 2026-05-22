@@ -2477,26 +2477,13 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                 </div>
               </section>
 
-              {/* Win Logic & Model Section */}
+              {/* Win Boundaries & Drop Pacing Section */}
               <section ref={modelRef} className="scroll-mt-20">
-                <h2 className="text-xl font-semibold mb-6">Win Logic & Model</h2>
+                <h2 className="text-xl font-semibold mb-6">Win Boundaries &amp; Drop Pacing</h2>
 
                 <div className="grid gap-6">
                   <Card className="p-6 bg-neutral-900/50 border-neutral-800">
                     <div className="space-y-6">
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <BrightLabel htmlFor="max-win-must-drop">Maximum Win Amount</BrightLabel>
-                          <CurrencyInput
-                            id="max-win-must-drop"
-                            type="number"
-                            placeholder="0"
-                            className="bg-neutral-800 border-neutral-700"
-                          />
-                        </div>
-                        <div></div>
-                      </div>
-
                       <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <BrightLabel htmlFor="min-win-must-drop">Minimum Win Amount</BrightLabel>
@@ -2504,21 +2491,41 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                             id="min-win-must-drop"
                             type="number"
                             placeholder="0"
+                            value={minWinAmount || ''}
+                            onChange={(e) => setMinWinAmount(parseFloat(e.target.value) || 0)}
                             className="bg-neutral-800 border-neutral-700"
                           />
+                          <p className="text-[11px] text-neutral-500">
+                            Lower threshold — the jackpot cannot drop before the pool reaches this value.
+                          </p>
                         </div>
-                        <div></div>
+                        <div className="space-y-2">
+                          <BrightLabel htmlFor="max-win-must-drop">Maximum Win Amount</BrightLabel>
+                          <CurrencyInput
+                            id="max-win-must-drop"
+                            type="number"
+                            placeholder="0"
+                            value={maxWinAmount || ''}
+                            onChange={(e) => setMaxWinAmount(parseFloat(e.target.value) || 0)}
+                            className="bg-neutral-800 border-neutral-700"
+                          />
+                          <p className="text-[11px] text-neutral-500">
+                            Absolute target — the jackpot is mathematically guaranteed to drop at or before this value.
+                          </p>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
-                          <BrightLabel htmlFor="volatility-must-drop">Volatility</BrightLabel>
+                          <BrightLabel htmlFor="drop-pacing-must-drop">Drop Pacing</BrightLabel>
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm text-neutral-400">0</span>
+                              <span className="text-sm text-neutral-400">1</span>
                               <Slider
+                                id="drop-pacing-must-drop"
                                 value={volatility}
                                 onValueChange={setVolatility}
+                                min={1}
                                 max={10}
                                 step={1}
                                 className="flex-1"
@@ -2529,6 +2536,11 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                               <span className="text-sm text-neutral-400">{volatility[0]}</span>
                             </div>
                           </div>
+                          <p className="text-[11px] text-neutral-400 leading-relaxed">
+                            Lower settings distribute triggers evenly across the timeline / value window.
+                            Higher settings create high suspense by holding back triggers until the end
+                            of the drop cycle is reached.
+                          </p>
                         </div>
                         <div></div>
                       </div>
@@ -2566,6 +2578,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                   </Card>
                 </div>
               </section>
+
 
               {jackpotContributionSection}
 
