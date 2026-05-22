@@ -3734,6 +3734,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
                       </div>
                     </div>
                   </Card>
+                  <PrizeEconomySelector value={prizeEconomy} onChange={setPrizeEconomy} />
                 </div>
               </section>
 
