@@ -290,6 +290,8 @@ function SandboxDemoPage() {
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState(0);
   const cancelRef = useRef(false);
+  const batchRunningRef = useRef(false);
+
   const [batchStats, setBatchStats] = useState<BatchStats | null>(null);
   const [showQaSuite, setShowQaSuite] = useState(false);
   const widgetHostRef = useRef<HTMLDivElement | null>(null);
