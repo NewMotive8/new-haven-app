@@ -160,17 +160,22 @@ export function MultiJackpotWizard() {
         body,
         { headers: { brandId: String(brandId), "Content-Type": "application/json" } },
       );
-      const attached = res.data as JackpotDTO;
+      const attached = (res.data ?? {}) as Partial<JackpotDTO>;
+      if (typeof attached.id !== "number") {
+        toast.error("Server returned an unexpected response while attaching the tier");
+        return;
+      }
+      const safeName = attached.name ?? "Attached jackpot";
       setSavedChildren((prev) => [
         ...prev,
-        { jackpotId: attached.id, tierRank, jackpotName: attached.name },
+        { jackpotId: attached.id as number, tierRank, jackpotName: safeName },
       ]);
       // Drop the saved draft row, leave the rest editable.
       setChildren((prev) => {
         const remaining = prev.filter((c) => c.uid !== draft.uid);
         return remaining.length === 0 ? [newChildDraft(tierRank + 1)] : remaining;
       });
-      toast.success(`Attached ${attached.name} at tier ${tierRank}`);
+      toast.success(`Attached ${safeName} at tier ${tierRank}`);
     } catch (err: any) {
       toast.error(err?.response?.data?.error ?? err?.message ?? "Failed to attach child tier");
     } finally {
@@ -256,6 +261,7 @@ export function MultiJackpotWizard() {
       )}
 
       {step === 2 && group && (
+        <Step2ErrorBoundary onReset={() => setChildren([newChildDraft((savedChildren.at(-1)?.tierRank ?? 0) + 1)])}>
         <Card className="p-6 bg-neutral-900/50 border-neutral-800">
           <h2 className="text-lg font-semibold text-white mb-1">
             Step 2 · Attach child tiers
@@ -328,6 +334,7 @@ export function MultiJackpotWizard() {
             </Button>
           </div>
         </Card>
+        </Step2ErrorBoundary>
       )}
 
       {step === 3 && group && (
@@ -644,4 +651,51 @@ function ChildTierRow({
     </div>
   );
 }
+
+/**
+ * Local error boundary scoped to Step 2 of the wizard. Prevents a render
+ * crash inside ChildTierRow (e.g. a transient bundler/HMR state where a
+ * primitive resolves to undefined) from collapsing the whole route to the
+ * global "This page didn't load" boundary.
+ */
+class Step2ErrorBoundary extends React.Component<
+  { children: React.ReactNode; onReset: () => void },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error) {
+    // eslint-disable-next-line no-console
+    console.error("[MultiJackpotWizard] Step 2 crashed:", error);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <Card className="p-6 bg-neutral-900/50 border-red-500/40">
+          <h2 className="text-lg font-semibold text-white mb-2">
+            Step 2 hit a rendering error
+          </h2>
+          <p className="text-sm text-neutral-400 mb-4">
+            {this.state.error.message ||
+              "An unexpected error occurred while rendering the tier editor."}
+          </p>
+          <Button
+            type="button"
+            onClick={() => {
+              this.props.onReset();
+              this.setState({ error: null });
+            }}
+            className="bg-blue-500 hover:bg-blue-600"
+          >
+            Reset step
+          </Button>
+        </Card>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 
