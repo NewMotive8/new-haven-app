@@ -72,6 +72,7 @@ interface GroupDTO {
   status: "draft" | "active" | "disabled";
   overlappingRule: string;
   contributionSource: ContributionSource;
+  playerSharePct: number; // 0..100 — UI-only split between Player and Operator funding
   contributionType: ContributionType;
   masterContributionValue: number;
   // UI-only mirror of the Single-Jackpot Contribution card.
