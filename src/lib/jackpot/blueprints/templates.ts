@@ -304,6 +304,7 @@ const happySmall: SingleBlueprint = {
         maximumSeedAmount: 50,
         initialPoolAmount: 50,
         maxTotalPayout: 300,
+        operatorShare: 15,
       },
       "WEEKLY",
       "SATURDAY",
