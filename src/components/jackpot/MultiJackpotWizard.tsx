@@ -827,7 +827,7 @@ function DraftTierCard({
           type="button"
           size="sm"
           onClick={onSave}
-          disabled={submitting || draft.jackpotId == null}
+          disabled={submitting || !draft.tierName.trim()}
           className="bg-blue-500 hover:bg-blue-600"
         >
           Save tier
