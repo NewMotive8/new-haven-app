@@ -390,9 +390,49 @@ function SandboxDemoPage() {
     };
   }, [brandId, headers]);
 
-  const activePool: Jackpot | null = pools[activeIndex] ?? null;
+  // ── Derive display pools: active MultiJackpot groups appear as a single
+  //    grouped tile (showing all tiers stacked), followed by standalone jackpots.
+  const displayPools: DisplayPool[] = useMemo(() => {
+    const activeGroups = groups.filter((g) => g.status === "active");
+    const activeGroupIds = new Set(activeGroups.map((g) => g.id));
+    const groupTiles: DisplayPool[] = activeGroups.map((g) => {
+      const tiers = pools
+        .filter((p) => p.groupId === g.id)
+        .sort((a, b) => (a.tierRank ?? 0) - (b.tierRank ?? 0) || a.id - b.id);
+      const balance = tiers.reduce(
+        (s, t) => s + (poolDisplays[t.id] ?? t.poolBalance),
+        0,
+      );
+      return { kind: "group", id: `g${g.id}`, name: g.name, balance, group: g, tiers };
+    });
+    const singles: DisplayPool[] = pools
+      .filter((p) => !p.groupId || !activeGroupIds.has(p.groupId))
+      .map((p) => ({
+        kind: "single",
+        id: `j${p.id}`,
+        name: p.name,
+        balance: poolDisplays[p.id] ?? p.poolBalance,
+        jackpot: p,
+      }));
+    return [...groupTiles, ...singles];
+  }, [groups, pools, poolDisplays]);
+
+  // Keep activeIndex within bounds of the display list.
+  useEffect(() => {
+    setActiveIndex((i) => (displayPools.length === 0 ? 0 : Math.min(i, displayPools.length - 1)));
+  }, [displayPools.length]);
+
+  const activeDisplay: DisplayPool | null = displayPools[activeIndex] ?? null;
+  const activePool: Jackpot | null =
+    activeDisplay?.kind === "single" ? activeDisplay.jackpot : null;
+  const activeGroupTiers: Jackpot[] =
+    activeDisplay?.kind === "group" ? activeDisplay.tiers : [];
   const activeRule: OverlappingRule | null = activePool ? readOverlappingRule(activePool) : null;
-  const activeOptedIn = activePool ? !!optIns[activePool.id] : false;
+  const activeOptedIn = activeDisplay
+    ? activeDisplay.kind === "single"
+      ? !!optIns[activeDisplay.jackpot.id]
+      : activeGroupTiers.some((t) => !!optIns[t.id])
+    : false;
 
   // ── Cumulative fee label ─────────────────────────────────────────────────
   const optedInPools = useMemo(
