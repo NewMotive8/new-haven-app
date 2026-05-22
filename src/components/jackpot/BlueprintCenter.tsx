@@ -3,10 +3,10 @@ import axios from "axios";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
 import {
-  Sparkles, Copy, Zap, Save, Library, Crown, Layers, Flame,
+  Sparkles, Copy, Zap, Save, Library, Crown, Layers, Flame, X,
 } from "lucide-react";
 import {
-  Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+  Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose,
 } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -132,7 +132,7 @@ export function BlueprintCenter({ host, onInjectSingle }: Props) {
           side="right"
           className="w-full sm:max-w-2xl bg-neutral-950 border-l border-neutral-800 text-white overflow-y-auto"
         >
-          <SheetHeader className="space-y-1">
+          <SheetHeader className="space-y-1 pr-12">
             <SheetTitle className="text-white text-xl flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-indigo-300" />
               Optimization Blueprints
@@ -143,15 +143,22 @@ export function BlueprintCenter({ host, onInjectSingle }: Props) {
             </SheetDescription>
           </SheetHeader>
 
+          <SheetClose
+            aria-label="Close"
+            className="absolute top-4 right-4 z-10 inline-flex h-9 w-9 items-center justify-center rounded-md bg-neutral-800 text-white border border-neutral-700 hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <X className="h-4 w-4" />
+          </SheetClose>
+
           <Tabs
             value={activeTier}
             onValueChange={(v) => setActiveTier(v as TrafficTier)}
             className="mt-6"
           >
             <TabsList className="bg-neutral-900 border border-neutral-800 w-full grid grid-cols-3 h-10">
-              <TabsTrigger value="high" className="text-xs bg-blue-600 text-white hover:!bg-blue-600 hover:!text-white data-[state=active]:bg-neutral-800 data-[state=active]:text-white data-[state=active]:hover:!bg-neutral-800 data-[state=active]:hover:!text-white">High Traffic</TabsTrigger>
-              <TabsTrigger value="medium" className="text-xs bg-blue-600 text-white hover:!bg-blue-600 hover:!text-white data-[state=active]:bg-neutral-800 data-[state=active]:text-white data-[state=active]:hover:!bg-neutral-800 data-[state=active]:hover:!text-white">Medium Traffic</TabsTrigger>
-              <TabsTrigger value="small" className="text-xs bg-blue-600 text-white hover:!bg-blue-600 hover:!text-white data-[state=active]:bg-neutral-800 data-[state=active]:text-white data-[state=active]:hover:!bg-neutral-800 data-[state=active]:hover:!text-white">Small Traffic</TabsTrigger>
+              <TabsTrigger value="high" className="text-xs bg-blue-600 text-white hover:!bg-blue-600 hover:!text-white data-[state=active]:!bg-white data-[state=active]:!text-neutral-900 data-[state=active]:font-semibold data-[state=active]:shadow-md data-[state=active]:ring-2 data-[state=active]:ring-indigo-400">High Traffic</TabsTrigger>
+              <TabsTrigger value="medium" className="text-xs bg-blue-600 text-white hover:!bg-blue-600 hover:!text-white data-[state=active]:!bg-white data-[state=active]:!text-neutral-900 data-[state=active]:font-semibold data-[state=active]:shadow-md data-[state=active]:ring-2 data-[state=active]:ring-indigo-400">Medium Traffic</TabsTrigger>
+              <TabsTrigger value="small" className="text-xs bg-blue-600 text-white hover:!bg-blue-600 hover:!text-white data-[state=active]:!bg-white data-[state=active]:!text-neutral-900 data-[state=active]:font-semibold data-[state=active]:shadow-md data-[state=active]:ring-2 data-[state=active]:ring-indigo-400">Small Traffic</TabsTrigger>
             </TabsList>
 
             {(["high", "medium", "small"] as TrafficTier[]).map((tier) => (
