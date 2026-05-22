@@ -585,11 +585,20 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
 
   function buildPayload(): JackpotSavePayload {
+    // ── Option A: strict mutually exclusive modes ─────────────────────────
+    // Classic Progressive = fixed-odds only (triggerOdds, NO win/budget caps).
+    // Must-Drop          = value-driven (Min/Max Win + caps, NO triggerOdds).
+    // Frequency          = time-driven (scheduling only, NO triggerOdds, NO caps).
+    // Wager limits only apply when contributionType === 'percentage'.
+    const isClassic = selectedType === 'classic';
+    const isMustDrop = selectedType === 'must_drop';
+    const isPercentage = contributionType === 'percentage';
+
     return {
       name: name.trim(),
       description: description.trim(),
       type: selectedType,
-      payoutModel,
+      payoutModel: isClassic ? ('maximum' as PayoutModel) : payoutModel,
       contributionType,
       seedContributionType,
       volatility: volatility[0],
@@ -624,12 +633,14 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       },
       isTemplate,
       selectedWidget,
-      fixedWinAmount,
-      averageWinAmount,
-      minWinAmount,
-      maxWinAmount,
-      minWagerAmount,
-      maxWagerAmount,
+      // Win-amount fields — only valid for Must-Drop.
+      fixedWinAmount: isMustDrop ? fixedWinAmount : 0,
+      averageWinAmount: isMustDrop ? averageWinAmount : 0,
+      minWinAmount: isMustDrop ? minWinAmount : 0,
+      maxWinAmount: isMustDrop ? maxWinAmount : 0,
+      // Wager limits — only valid for percentage contributions.
+      minWagerAmount: isPercentage ? minWagerAmount : 0,
+      maxWagerAmount: isPercentage ? maxWagerAmount : 0,
       reseedingAmount,
       maximumSeedAmount,
       initialPoolAmount,
@@ -644,7 +655,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       poolWeight,
       seedWeight,
       houseWeight,
-      triggerOdds,
+      // Trigger Probability — only valid for Classic Progressive.
+      triggerOdds: isClassic ? triggerOdds : 0,
       previewWager,
       eligibility: buildEligibility(),
     };
