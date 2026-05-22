@@ -33,11 +33,16 @@ const ACTIVE: CardDef[] = [
     to: "/admin/simulator",
     icon: <FaPlay size={22} />,
   },
+  {
+    title: "Sand Box",
+    description: "Interactive demo and batch spin sandbox.",
+    to: "/sandbox-demo",
+    icon: <FaBolt size={22} />,
+  },
 ];
 
 const COMING_SOON: CardDef[] = [
   { title: "Lucky Wheel", description: "Manage wheel campaigns and prizes.", icon: <FaCircleNotch size={22} /> },
-  { title: "Raffles", description: "Schedule and draw raffle campaigns.", icon: <FaTicketAlt size={22} /> },
   { title: "Spin Sprint", description: "Time-boxed spin competitions.", icon: <FaBolt size={22} /> },
   { title: "Tournament", description: "Leaderboard-driven tournaments.", icon: <FaTrophy size={22} /> },
   { title: "Admin", description: "Brands, users and exchange rates.", icon: <FaUsersCog size={22} /> },
