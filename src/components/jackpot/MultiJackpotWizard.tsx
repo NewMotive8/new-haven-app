@@ -41,6 +41,11 @@ import {
   spinsToSlider,
   pickPureChanceVibe,
 } from "@/components/jackpot/TriggerProbabilityPanel";
+import {
+  PrizeEconomySelector,
+  DEFAULT_PRIZE_ECONOMY,
+  type PrizeEconomyValue,
+} from "@/components/jackpot/PrizeEconomySelector";
 
 type ContributionSource = "player" | "operator";
 type ContributionType = "percentage" | "fixed";
