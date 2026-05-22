@@ -158,11 +158,32 @@ function SimulatorPage() {
         throw new Error("Jackpot config is not valid JSON");
       }
       console.log(parsedPayload);
-      const autoIters = autoScaleIterations(parsedPayload, wager, iterations);
+
+      // FREQUENCY (Happy Hour) traffic compression: strip the time-window
+      // gates so 100% of simulated spins land inside the active promo block
+      // instead of being diluted across dead hours. This keeps contribution
+      // and win evaluation synchronized — every wager that pays into the
+      // pool is also eligible to trigger a win, eliminating the boundary
+      // drift where off-hour wagers accrued nothing but on-hour wins still
+      // paid out from the seed.
+      let payloadToSend: JackpotConfigDTO = parsedPayload;
+      const frequencyCompressed = isFrequencyConfig(parsedPayload);
+      if (frequencyCompressed && parsedPayload.timed) {
+        const {
+          contribStartTime: _cs,
+          contribEndTime: _ce,
+          winStartTime: _ws,
+          winEndTime: _we,
+          ...restTimed
+        } = parsedPayload.timed;
+        payloadToSend = { ...parsedPayload, timed: { ...restTimed } };
+      }
+
+      const autoIters = autoScaleIterations(payloadToSend, wager, iterations);
       const effectiveIters = autoIters ?? iterations;
       const res = await axios.post<SimulatorResponseDTO>(
         "/api/v1/event/simulate-bet",
-        parsedPayload,
+        payloadToSend,
         {
           params: { wager, iterations: effectiveIters },
           headers: { brandId: String(brandId ?? "") },
@@ -172,6 +193,9 @@ function SimulatorPage() {
         toast.success(
           `Curve model detected — auto-scaled to ${autoIters.toLocaleString()} spins for ${LIFECYCLES_PER_RUN} full drop cycles.`,
         );
+      }
+      if (frequencyCompressed) {
+        toast.success("Happy Hour compression on — all spins treated as in-window traffic.");
       }
       setResult(res.data);
       setActiveConfig(parsedPayload);
