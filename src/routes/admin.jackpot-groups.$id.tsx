@@ -438,6 +438,34 @@ function JackpotGroupDetailPage() {
           </Card>
         </fieldset>
       </div>
+
+      <AlertDialog open={confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(false)}>
+        <AlertDialogContent className="bg-neutral-900 border-neutral-700 text-neutral-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete MultiJackpot?</AlertDialogTitle>
+            <AlertDialogDescription className="text-neutral-400">
+              This permanently removes{" "}
+              <span className="font-semibold text-neutral-200">{group.name}</span>{" "}
+              and detaches all its child tiers. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={busy}
+              className="bg-neutral-800 border-neutral-700 hover:bg-neutral-700"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={busy}
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {busy ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
