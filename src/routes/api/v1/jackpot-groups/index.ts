@@ -49,8 +49,20 @@ export const Route = createFileRoute("/api/v1/jackpot-groups/")({
             400,
           );
         }
-        const grp = await createGroup(brand, parsed.data);
-        return json(grp, { status: 201 });
+        try {
+          const grp = await createGroup(brand, parsed.data);
+          return json(grp, { status: 201 });
+        } catch (err: unknown) {
+          const e = err as { code?: string; message?: string };
+          const msg = e?.message ?? "";
+          if (e?.code === "23505" || msg.includes("jackpot_groups_brand_name_uniq")) {
+            return errorJson(
+              `A MultiJackpot named "${parsed.data.name}" already exists for this brand. Pick a different name.`,
+              409,
+            );
+          }
+          throw err;
+        }
       },
     },
   },
