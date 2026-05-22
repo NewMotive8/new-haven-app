@@ -72,6 +72,7 @@ const classicHigh: SingleBlueprint = {
     maximumSeedAmount: 1000,
     initialPoolAmount: 1000,
     triggerOdds: 250000,
+    operatorShare: 0,
   },
 };
 
@@ -93,6 +94,7 @@ const classicMid: SingleBlueprint = {
     maximumSeedAmount: 250,
     initialPoolAmount: 250,
     triggerOdds: 50000,
+    operatorShare: 15,
   },
 };
 
@@ -114,6 +116,7 @@ const classicSmall: SingleBlueprint = {
     maximumSeedAmount: 50,
     initialPoolAmount: 50,
     triggerOdds: 10000,
+    operatorShare: 15,
   },
 };
 
@@ -137,6 +140,7 @@ const mustDropHigh: SingleBlueprint = {
     maxWinAmount: 10000,
     mustDropPeriod: 1,
     triggerOdds: 0,
+    operatorShare: 15,
   },
 };
 
@@ -159,6 +163,7 @@ const mustDropMid: SingleBlueprint = {
     maxWinAmount: 2500,
     mustDropPeriod: 1,
     triggerOdds: 0,
+    operatorShare: 15,
   },
 };
 
@@ -181,6 +186,7 @@ const mustDropSmall: SingleBlueprint = {
     maxWinAmount: 500,
     mustDropPeriod: 1,
     triggerOdds: 0,
+    operatorShare: 0,
   },
 };
 
@@ -236,6 +242,7 @@ const happyHigh: SingleBlueprint = {
         maximumSeedAmount: 2000,
         initialPoolAmount: 2000,
         maxTotalPayout: 10000,
+        operatorShare: 15,
       },
       "WEEKLY",
       "FRIDAY",
@@ -268,6 +275,7 @@ const happyMid: SingleBlueprint = {
         maximumSeedAmount: 300,
         initialPoolAmount: 300,
         maxTotalPayout: 1500,
+        operatorShare: 15,
       },
       "DAILY",
       "",
@@ -296,6 +304,7 @@ const happySmall: SingleBlueprint = {
         maximumSeedAmount: 50,
         initialPoolAmount: 50,
         maxTotalPayout: 300,
+        operatorShare: 15,
       },
       "WEEKLY",
       "SATURDAY",
@@ -315,7 +324,7 @@ const multiHigh: MultiBlueprint = {
     "Four-tier network progressive — Mini → Mega — with a 100k Mega cap and slow pacing.",
   targetGameTypes: ["Slots", "Live Casino"],
   kind: "multi",
-  group: { contributionType: "percentage", masterPlayerPercent: 2.0, walletType: "external" },
+  group: { contributionType: "percentage", masterPlayerPercent: 2.0, walletType: "external", operatorShare: 15 },
   tiers: [
     { tierName: "Mini", tierRank: 1, tierType: "classic", splitSharePct: 10, seedAmount: 50, reseedingAmount: 50, triggerOdds: 5000 },
     { tierName: "Minor", tierRank: 2, tierType: "classic", splitSharePct: 20, seedAmount: 250, reseedingAmount: 250, triggerOdds: 35000 },
@@ -332,7 +341,7 @@ const multiMid: MultiBlueprint = {
   objective: "Tight three-tier ladder — Bronze, Silver, Gold — with a capped Gold Elite drop.",
   targetGameTypes: ["Slots"],
   kind: "multi",
-  group: { contributionType: "percentage", masterPlayerPercent: 1.5, walletType: "external" },
+  group: { contributionType: "percentage", masterPlayerPercent: 1.5, walletType: "external", operatorShare: 15 },
   tiers: [
     { tierName: "Bronze Mini", tierRank: 1, tierType: "classic", splitSharePct: 20, seedAmount: 25, reseedingAmount: 25, triggerOdds: 8000 },
     { tierName: "Silver Mid", tierRank: 2, tierType: "classic", splitSharePct: 30, seedAmount: 200, reseedingAmount: 200, triggerOdds: 45000 },
@@ -349,7 +358,7 @@ const multiSmall: MultiBlueprint = {
     "Two-tier internal token split — hourly Spark then capped Daily Climax. House-protected.",
   targetGameTypes: ["Slots"],
   kind: "multi",
-  group: { contributionType: "percentage", masterPlayerPercent: 5.0, walletType: "internal" },
+  group: { contributionType: "percentage", masterPlayerPercent: 5.0, walletType: "internal", operatorShare: 15 },
   tiers: [
     { tierName: "Hourly Spark", tierRank: 1, tierType: "classic", splitSharePct: 40, seedAmount: 10, reseedingAmount: 10, triggerOdds: 1500 },
     { tierName: "Daily Climax", tierRank: 2, tierType: "must_drop", splitSharePct: 60, seedAmount: 150, reseedingAmount: 150, triggerOdds: 0, maxWinAmount: 500, dropPacing: 5, minBoundary: 200 },

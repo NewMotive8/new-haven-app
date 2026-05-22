@@ -51,6 +51,8 @@ export interface MultiBlueprint extends BlueprintMeta {
     contributionType: "percentage";
     masterPlayerPercent: number;
     walletType: "internal" | "external";
+    /** 0..100. Direct House skim of every player contribution. */
+    operatorShare?: number;
   };
   tiers: MultiTierSpec[];
 }
