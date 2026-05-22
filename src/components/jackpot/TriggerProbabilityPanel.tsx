@@ -2,7 +2,18 @@ import * as React from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Zap, Flame, TrendingUp, Trophy, Gem } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Zap, Flame, TrendingUp, Trophy, Gem, Info } from "lucide-react";
+import { BlockMath } from "react-katex";
+import "katex/dist/katex.min.css";
 
 /* Logarithmic interval slider helpers (Pure Chance) — 1k–10M spins. */
 export const MIN_SPINS = 1000;
