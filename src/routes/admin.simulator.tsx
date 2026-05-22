@@ -502,6 +502,8 @@ function autoScaleIterations(
   if (maxSpins <= 0) return null;
   const scaled = Math.min(MAX_AUTO_ITERATIONS, Math.ceil(maxSpins));
   return Math.max(scaled, userIterations);
+}
+
 
 function ResultsSummary({
   result,
