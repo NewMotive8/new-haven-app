@@ -657,11 +657,13 @@ function MathAudit({
   configuredProb,
   iterations,
   wins,
+  rejectedByGate = 0,
 }: {
   title?: string;
   configuredProb: number;
   iterations: number;
   wins: number;
+  rejectedByGate?: number;
 }) {
   const configuredN = configuredProb > 0 ? 1 / configuredProb : 0;
   const actualN = wins > 0 ? iterations / wins : 0;
