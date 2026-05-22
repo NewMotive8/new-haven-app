@@ -1058,7 +1058,7 @@ function SandboxDemoPage() {
                 {/* Footer: opt button + cumulative fee */}
                 <div id="jooba-widget-footer" className="jooba-widget-footer">
                   <div id="jooba-widget-buttons-opt-wrapper" className="jooba-widget-buttons-opt-wrapper">
-                    {activePool && (
+                    {activeDisplay && (
                       activeOptedIn ? (
                         <button
                           id="jooba-widget-opt-out-button"
