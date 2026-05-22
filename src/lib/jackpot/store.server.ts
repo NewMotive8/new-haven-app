@@ -200,6 +200,8 @@ export async function updateJackpot(
 ): Promise<JackpotDTO | undefined> {
   const existing = await getJackpot(brandId, id);
   if (!existing) return undefined;
+  await assertJackpotEditable(brandId, id);
+
 
   const patch: Record<string, unknown> = {};
   if (dto.name !== undefined) patch.name = dto.name;
