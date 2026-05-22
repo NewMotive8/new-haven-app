@@ -327,17 +327,19 @@ function pickPureChanceVibe(spins: number) {
 /* Trigger condition assembly + summary                               */
 /* ────────────────────────────────────────────────────────────────── */
 function buildTriggerCondition(d: ChildDraft): Record<string, unknown> {
-  if (d.triggerModel === "pure_chance") {
+  if (d.tierType === "classic") {
     const n = Math.max(1, Math.trunc(Number(d.spinsInterval) || 1));
     return {
       triggerModel: "pure_chance",
+      tierType: "classic",
       spinsInterval: n,
       triggerOdds: n,
     };
   }
-  if (d.triggerModel === "hype_curve") {
+  if (d.tierType === "must_drop") {
     return {
       triggerModel: "hype_curve",
+      tierType: "must_drop",
       mustDrop: {
         minBoundary: Number(d.minBoundary) || 0,
         maxBoundary: Number(d.maxBoundary) || 0,
@@ -360,6 +362,7 @@ function buildTriggerCondition(d: ChildDraft): Record<string, unknown> {
     });
   return {
     triggerModel: "happy_hour",
+    tierType: "happy_hour",
     contributionFrequency: window(cs, ce),
     winFrequency: window(ws, we),
     freqInterval: d.freqInterval,
@@ -373,12 +376,12 @@ function buildTriggerCondition(d: ChildDraft): Record<string, unknown> {
 }
 
 function triggerSummary(d: ChildDraft): string {
-  if (d.triggerModel === "pure_chance") {
+  if (d.tierType === "classic") {
     const n = Math.max(1, Math.trunc(Number(d.spinsInterval) || 1));
-    return `Pure Chance · 1 in ${n.toLocaleString()} spins`;
+    return `Classic · 1 in ${n.toLocaleString()} spins`;
   }
-  if (d.triggerModel === "hype_curve") {
-    return `Hype Curve · ${Number(d.minBoundary || 0).toLocaleString()} – ${Number(
+  if (d.tierType === "must_drop") {
+    return `Must Drop · ${Number(d.minBoundary || 0).toLocaleString()} – ${Number(
       d.maxBoundary || 0,
     ).toLocaleString()} (${d.dropPacing})`;
   }
@@ -387,11 +390,25 @@ function triggerSummary(d: ChildDraft): string {
 }
 
 function probabilityFromDraft(d: ChildDraft): number {
-  if (d.triggerModel === "pure_chance") {
+  if (d.tierType === "classic") {
     const n = Math.max(1, Math.trunc(Number(d.spinsInterval) || 1));
     return 1 / n;
   }
-  return 0; // must-drop / happy-hour are time-gated, not fixed-odds
+  return 0; // must_drop / happy_hour are time-gated, not fixed-odds
+}
+
+// Shared 3-way weight allocator — used in the Tier Card. Updates the edited
+// weight and caps so the trio never exceeds 100.
+function clampedSingleWeight(
+  current: { pool: number; seed: number; house: number },
+  changed: "pool" | "seed" | "house",
+  nextRaw: number,
+): { pool: number; seed: number; house: number } {
+  const others = (["pool", "seed", "house"] as const).filter((k) => k !== changed);
+  const otherSum = current[others[0]] + current[others[1]];
+  const max = Math.max(0, 100 - otherSum);
+  const next = Math.max(0, Math.min(max, Number(nextRaw) || 0));
+  return { ...current, [changed]: next };
 }
 
 /* ────────────────────────────────────────────────────────────────── */
