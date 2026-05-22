@@ -574,3 +574,152 @@ export async function assertJackpotEditable(
     throw new GroupConflictError();
   }
 }
+
+// ===========================================================================
+// Phase 2 — group bet fan-out helpers
+// ===========================================================================
+
+export interface GroupBetChildDTO extends JackpotDTO {
+  tierRank: number;
+  triggerProbability: number;
+}
+
+/**
+ * Load an active jackpot group plus its enabled children for the bet route.
+ * Throws GroupConflictError when the group is missing, brand-mismatched, or
+ * not currently `active`.
+ */
+export async function getGroupForBet(
+  groupId: string | number,
+  brandId: string | number,
+): Promise<{ group: JackpotGroupDTO; children: GroupBetChildDTO[] }> {
+  const gid = Number(groupId);
+  const brand = toBrandNum(brandId);
+
+  const { data: groupData, error: gErr } = await supabaseAdmin
+    .from("jackpot_groups" as any)
+    .select(GROUP_SELECT)
+    .eq("id", gid)
+    .maybeSingle();
+  if (gErr) throw new Error(gErr.message);
+  if (!groupData) {
+    const e = new GroupConflictError(`Group ${gid} not found`);
+    (e as any).status = 404;
+    throw e;
+  }
+  const group = groupRowToDTO(groupData as unknown as GroupRow);
+  if (Number(group.brandId) !== brand) {
+    const e = new GroupConflictError(`Group ${gid} does not belong to brand`);
+    (e as any).status = 403;
+    throw e;
+  }
+  if (group.status !== "active") {
+    throw new GroupConflictError(
+      `Group ${gid} is not active (status=${group.status})`,
+    );
+  }
+
+  const { data: childRows, error: cErr } = await supabaseAdmin
+    .from("jackpots")
+    .select(`${SELECT}, group_id, tier_rank, trigger_probability`)
+    .eq("group_id", gid)
+    .eq("enabled", true)
+    .order("tier_rank", { ascending: true });
+  if (cErr) throw new Error(cErr.message);
+
+  const children = ((childRows as unknown) as Array<
+    JackpotRow & {
+      group_id: number | null;
+      tier_rank: number | null;
+      trigger_probability: number | null;
+    }
+  >).map((row) => ({
+    ...rowToDTO(row),
+    tierRank: Number(row.tier_rank ?? 0),
+    triggerProbability: Number(row.trigger_probability ?? 0),
+  }));
+
+  return { group, children };
+}
+
+/**
+ * Status-gated profile edit. Reads current status first and throws a friendly
+ * GroupConflictError when the group is `active`; the DB trigger backstops.
+ */
+export async function updateGroupProfile(
+  groupId: string | number,
+  patch: { name?: string; overlappingRule?: string },
+): Promise<JackpotGroupDTO | undefined> {
+  const id = Number(groupId);
+  const { data: current, error: rErr } = await supabaseAdmin
+    .from("jackpot_groups" as any)
+    .select("status")
+    .eq("id", id)
+    .maybeSingle();
+  if (rErr) throw new Error(rErr.message);
+  if (!current) return undefined;
+  if ((current as any).status === "active") {
+    throw new GroupConflictError();
+  }
+
+  const update: Record<string, unknown> = {};
+  if (patch.name !== undefined) update.name = patch.name;
+  if (patch.overlappingRule !== undefined)
+    update.overlapping_rule = patch.overlappingRule;
+  if (Object.keys(update).length === 0) {
+    const { data } = await supabaseAdmin
+      .from("jackpot_groups" as any)
+      .select(GROUP_SELECT)
+      .eq("id", id)
+      .single();
+    return groupRowToDTO(data as unknown as GroupRow);
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("jackpot_groups" as any)
+    .update(update)
+    .eq("id", id)
+    .select(GROUP_SELECT)
+    .single();
+  if (error) {
+    if (/is active|status/.test(error.message)) {
+      throw new GroupConflictError(error.message);
+    }
+    throw new Error(error.message);
+  }
+  return groupRowToDTO(data as unknown as GroupRow);
+}
+
+/**
+ * Persist a group bet via the atomic `apply_group_bet` Postgres function.
+ * On duplicate-transaction (unique-violation), re-reads the existing row and
+ * returns it with `isReplay = true` so the caller can emit an idempotent
+ * replay response.
+ */
+export async function recordGroupTransaction(payload: {
+  transactionId: string;
+  brandId: number;
+  groupId: number;
+  totals: { pool: number; seed: number; house: number };
+  response: Record<string, unknown>;
+  poolDeltas: Array<{ jackpotId: number; delta: number }>;
+}): Promise<{ row: any; isReplay: boolean }> {
+  const { data, error } = await supabaseAdmin.rpc("apply_group_bet" as any, {
+    p_payload: payload as any,
+  });
+  if (error) {
+    // 23505 = unique_violation → replay
+    if ((error as any).code === "23505" || /duplicate key/.test(error.message)) {
+      const { data: existing, error: rErr } = await supabaseAdmin
+        .from("jackpot_transactions")
+        .select("*")
+        .eq("brand_id", payload.brandId)
+        .eq("transaction_id", payload.transactionId)
+        .maybeSingle();
+      if (rErr) throw new Error(rErr.message);
+      return { row: existing, isReplay: true };
+    }
+    throw new Error(error.message);
+  }
+  return { row: data, isReplay: false };
+}
