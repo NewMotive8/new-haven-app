@@ -35,7 +35,7 @@ function splitAllocation(total: number, weights: number[], decimals = 4): number
 
 function mapStructural(formType: unknown): JackpotStructuralType {
   const t = String(formType ?? "").toLowerCase();
-  if (t === "multi_level" || t === "multilevel" || t === "multi-level") return "MULTI_LEVEL";
+  if (t === "must_drop" || t === "mustdrop" || t === "must-drop") return "MUST_DROP";
   if (t === "must_drop" || t === "mustdrop" || t === "must-drop") return "MUST_DROP";
   if (t === "frequency") return "FREQUENCY";
   return "CLASSIC";
