@@ -40,6 +40,12 @@ export function buildTriggerCondition(p: JackpotSavePayload): Record<string, unk
       isTemplate: p.isTemplate,
       selectedWidget: p.selectedWidget,
     },
+    // ── Prize Economy & Wallet Type — backend contract primitives.
+    prizeEconomy: {
+      walletType: p.walletType ?? "external",
+      currencyId: p.walletType === "internal" ? (p.currencyId ?? null) : null,
+      amountScale: p.walletType === "internal" ? 1 : 100,
+    },
     description: p.description,
     // ── v2: contribution split + fixed-odds trigger (back-compat — undefined when unused).
     engineV2: {

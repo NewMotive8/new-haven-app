@@ -41,6 +41,11 @@ import {
   spinsToSlider,
   pickPureChanceVibe,
 } from "@/components/jackpot/TriggerProbabilityPanel";
+import {
+  PrizeEconomySelector,
+  DEFAULT_PRIZE_ECONOMY,
+  type PrizeEconomyValue,
+} from "@/components/jackpot/PrizeEconomySelector";
 
 type ContributionSource = "player" | "operator";
 type ContributionType = "percentage" | "fixed";
@@ -381,6 +386,9 @@ export function MultiJackpotWizard() {
     playerSharePct >= 50 ? "player" : "operator";
   const [contributionType, setContributionType] =
     React.useState<ContributionType>("fixed");
+  const [prizeEconomy, setPrizeEconomy] = React.useState<PrizeEconomyValue>(
+    DEFAULT_PRIZE_ECONOMY,
+  );
   const [totalContributionAmount, setTotalContributionAmount] =
     React.useState<number>(0.1);
   const [minWagerAmount, setMinWagerAmount] = React.useState<number>(0);
@@ -443,6 +451,9 @@ export function MultiJackpotWizard() {
           contributionSource,
           contributionType,
           masterContributionValue: masterValue,
+          walletType: prizeEconomy.walletType,
+          currencyId: prizeEconomy.walletType === "internal" ? prizeEconomy.currencyId : null,
+          amountScale: prizeEconomy.walletType === "internal" ? 1 : 100,
           assignedCategories: assignment.assignedCategories,
           assignedGameIds: assignment.assignedGameIds,
         },
@@ -690,6 +701,10 @@ export function MultiJackpotWizard() {
                 className="bg-neutral-800 border-neutral-700 text-white h-11"
               />
             </div>
+
+            <PrizeEconomySelector value={prizeEconomy} onChange={setPrizeEconomy} />
+
+
 
             <JackpotContributionCard
               playerSharePct={playerSharePct}

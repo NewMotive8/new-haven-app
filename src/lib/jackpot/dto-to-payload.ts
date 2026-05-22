@@ -33,9 +33,16 @@ export function dtoToPayload(dto: JackpotDTO): JackpotSavePayload {
   const seedAmount = Number(dto.seedAmount ?? 0);
   const poolBalance = Number(dto.poolBalance ?? 0);
 
+  const econ = (cfg.prizeEconomy ?? {}) as Record<string, any>;
+  const walletType: JackpotSavePayload["walletType"] =
+    econ.walletType === "internal" ? "internal" : "external";
+
   return {
     name: dto.name ?? "",
     description: cfg.description ?? "",
+    walletType,
+    currencyId: walletType === "internal" ? (econ.currencyId ?? null) : null,
+    amountScale: walletType === "internal" ? 1 : 100,
     type: (cfg.type ?? dto.jackpotType ?? "classic") as JackpotSavePayload["type"],
     payoutModel: (cfg.payoutModel ?? "maximum") as JackpotSavePayload["payoutModel"],
     contributionType: (cfg.contributionType ?? "fixed") as JackpotSavePayload["contributionType"],

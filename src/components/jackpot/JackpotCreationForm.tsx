@@ -20,6 +20,12 @@ import widgetGoldenHarvest from '@/assets/jackpot/f033c6caa6105be44a8d53aa1abee2
 import widgetCyberNeon from '@/assets/jackpot/575536f44a49439391db5b61fc21c21dc03d8e65.png';
 import { sanitizeIncomingDraft } from '@/lib/jackpot/hydrate-draft';
 import { TriggerProbabilityPanel } from '@/components/jackpot/TriggerProbabilityPanel';
+import {
+  PrizeEconomySelector,
+  normalizePrizeEconomy,
+  DEFAULT_PRIZE_ECONOMY,
+  type PrizeEconomyValue,
+} from '@/components/jackpot/PrizeEconomySelector';
 
 // Helpers hoisted to module scope so their identity is stable across renders
 // (declaring them inside the component unmounts inputs on every keystroke and
@@ -166,9 +172,15 @@ export type JackpotType = 'classic' | 'must_drop' | 'multi_level' | 'frequency';
 export type RecurrenceType = 'single' | 'daily' | 'weekly' | 'monthly';
 export type DisplayFrequency = 'daily' | 'weekly' | 'monthly';
 
+export type WalletType = 'internal' | 'external';
+
 export type JackpotSavePayload = {
   name: string;
   description: string;
+  // Prize Economy & Wallet Type — backend contract primitives.
+  walletType: WalletType;
+  currencyId: string | null;
+  amountScale: number;
   type: JackpotType;
   payoutModel: PayoutModel;
   contributionType: ContributionType;
@@ -333,6 +345,15 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
   const [selectedType, setSelectedType] = useState<JackpotType>(initial?.type ?? 'classic');
   const [name, setName] = useState(initial?.name ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
+
+  // Prize Economy & Wallet Type — drives currency selector + amountScale.
+  const [prizeEconomy, setPrizeEconomy] = useState<PrizeEconomyValue>(
+    normalizePrizeEconomy({
+      walletType: initial?.walletType,
+      currencyId: initial?.currencyId ?? null,
+      amountScale: initial?.amountScale,
+    }) || DEFAULT_PRIZE_ECONOMY,
+  );
 
   // Form state
   const [payoutModel, setPayoutModel] = useState<PayoutModel>(initial?.payoutModel ?? 'maximum');
@@ -691,6 +712,9 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
     return {
       name: name.trim(),
       description: description.trim(),
+      walletType: prizeEconomy.walletType,
+      currencyId: prizeEconomy.walletType === 'internal' ? prizeEconomy.currencyId : null,
+      amountScale: prizeEconomy.walletType === 'internal' ? 1 : 100,
       type: selectedType,
       // Must-Drop is structurally a Maximum-Win mechanic — force the payout model.
       // Frequency keeps the operator-selected payout model (fixed/average/maximum).
@@ -2029,6 +2053,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
                       </div>
                     </div>
                   </Card>
+                  <PrizeEconomySelector value={prizeEconomy} onChange={setPrizeEconomy} />
                 </div>
               </section>
 
@@ -2793,6 +2818,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
                       </div>
                     </div>
                   </Card>
+                  <PrizeEconomySelector value={prizeEconomy} onChange={setPrizeEconomy} />
                 </div>
               </section>
 
@@ -3675,6 +3701,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
                       </div>
                     </div>
                   </Card>
+                  <PrizeEconomySelector value={prizeEconomy} onChange={setPrizeEconomy} />
                 </div>
               </section>
             </>
@@ -3707,6 +3734,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
                       </div>
                     </div>
                   </Card>
+                  <PrizeEconomySelector value={prizeEconomy} onChange={setPrizeEconomy} />
                 </div>
               </section>
 
