@@ -791,20 +791,25 @@ function MathAudit({
       </div>
 
 
-      {configuredN > 0 && (() => {
-        const expectedWins = Math.round(iterations * configuredProb);
+      {(configuredN > 0 || isCurveMode) && (() => {
+        const expectedWins = isCurveMode ? 0 : Math.round(iterations * configuredProb);
         const triggersFired = wins + rejectedByGate;
         const gateExplains =
+          !isCurveMode &&
           rejectedByGate > 0 &&
           expectedWins > 0 &&
           Math.abs(triggersFired - expectedWins) / expectedWins <= 0.25;
-        const hint = compliant
-          ? null
-          : gateExplains
-            ? "Gate rejections explain the gap — wins were suppressed because pool/seed conditions weren't met."
-            : rejectedByGate > 0
-              ? "Some triggers were blocked by pool/seed gates, but the gap is larger than that — likely sample-size variance. Increase iterations."
-              : "Variance is sample-size driven — increase iterations for a tighter rate.";
+        const hint = isCurveMode
+          ? rejectedByGate > 0
+            ? "Curve engine: some triggers were suppressed by pool/seed gates before payout. Higher wager or lower target accelerates the cycle."
+            : "Curve engine: drop cadence emerges from pool growth toward the target cap — not from a flat probability."
+          : compliant
+            ? null
+            : gateExplains
+              ? "Gate rejections explain the gap — wins were suppressed because pool/seed conditions weren't met."
+              : rejectedByGate > 0
+                ? "Some triggers were blocked by pool/seed gates, but the gap is larger than that — likely sample-size variance. Increase iterations."
+                : "Variance is sample-size driven — increase iterations for a tighter rate.";
 
         const diagCell: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 2 };
         const diagK: React.CSSProperties = {
@@ -829,10 +834,12 @@ function MathAudit({
                 gap: 16,
               }}
             >
-              <div style={diagCell}>
-                <span style={diagK}>Expected Wins</span>
-                <span style={diagV}>{fmtInt(expectedWins)}</span>
-              </div>
+              {!isCurveMode && (
+                <div style={diagCell}>
+                  <span style={diagK}>Expected Wins</span>
+                  <span style={diagV}>{fmtInt(expectedWins)}</span>
+                </div>
+              )}
               <div style={diagCell}>
                 <span style={diagK}>Actual Wins</span>
                 <span style={diagV}>{fmtInt(wins)}</span>
