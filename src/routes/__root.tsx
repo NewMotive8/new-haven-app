@@ -153,6 +153,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <SandboxBanner />
       <Outlet />
+      <SonnerToaster richColors position="top-right" theme="dark" />
     </QueryClientProvider>
   );
 }
