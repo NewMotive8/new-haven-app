@@ -310,8 +310,8 @@ function SandboxDemoPage() {
           const next: Record<number, boolean> = { ...prev };
           for (const jp of enabled) {
             if (next[jp.id] == null) {
-              // Default: split pools auto opted-in, additive requires consent.
-              next[jp.id] = readOverlappingRule(jp) !== "additive";
+              // Default: opted-out for all jackpots; user must explicitly opt in.
+              next[jp.id] = false;
             }
           }
           return next;
