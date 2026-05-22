@@ -31,7 +31,7 @@ function NewJackpotPage() {
   const isEditing = editId != null && cloneFrom == null;
 
   const [submitting, setSubmitting] = React.useState(false);
-  const [tab, setTab] = React.useState<Tab>("single");
+  const [tab, setTab] = React.useState<Tab>(search.tab ?? "single");
   const [initialDraft, setInitialDraft] = React.useState<JackpotSavePayload | undefined>(undefined);
   const [loading, setLoading] = React.useState<boolean>(editId != null || cloneFrom != null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
