@@ -200,6 +200,8 @@ export async function updateJackpot(
 ): Promise<JackpotDTO | undefined> {
   const existing = await getJackpot(brandId, id);
   if (!existing) return undefined;
+  await assertJackpotEditable(brandId, id);
+
 
   const patch: Record<string, unknown> = {};
   if (dto.name !== undefined) patch.name = dto.name;
@@ -238,10 +240,12 @@ export async function updateJackpot(
 export async function deleteJackpot(brandId: string, id: number): Promise<boolean> {
   const existing = await getJackpot(brandId, id);
   if (!existing) return false;
+  await assertJackpotEditable(brandId, id);
   const { error } = await supabaseAdmin.from("jackpots").delete().eq("id", id);
   if (error) throw new Error(error.message);
   return true;
 }
+
 
 export async function setEnabled(
   brandId: string,
@@ -329,4 +333,244 @@ export async function getJackpotConfig(
     ...(contribution ? { contribution } : {}),
     ...(triggerOdds > 0 ? { triggerOdds } : {}),
   };
+}
+
+// ===========================================================================
+// Jackpot Groups — relational parent/child + state-machine guards
+// ===========================================================================
+
+export type GroupStatus = "draft" | "active" | "disabled";
+
+export interface JackpotGroupDTO {
+  id: number;
+  brandId: string;
+  name: string;
+  status: GroupStatus;
+  overlappingRule: string;
+  activatedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface JackpotGroupWithChildrenDTO extends JackpotGroupDTO {
+  children: Array<JackpotDTO & { tierRank: number; triggerProbability: number }>;
+}
+
+export class GroupConflictError extends Error {
+  readonly status = 409 as const;
+  constructor(
+    message = "Group is active; modifications are strictly locked.",
+  ) {
+    super(message);
+    this.name = "GroupConflictError";
+  }
+}
+
+type GroupRow = {
+  id: number;
+  brand_id: number | string;
+  name: string;
+  status: GroupStatus;
+  overlapping_rule: string;
+  activated_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+function groupRowToDTO(row: GroupRow): JackpotGroupDTO {
+  return {
+    id: Number(row.id),
+    brandId: String(row.brand_id),
+    name: row.name,
+    status: row.status,
+    overlappingRule: row.overlapping_rule,
+    activatedAt: row.activated_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+const GROUP_SELECT =
+  "id, brand_id, name, status, overlapping_rule, activated_at, created_at, updated_at";
+
+function toBrandNum(brandId: string | number): number {
+  return typeof brandId === "number" ? brandId : brandIdNum(brandId);
+}
+
+export async function createGroup(
+  brandId: string | number,
+  name: string,
+  overlappingRule = "split",
+): Promise<JackpotGroupDTO> {
+  const { data, error } = await supabaseAdmin
+    .from("jackpot_groups" as any)
+    .insert({
+      brand_id: toBrandNum(brandId),
+      name,
+      status: "draft",
+      overlapping_rule: overlappingRule,
+    })
+    .select(GROUP_SELECT)
+    .single();
+  if (error) throw new Error(error.message);
+  return groupRowToDTO(data as unknown as GroupRow);
+}
+
+export async function listGroups(
+  brandId: string | number,
+): Promise<JackpotGroupDTO[]> {
+  const { data, error } = await supabaseAdmin
+    .from("jackpot_groups" as any)
+    .select(GROUP_SELECT)
+    .eq("brand_id", toBrandNum(brandId))
+    .order("id", { ascending: true });
+  if (error) throw new Error(error.message);
+  return ((data as unknown) as GroupRow[]).map(groupRowToDTO);
+}
+
+/**
+ * Retrieve one group along with its attached child jackpots, ordered by
+ * tier_rank ASC. Returns undefined when the group does not exist.
+ */
+export async function getGroup(
+  groupId: string | number,
+): Promise<JackpotGroupWithChildrenDTO | undefined> {
+  const id = Number(groupId);
+  const { data: groupData, error: gErr } = await supabaseAdmin
+    .from("jackpot_groups" as any)
+    .select(GROUP_SELECT)
+    .eq("id", id)
+    .maybeSingle();
+  if (gErr) throw new Error(gErr.message);
+  if (!groupData) return undefined;
+  const group = groupRowToDTO(groupData as unknown as GroupRow);
+
+  const { data: childRows, error: cErr } = await supabaseAdmin
+    .from("jackpots")
+    .select(`${SELECT}, group_id, tier_rank, trigger_probability`)
+    .eq("group_id", id)
+    .order("tier_rank", { ascending: true });
+  if (cErr) throw new Error(cErr.message);
+
+  const children = ((childRows as unknown) as Array<
+    JackpotRow & {
+      group_id: number | null;
+      tier_rank: number | null;
+      trigger_probability: number | null;
+    }
+  >).map((row) => ({
+    ...rowToDTO(row),
+    tierRank: Number(row.tier_rank ?? 0),
+    triggerProbability: Number(row.trigger_probability ?? 0),
+  }));
+
+  return { ...group, children };
+}
+
+export async function setGroupStatus(
+  groupId: string | number,
+  status: GroupStatus,
+): Promise<JackpotGroupDTO | undefined> {
+  const id = Number(groupId);
+  const { data: current, error: readErr } = await supabaseAdmin
+    .from("jackpot_groups" as any)
+    .select("status")
+    .eq("id", id)
+    .maybeSingle();
+  if (readErr) throw new Error(readErr.message);
+  if (!current) return undefined;
+  if ((current as any).status === status) {
+    const { data } = await supabaseAdmin
+      .from("jackpot_groups" as any)
+      .select(GROUP_SELECT)
+      .eq("id", id)
+      .single();
+    return groupRowToDTO(data as unknown as GroupRow);
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("jackpot_groups" as any)
+    .update({ status })
+    .eq("id", id)
+    .select(GROUP_SELECT)
+    .single();
+  if (error) {
+    if (/Illegal jackpot_groups status transition|is active/.test(error.message)) {
+      throw new GroupConflictError(error.message);
+    }
+    throw new Error(error.message);
+  }
+  return groupRowToDTO(data as unknown as GroupRow);
+}
+
+/**
+ * Attach an existing standalone jackpot to a parent group. Rejects with a
+ * GroupConflictError when the parent group is `active`; the DB trigger
+ * provides a backstop guarantee.
+ */
+export async function addChildJackpot(
+  groupId: string | number,
+  jackpotId: string | number,
+  tierRank: number,
+): Promise<JackpotDTO> {
+  const gid = Number(groupId);
+  const jid = Number(jackpotId);
+
+  const { data: parent, error: pErr } = await supabaseAdmin
+    .from("jackpot_groups" as any)
+    .select("status, brand_id")
+    .eq("id", gid)
+    .maybeSingle();
+  if (pErr) throw new Error(pErr.message);
+  if (!parent) throw new GroupConflictError(`Group ${gid} not found`);
+  if ((parent as any).status === "active") {
+    throw new GroupConflictError();
+  }
+
+  const { error } = await supabaseAdmin
+    .from("jackpots")
+    .update({ group_id: gid, tier_rank: tierRank } as any)
+    .eq("id", jid);
+  if (error) {
+    if (/is active|status/.test(error.message)) {
+      throw new GroupConflictError(error.message);
+    }
+    throw new Error(error.message);
+  }
+
+  const brandId = String((parent as any).brand_id);
+  const dto = await getJackpot(brandId, jid);
+  if (!dto) throw new Error(`Jackpot ${jid} not found after attach`);
+  return dto;
+}
+
+/**
+ * Compliance guard: throws GroupConflictError when a jackpot belongs to a
+ * group whose status is `active`. Called at the top of every mutating
+ * server-side helper (updateJackpot, deleteJackpot, …). The DB trigger is
+ * the ultimate source of truth — this layer just produces a friendly 409.
+ */
+export async function assertJackpotEditable(
+  brandId: string | number,
+  jackpotId: string | number,
+): Promise<void> {
+  const { data, error } = await supabaseAdmin
+    .from("jackpots")
+    .select("group_id")
+    .eq("id", Number(jackpotId))
+    .eq("brand_id", toBrandNum(brandId))
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const groupId = (data as any)?.group_id as number | null | undefined;
+  if (!groupId) return;
+
+  const { data: parent, error: pErr } = await supabaseAdmin
+    .from("jackpot_groups" as any)
+    .select("status")
+    .eq("id", groupId)
+    .maybeSingle();
+  if (pErr) throw new Error(pErr.message);
+  if (parent && (parent as any).status === "active") {
+    throw new GroupConflictError();
+  }
 }
