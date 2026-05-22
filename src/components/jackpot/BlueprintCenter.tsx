@@ -125,7 +125,7 @@ export function BlueprintCenter({ host, onInjectSingle }: Props) {
             className="gap-2 bg-blue-600 text-white border-blue-600 hover:!bg-blue-600 hover:!text-white"
           >
             <Library className="h-4 w-4" />
-            Optimization Blueprints
+            Jackpot Templates
           </Button>
         </SheetTrigger>
         <SheetContent
