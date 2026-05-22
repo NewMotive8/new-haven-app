@@ -196,7 +196,7 @@ export async function createJackpot(
 export async function updateJackpot(
   brandId: string,
   id: number,
-  dto: Partial<JackpotDTO>,
+  dto: Partial<JackpotDTO> & { triggerProbability?: number },
 ): Promise<JackpotDTO | undefined> {
   const existing = await getJackpot(brandId, id);
   if (!existing) return undefined;
@@ -210,6 +210,8 @@ export async function updateJackpot(
     patch.contribution_percentage = Number(dto.contributionRate);
   if (dto.triggerThreshold !== undefined)
     patch.trigger_condition = { threshold: Number(dto.triggerThreshold) };
+  if (dto.triggerProbability !== undefined)
+    patch.trigger_probability = Number(dto.triggerProbability);
 
   if (Object.keys(patch).length > 0) {
     const { error } = await supabaseAdmin
@@ -512,7 +514,7 @@ export async function addChildJackpot(
   groupId: string | number,
   jackpotId: string | number,
   tierRank: number,
-  opts: { triggerProbability?: number; contributionRate?: number } = {},
+  opts: { triggerProbability?: number; contributionRate?: number; name?: string } = {},
 ): Promise<JackpotDTO> {
   const gid = Number(groupId);
   const jid = Number(jackpotId);
@@ -537,6 +539,9 @@ export async function addChildJackpot(
   }
   if (opts.contributionRate !== undefined) {
     updates.contribution_percentage = opts.contributionRate;
+  }
+  if (opts.name !== undefined && opts.name.trim() !== "") {
+    updates.name = opts.name.trim();
   }
 
   const { error } = await supabaseAdmin
