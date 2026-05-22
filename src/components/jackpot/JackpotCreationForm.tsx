@@ -251,8 +251,8 @@ export type JackpotSavePayload = {
   poolWeight?: number;
   seedWeight?: number;
   houseWeight?: number;
-  overlappingRule?: 'split' | 'additive';
   triggerOdds?: number;
+
   previewWager?: number;
   // ── Eligibility & Rules Engine — game/event targeting metadata.
   eligibility?: {
