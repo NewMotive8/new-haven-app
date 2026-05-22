@@ -240,10 +240,12 @@ export async function updateJackpot(
 export async function deleteJackpot(brandId: string, id: number): Promise<boolean> {
   const existing = await getJackpot(brandId, id);
   if (!existing) return false;
+  await assertJackpotEditable(brandId, id);
   const { error } = await supabaseAdmin.from("jackpots").delete().eq("id", id);
   if (error) throw new Error(error.message);
   return true;
 }
+
 
 export async function setEnabled(
   brandId: string,
