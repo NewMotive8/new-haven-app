@@ -89,6 +89,17 @@ type AuditEntry = {
   win: Record<string, unknown> | null;
 };
 
+type PerJackpotStats = {
+  jackpotId: number;
+  jackpotName: string;
+  poolTotal: number;
+  seedTotal: number;
+  houseTotal: number;
+  totalContribution: number;
+  hits: number;
+  spins: number;
+};
+
 type BatchStats = {
   size: number;
   completed: number;
@@ -106,6 +117,7 @@ type BatchStats = {
   finishedAt: string | null;
   durationMs: number;
   authMode: "authorized" | "rogue" | "omitted";
+  perJackpot: Record<number, PerJackpotStats>;
 };
 
 function emptyBatchStats(size: number, authMode: BatchStats["authMode"]): BatchStats {
@@ -126,8 +138,10 @@ function emptyBatchStats(size: number, authMode: BatchStats["authMode"]): BatchS
     finishedAt: null,
     durationMs: 0,
     authMode,
+    perJackpot: {},
   };
 }
+
 
 function fmt(n: number, currency = "EUR") {
   try {
@@ -276,6 +290,8 @@ function SandboxDemoPage() {
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState(0);
   const cancelRef = useRef(false);
+  const batchRunningRef = useRef(false);
+
   const [batchStats, setBatchStats] = useState<BatchStats | null>(null);
   const [showQaSuite, setShowQaSuite] = useState(false);
   const widgetHostRef = useRef<HTMLDivElement | null>(null);
@@ -320,11 +336,15 @@ function SandboxDemoPage() {
         setPoolDisplays((prev) => {
           const next: Record<number, number> = { ...prev };
           for (const jp of enabled) {
-            // Only seed from server when we have no local running value yet.
-            if (next[jp.id] == null) next[jp.id] = jp.poolBalance;
+            // While a batch is in flight, keep the locally-driven value to
+            // avoid flicker/race with in-flight deltas. Otherwise always
+            // sync to the canonical server balance.
+            if (batchRunningRef.current && next[jp.id] != null) continue;
+            next[jp.id] = jp.poolBalance;
           }
           return next;
         });
+
         setOptIns((prev) => {
           const next: Record<number, boolean> = { ...prev };
           for (const jp of enabled) {
@@ -689,6 +709,7 @@ function SandboxDemoPage() {
     const currentSecret = internalSecret;
 
     cancelRef.current = false;
+    batchRunningRef.current = true;
     setBatchRunning(true);
     setBatchProgress(0);
     setError(null);
@@ -698,6 +719,22 @@ function SandboxDemoPage() {
     const FLUSH = 25;
     const CONCURRENCY = 16;
     let next = 0;
+    const pendingDeltas: Record<number, number> = {};
+
+    const flushPoolDeltas = () => {
+      const ids = Object.keys(pendingDeltas);
+      if (ids.length === 0) return;
+      const snap = { ...pendingDeltas };
+      for (const k of ids) delete pendingDeltas[Number(k)];
+      setPoolDisplays((d) => {
+        const n = { ...d };
+        for (const [id, add] of Object.entries(snap)) {
+          const jid = Number(id);
+          n[jid] = (n[jid] ?? 0) + add;
+        }
+        return n;
+      });
+    };
 
     const worker = async () => {
       while (true) {
@@ -733,7 +770,8 @@ function SandboxDemoPage() {
             contribution?: { pool?: number; seed?: number; house?: number };
             totalContribution?: number;
             idempotentReplay?: boolean;
-            win?: { isCommunity?: boolean } | null;
+            perJackpot?: PerJackpotEntry[] | null;
+            win?: { jackpotId?: number; isCommunity?: boolean } | null;
           };
           stats.completed++;
           if (res.ok) {
@@ -744,9 +782,42 @@ function SandboxDemoPage() {
             stats.houseTotal += j.contribution?.house ?? 0;
             stats.totalContribution += j.totalContribution ?? 0;
             if (j.idempotentReplay) stats.idempotentReplays++;
+
+            // Per-tier breakdown + live tile updates from perJackpot slices.
+            const per = j.perJackpot ?? [];
+            for (const e of per) {
+              const jid = e.jackpotId;
+              const cur =
+                stats.perJackpot[jid] ??
+                (stats.perJackpot[jid] = {
+                  jackpotId: jid,
+                  jackpotName: e.jackpotName,
+                  poolTotal: 0,
+                  seedTotal: 0,
+                  houseTotal: 0,
+                  totalContribution: 0,
+                  hits: 0,
+                  spins: 0,
+                });
+              cur.jackpotName = e.jackpotName || cur.jackpotName;
+              cur.spins++;
+              cur.poolTotal += e.contribution.pool ?? 0;
+              cur.seedTotal += e.contribution.seed ?? 0;
+              cur.houseTotal += e.contribution.house ?? 0;
+              cur.totalContribution += e.totalContribution ?? 0;
+              const poolDelta = e.contribution.pool ?? 0;
+              if (poolDelta) {
+                pendingDeltas[jid] = (pendingDeltas[jid] ?? 0) + poolDelta;
+              }
+            }
+
             if (j.win) {
               stats.hits++;
               if (j.win.isCommunity) stats.communityHits++;
+              const wjid = j.win.jackpotId;
+              if (typeof wjid === "number" && stats.perJackpot[wjid]) {
+                stats.perJackpot[wjid].hits++;
+              }
             }
           } else {
             stats.blocked++;
@@ -757,7 +828,8 @@ function SandboxDemoPage() {
         }
         if (stats.completed % FLUSH === 0 || stats.completed === size) {
           setBatchProgress(stats.completed);
-          setBatchStats({ ...stats });
+          setBatchStats({ ...stats, perJackpot: { ...stats.perJackpot } });
+          flushPoolDeltas();
         }
       }
     };
@@ -766,9 +838,12 @@ function SandboxDemoPage() {
 
     stats.finishedAt = new Date().toISOString();
     stats.durationMs = Math.round(performance.now() - start);
-    setBatchStats({ ...stats });
+    flushPoolDeltas();
+    setBatchStats({ ...stats, perJackpot: { ...stats.perJackpot } });
+    batchRunningRef.current = false;
     setBatchRunning(false);
   };
+
 
   const cancelBatch = () => {
     cancelRef.current = true;
@@ -1551,8 +1626,71 @@ function SandboxDemoPage() {
               />
             </div>
           </div>
+
+          {Object.keys(batchStats.perJackpot).length > 0 ? (
+            <div className="mt-5">
+              <div className="text-xs uppercase tracking-wider text-slate-400 mb-2">
+                Per-Tier Breakdown
+              </div>
+              <div className="overflow-x-auto border border-slate-800 rounded-lg">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-950/80 text-slate-400 uppercase tracking-wider text-[10px]">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">Tier</th>
+                      <th className="text-right px-3 py-2 font-medium">Spins</th>
+                      <th className="text-right px-3 py-2 font-medium">Σ Pool</th>
+                      <th className="text-right px-3 py-2 font-medium">Σ Seed</th>
+                      <th className="text-right px-3 py-2 font-medium">Σ House</th>
+                      <th className="text-right px-3 py-2 font-medium">Σ Total</th>
+                      <th className="text-right px-3 py-2 font-medium">Hits</th>
+                      <th className="text-right px-3 py-2 font-medium">Hit Freq</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {Object.values(batchStats.perJackpot)
+                      .slice()
+                      .sort((a, b) => {
+                        const ra = pools.find((p) => p.id === a.jackpotId)?.tierRank ?? 999;
+                        const rb = pools.find((p) => p.id === b.jackpotId)?.tierRank ?? 999;
+                        if (ra !== rb) return ra - rb;
+                        return a.jackpotName.localeCompare(b.jackpotName);
+                      })
+                      .map((row) => (
+                        <tr key={row.jackpotId} className="hover:bg-slate-950/40">
+                          <td className="px-3 py-1.5 text-slate-200">{row.jackpotName}</td>
+                          <td className="px-3 py-1.5 text-right tabular-nums text-slate-300">
+                            {row.spins.toLocaleString()}
+                          </td>
+                          <td className="px-3 py-1.5 text-right tabular-nums text-emerald-300">
+                            {fmtPrecise(row.poolTotal)}
+                          </td>
+                          <td className="px-3 py-1.5 text-right tabular-nums text-sky-300">
+                            {fmtPrecise(row.seedTotal)}
+                          </td>
+                          <td className="px-3 py-1.5 text-right tabular-nums text-amber-300">
+                            {fmtPrecise(row.houseTotal)}
+                          </td>
+                          <td className="px-3 py-1.5 text-right tabular-nums text-slate-100">
+                            {fmtPrecise(row.totalContribution)}
+                          </td>
+                          <td className="px-3 py-1.5 text-right tabular-nums text-emerald-300">
+                            {row.hits.toLocaleString()}
+                          </td>
+                          <td className="px-3 py-1.5 text-right tabular-nums text-slate-300">
+                            {row.hits > 0
+                              ? `1 in ${Math.round(row.spins / row.hits).toLocaleString()}`
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
         </section>
       ) : null}
+
 
       {/* ── Phase 3 — Compliance Audit Ledger (GLI-12 Log) ─────────────── */}
       <section className="max-w-6xl mx-auto mt-6 bg-slate-900/60 border border-slate-800 rounded-xl p-5">
