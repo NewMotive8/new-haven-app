@@ -11,7 +11,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { errorJson, json, preflight, requireBrandId, requireInternalSecret } from "@/lib/jackpot/http";
-import { getJackpot, listJackpots } from "@/lib/jackpot/store.server";
+import {
+  getJackpot,
+  listJackpots,
+  getGroupForBet,
+  recordGroupTransaction,
+  GroupConflictError,
+} from "@/lib/jackpot/store.server";
 import {
   applyCommunityPayout,
   computeBetLedger,
@@ -23,19 +29,36 @@ import type { JackpotConfigDTO, JackpotDTO } from "@/lib/jackpot/types";
 // Request schema
 // ---------------------------------------------------------------------------
 
-const BetEventSchema = z.object({
-  transactionId: z.string().min(1).max(128),
-  wager: z.number().positive().finite(),
-  gameId: z.string().min(1).max(128),
-  playerSegments: z.array(z.string().min(1).max(64)).max(64).default([]),
-  systemRngValue: z.number().min(0).max(1).optional(),
-  // Optional back-compat / routing hints
-  jackpotId: z.number().int().optional(),
-  playerId: z.string().max(128).optional(),
-  eventId: z.string().max(128).optional(),
-  config: z.any().optional(),
-  configs: z.array(z.any()).optional(),
-});
+const BetEventSchema = z
+  .object({
+    transactionId: z.string().min(1).max(128),
+    wager: z.number().positive().finite(),
+    gameId: z.string().min(1).max(128),
+    playerSegments: z.array(z.string().min(1).max(64)).max(64).default([]),
+    systemRngValue: z.number().min(0).max(1).optional(),
+    // Optional back-compat / routing hints (mutually exclusive)
+    jackpotId: z.number().int().optional(),
+    groupId: z.number().int().positive().optional(),
+    playerId: z.string().max(128).optional(),
+    eventId: z.string().max(128).optional(),
+    config: z.any().optional(),
+    configs: z.array(z.any()).optional(),
+  })
+  .superRefine((val, ctx) => {
+    const routes = [
+      val.groupId != null,
+      val.jackpotId != null,
+      val.config != null,
+      Array.isArray(val.configs) && val.configs.length > 0,
+    ].filter(Boolean).length;
+    if (routes > 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "ROUTING_CONFLICT: provide at most one of groupId, jackpotId, config, configs.",
+      });
+    }
+  });
 
 type BetEventBody = z.infer<typeof BetEventSchema>;
 
@@ -228,6 +251,191 @@ export const Route = createFileRoute("/api/v1/event/bet")({
           typeof body.systemRngValue === "number"
             ? () => body.systemRngValue!
             : secureRandomFloat;
+
+        // -----------------------------------------------------------------
+        // Phase 2 — relational jackpot-group fan-out branch.
+        // -----------------------------------------------------------------
+        if (body.groupId != null) {
+          let group;
+          let children;
+          try {
+            const res = await getGroupForBet(body.groupId, brand);
+            group = res.group;
+            children = res.children;
+          } catch (e: any) {
+            if (e instanceof GroupConflictError) {
+              return errorJson(e.message, (e as any).status ?? 409);
+            }
+            throw e;
+          }
+
+          if (children.length === 0) {
+            const empty = {
+              brandId: brand,
+              transactionId: body.transactionId,
+              idempotentReplay: false,
+              rngSource,
+              gameId: body.gameId,
+              playerSegments: body.playerSegments,
+              eventId: body.eventId ?? null,
+              playerId: body.playerId ?? null,
+              processedAt: new Date().toISOString(),
+              wager,
+              groupId: group.id,
+              routingMode: "group" as const,
+              matched: 0,
+              splitDenominator: 0,
+              contribution: { pool: 0, seed: 0, house: 0 },
+              house: 0,
+              totalContribution: 0,
+              perJackpot: [],
+              win: null as Record<string, unknown> | null,
+            };
+            rememberTransaction(body.transactionId, empty);
+            return json(empty);
+          }
+
+          const configs = children.map(inlineConfigFromDto);
+          const multi = computeMultiCampaignLedger(configs, wager);
+
+          // Precision: truncate to 6 decimal places (floor) to eliminate
+          // binary float drift in the persisted ledger.
+          const t6 = (n: number) =>
+            Math.trunc((Number(n) || 0) * 1_000_000) / 1_000_000;
+          const truncSlice = (s: { pool: number; seed: number; house: number }) => ({
+            pool: t6(s.pool),
+            seed: t6(s.seed),
+            house: t6(s.house),
+          });
+
+          const totals = truncSlice(multi.totals);
+          const totalContribution = t6(multi.totalContribution);
+          const perJackpot = multi.perCampaign.map((e) => ({
+            jackpotId: e.jackpotId,
+            jackpotName: e.jackpotName,
+            routing: e.routing,
+            splitDenominator: e.splitDenominator,
+            contribution: truncSlice(e.ledger.totals),
+            house: t6(e.ledger.totals.house),
+            totalContribution: t6(e.ledger.totalContribution),
+            tierBreakdown: e.ledger.entries,
+          }));
+
+          // Hierarchical win evaluation: highest tier_rank → lowest.
+          let win: Record<string, unknown> | null = null;
+          const ranked = [...children].sort(
+            (a, b) => (b.tierRank ?? 0) - (a.tierRank ?? 0),
+          );
+          for (const child of ranked) {
+            const p =
+              child.triggerProbability > 0
+                ? child.triggerProbability
+                : readTriggerProbability(child);
+            if (rng() < p) {
+              const winAmount = Number(child.poolBalance) || 0;
+              const community = readCommunityConfig(child);
+              if (community && community.split > 0) {
+                const breakdown = applyCommunityPayout(winAmount, community, rng);
+                win = {
+                  jackpotId: child.id,
+                  tierRank: child.tierRank,
+                  amount: winAmount,
+                  isCommunity: true,
+                  communitySize: breakdown.communitySize,
+                  communityMemberPayOut: breakdown.communityMemberPayOut,
+                  triggeringPayout: breakdown.triggeringPayout,
+                  communityPool: breakdown.communityPool,
+                  cappedDelta: breakdown.cappedDelta,
+                };
+              } else {
+                win = {
+                  jackpotId: child.id,
+                  tierRank: child.tierRank,
+                  amount: winAmount,
+                  isCommunity: false,
+                };
+              }
+              break;
+            }
+          }
+
+          const response = {
+            brandId: brand,
+            transactionId: body.transactionId,
+            idempotentReplay: false,
+            rngSource,
+            gameId: body.gameId,
+            playerSegments: body.playerSegments,
+            eventId: body.eventId ?? null,
+            playerId: body.playerId ?? null,
+            processedAt: new Date().toISOString(),
+            wager,
+            groupId: group.id,
+            routingMode: "group" as const,
+            matched: perJackpot.length,
+            splitDenominator: multi.splitDenominator,
+            contribution: totals,
+            house: totals.house,
+            totalContribution,
+            perJackpot,
+            win,
+          };
+
+          // Atomic DB write — pool deltas + transaction row in one tx.
+          const poolDeltas = perJackpot.map((e) => ({
+            jackpotId: e.jackpotId,
+            delta: e.contribution.pool,
+          }));
+          let isReplay = false;
+          try {
+            const rec = await recordGroupTransaction({
+              transactionId: body.transactionId,
+              brandId: Number(brand),
+              groupId: group.id,
+              totals,
+              response,
+              poolDeltas,
+            });
+            isReplay = rec.isReplay;
+            if (isReplay && rec.row?.response) {
+              return json(
+                {
+                  ...(rec.row.response as Record<string, unknown>),
+                  idempotentReplay: true,
+                },
+                { headers: { "X-Idempotent-Replay": "true" } },
+              );
+            }
+          } catch (e: any) {
+            return errorJson(
+              `Atomic group bet failed: ${e?.message ?? String(e)}`,
+              500,
+            );
+          }
+
+          appendAudit({
+            loggedAt: new Date().toISOString(),
+            transactionId: body.transactionId,
+            brandId: brand,
+            gameId: body.gameId,
+            playerSegments: body.playerSegments,
+            playerId: body.playerId ?? null,
+            wager,
+            rngSource,
+            contribution: totals,
+            totalContribution,
+            perJackpot: perJackpot.map((e) => ({
+              jackpotId: e.jackpotId,
+              jackpotName: e.jackpotName,
+              routing: e.routing,
+              contribution: e.contribution,
+              totalContribution: e.totalContribution,
+            })),
+            win,
+          });
+          rememberTransaction(body.transactionId, response);
+          return json(response);
+        }
 
         // -----------------------------------------------------------------
         // Legacy single-jackpot path (back-compat, still supported).
