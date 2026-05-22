@@ -18,8 +18,11 @@ export type Database = {
         Row: {
           activated_at: string | null
           brand_id: number
+          contribution_source: string
+          contribution_type: string
           created_at: string
           id: number
+          master_contribution_value: number
           name: string
           overlapping_rule: string
           status: string
@@ -28,8 +31,11 @@ export type Database = {
         Insert: {
           activated_at?: string | null
           brand_id: number
+          contribution_source?: string
+          contribution_type?: string
           created_at?: string
           id?: number
+          master_contribution_value?: number
           name: string
           overlapping_rule?: string
           status?: string
@@ -38,8 +44,11 @@ export type Database = {
         Update: {
           activated_at?: string | null
           brand_id?: number
+          contribution_source?: string
+          contribution_type?: string
           created_at?: string
           id?: number
+          master_contribution_value?: number
           name?: string
           overlapping_rule?: string
           status?: string
@@ -143,6 +152,7 @@ export type Database = {
           group_id: number | null
           id: number
           name: string
+          split_share: number
           tier_rank: number | null
           trigger_condition: Json
           trigger_probability: number
@@ -157,6 +167,7 @@ export type Database = {
           group_id?: number | null
           id?: number
           name: string
+          split_share?: number
           tier_rank?: number | null
           trigger_condition?: Json
           trigger_probability?: number
@@ -171,6 +182,7 @@ export type Database = {
           group_id?: number | null
           id?: number
           name?: string
+          split_share?: number
           tier_rank?: number | null
           trigger_condition?: Json
           trigger_probability?: number
