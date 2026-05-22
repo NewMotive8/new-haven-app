@@ -138,3 +138,97 @@ export function TriggerProbabilityPanel({
     </div>
   );
 }
+
+function DropPaceInfoDialog() {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="About Drop Pace"
+          className="h-8 w-8 text-neutral-400 hover:text-white hover:bg-neutral-800"
+        >
+          <Info className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-neutral-950 border-neutral-800 text-neutral-200">
+        <DialogHeader>
+          <DialogTitle className="text-white">Drop Pace — Strategy Guide</DialogTitle>
+          <DialogDescription className="text-neutral-400">
+            How to estimate daily drops and pick the right vibe for your campaign.
+          </DialogDescription>
+        </DialogHeader>
+
+        <section className="space-y-3">
+          <h3 className="text-base font-semibold text-white">🔢 The Only Formula You Need</h3>
+          <p className="text-sm leading-relaxed">
+            Before touching the slider, you need a rough estimate of your{" "}
+            <strong>Total Daily Network Spins</strong> (the combined number of spins all players
+            make across the eligible games in a single day). Once you have that, use this simple
+            formula to predict your daily drops:
+          </p>
+          <div className="rounded-md border border-neutral-800 bg-neutral-900/70 px-4 py-3 overflow-x-auto">
+            <BlockMath math={"\\text{Expected Payouts Per Day} = \\frac{\\text{Total Daily Network Spins}}{\\text{Drop Pace (Target Spin Interval)}}"} />
+          </div>
+          <p className="text-sm leading-relaxed">
+            <strong>Example:</strong> If your players generate 100,000 total spins a day on your
+            selected games:
+          </p>
+          <ul className="list-disc list-inside text-sm space-y-1 text-neutral-300">
+            <li>Setting the Drop Pace to <strong>25,000</strong> means you will average <strong>4 exciting drops a day</strong>.</li>
+            <li>Setting the Drop Pace to <strong>1,000,000</strong> means you will average <strong>1 massive drop every 10 days</strong>.</li>
+          </ul>
+        </section>
+
+        <section className="space-y-4 pt-2">
+          <h3 className="text-base font-semibold text-white">🎯 The Drop Pace Menu: Matching the Vibe to the Goal</h3>
+
+          {[
+            {
+              title: "⚡ Rapid-Fire Mode (Under 10,000 Spins)",
+              goal: "Absolute chaos, high dopamine, and instant gratification.",
+              used: "Flash promotional windows, mid-week \"Happy Hours,\" or launching a brand-new game where you want players to feel like wins are raining down.",
+              strategy: "Use this when your target prize pool is smaller (or funded by virtual currencies/points) so you can sustain back-to-back triggers without burning your budget.",
+            },
+            {
+              title: "🔥 Action-Packed (10,000 to 99,999 Spins)",
+              goal: "High-density engagement during peak hours.",
+              used: "Weekend tournament blocks (Friday evening to Sunday night).",
+              strategy: "This is the sweet spot for keeping players glued to their screens during prime-time traffic. It guarantees multiple community wins during a single gaming session, creating organic social proof.",
+            },
+            {
+              title: "📈 Daily Driver (100,000 to 499,999 Spins)",
+              goal: "The steady, reliable heartbeat of your casino brand.",
+              used: "Always-on, 24/7 evergreen jackpots that run in the background of your main slot categories.",
+              strategy: "This is your standard baseline. It ensures that every single day, your marketing team has a real, high-value winner to highlight on your leaderboard banners and push notifications.",
+            },
+            {
+              title: "🏆 Major Milestone (500,000 to 2,499,999 Spins)",
+              goal: "High anticipation and community suspense.",
+              used: "Month-long network campaigns or VIP/High-Roller specific game tiers.",
+              strategy: "Because drops are rarer, the prize pool has time to swell to an eye-catching amount. Players will actively track this jackpot, waiting for it to get heavy before flooding your games.",
+            },
+            {
+              title: "💎 The Mega Event (2,500,000 Spins and Above)",
+              goal: "Headline-grabbing, viral player acquisition.",
+              used: "Massive seasonal events (like a World Cup campaign or New Year's Eve mega-drop).",
+              strategy: "This is your \"life-changing win\" category. It requires a massive spin interval because it is designed to build a giant, legendary pool that you can splash across your homepage, affiliate sites, and email acquisition campaigns.",
+            },
+          ].map((tier) => (
+            <div
+              key={tier.title}
+              className="rounded-md border border-neutral-800 bg-neutral-900/40 p-3 space-y-1.5"
+            >
+              <h4 className="text-sm font-semibold text-white">{tier.title}</h4>
+              <p className="text-sm"><span className="text-neutral-400">The Goal:</span> {tier.goal}</p>
+              <p className="text-sm"><span className="text-neutral-400">Best Used For:</span> {tier.used}</p>
+              <p className="text-sm"><span className="text-neutral-400">The Strategy:</span> {tier.strategy}</p>
+            </div>
+          ))}
+        </section>
+      </DialogContent>
+    </Dialog>
+  );
+}
