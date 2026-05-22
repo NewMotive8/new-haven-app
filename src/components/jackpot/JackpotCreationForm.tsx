@@ -302,6 +302,11 @@ export interface JackpotCreationFormProps {
   onSave: (payload: JackpotSavePayload) => void | Promise<void>;
   submitting?: boolean;
   onCancel?: () => void;
+  /** Pre-populate the form when editing/cloning an existing jackpot. Takes
+   *  precedence over router-state-based hydration. */
+  initialDraft?: JackpotSavePayload;
+  /** Customize the primary submit button label (e.g. "Save changes"). */
+  saveLabel?: string;
 }
 
 // Draft hydration / sanitization lives in @/lib/jackpot/hydrate-draft and is
@@ -309,16 +314,15 @@ export interface JackpotCreationFormProps {
 
 
 
-export function JackpotCreationForm({ onSave, submitting = false, onCancel }: JackpotCreationFormProps) {
+export function JackpotCreationForm({ onSave, submitting = false, onCancel, initialDraft, saveLabel: _saveLabel }: JackpotCreationFormProps) {
   const navigate = useNavigate();
   const incoming = useRouterState({
     select: (s) => s.location.state as { jackpotConfig?: JackpotSavePayload } | undefined,
   });
   // Capture once on mount so re-renders don't clobber user edits.
-  // Sanitize first to neutralize legacy/contaminated fields (Option A) and
-  // decode the Frequency Happy Hour JSON into discrete UI state.
+  // initialDraft prop wins over router state; both are sanitized.
   const initial = useRef<JackpotSavePayload | undefined>(
-    sanitizeIncomingDraft(incoming?.jackpotConfig),
+    sanitizeIncomingDraft(initialDraft ?? incoming?.jackpotConfig),
   ).current;
 
   const [currentTime, setCurrentTime] = useState(new Date());
