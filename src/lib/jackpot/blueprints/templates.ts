@@ -116,6 +116,7 @@ const classicSmall: SingleBlueprint = {
     maximumSeedAmount: 50,
     initialPoolAmount: 50,
     triggerOdds: 10000,
+    operatorShare: 15,
   },
 };
 
