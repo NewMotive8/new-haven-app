@@ -637,14 +637,12 @@ function TierLadder({
 /* ────────────────────────────────────────────────────────────────── */
 function DraftTierCard({
   draft,
-  jackpots,
   onChange,
   onCancel,
   onSave,
   submitting,
 }: {
   draft: ChildDraft;
-  jackpots: JackpotDTO[];
   onChange: (patch: Partial<ChildDraft>) => void;
   onCancel: () => void;
   onSave: () => void;
@@ -655,15 +653,6 @@ function DraftTierCard({
   const probability = denominatorToProbability(draft.triggerDenominator);
   const dropText = formatDropFrequency(probability, dailyVolume);
   const theme = rankTheme(Number(draft.tierRank) || 1);
-
-  function pickJackpot(nextId: number | null) {
-    const patch: Partial<ChildDraft> = { jackpotId: nextId };
-    if (nextId != null && !draft.tierName.trim()) {
-      const picked = jackpots.find((j) => j.id === nextId);
-      if (picked?.name) patch.tierName = picked.name;
-    }
-    onChange(patch);
-  }
 
   return (
     <div
@@ -677,7 +666,7 @@ function DraftTierCard({
             {theme.label} · New tier
           </span>
           <span className="text-sm text-neutral-400">
-            Configure and save to attach this level to the stack.
+            A fresh child jackpot will be created and attached to this MultiJackpot.
           </span>
         </div>
         <Button
@@ -719,23 +708,6 @@ function DraftTierCard({
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2 space-y-2">
-          <Label className="text-neutral-300">Jackpot</Label>
-          <select
-            value={draft.jackpotId ?? ""}
-            onChange={(e) =>
-              pickJackpot(e.target.value ? Number(e.target.value) : null)
-            }
-            className="w-full h-10 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-white"
-          >
-            <option value="">Select existing jackpot…</option>
-            {jackpots.map((j) => (
-              <option key={j.id} value={j.id}>
-                #{j.id} · {j.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-2">
           <Label className="text-neutral-300">Tier rank</Label>
           <Input
             type="number"
@@ -744,8 +716,12 @@ function DraftTierCard({
             onChange={(e) => onChange({ tierRank: e.target.value })}
             className="bg-neutral-800 border-neutral-700 text-white h-10"
           />
+          <div className="text-xs text-neutral-500">
+            Higher numbers sit at the top of the ladder (e.g. Grand = 4).
+          </div>
         </div>
       </div>
+
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
