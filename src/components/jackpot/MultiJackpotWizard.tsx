@@ -1564,12 +1564,12 @@ function LaunchGate({
       <div className="grid md:grid-cols-3 gap-4 mb-4">
         <SummaryStat label="MultiJackpot" value={group.name} />
         <SummaryStat
-          label="Source"
-          value={group.contributionSource === "player" ? "Player" : "Operator"}
-        />
-        <SummaryStat
           label="Type"
           value={group.contributionType === "percentage" ? "Percentage" : "Fixed"}
+        />
+        <SummaryStat
+          label="Weights · Pool / Seed / House"
+          value={`${group.poolWeight.toFixed(0)}% / ${group.seedWeight.toFixed(0)}% / ${group.houseWeight.toFixed(0)}%`}
         />
       </div>
 
