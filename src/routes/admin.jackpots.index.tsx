@@ -157,8 +157,8 @@ function JackpotsPage() {
       out.push({
         key: `j-${j.id}`,
         id: j.id,
-        name: j.name,
-        typeLabel: j.jackpotType ? KIND_LABEL[j.jackpotType] : "Classic",
+        name: j.name ?? "(unnamed)",
+        typeLabel: (j.jackpotType && KIND_LABEL[j.jackpotType]) || "Classic",
         status: j.enabled ? "active" : "disabled",
         poolBalance: j.poolBalance ?? 0,
         createdAt: j.createdAt,
@@ -169,7 +169,7 @@ function JackpotsPage() {
       out.push({
         key: `g-${g.id}`,
         id: g.id,
-        name: g.name,
+        name: g.name ?? "(unnamed)",
         typeLabel: "Multi-Level",
         status: g.status,
         poolBalance: 0,
