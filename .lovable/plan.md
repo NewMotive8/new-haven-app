@@ -1,118 +1,180 @@
-# Phase 2 — Group Fan-Out Ingestion & Management API
+# Phase 3 — Legacy Purge, Simulator Realignment, MultiJackpot Admin UI
 
-Adds relational group routing to the bet ingestion pipeline and exposes the
-CRUD/lifecycle endpoints for the new `jackpot_groups` parent entity.
+Closes out the relational-groups migration: deletes the in-code
+`MULTI_LEVEL` tier path, retargets the simulator and sandbox at
+`/api/v1/event/bet` with `groupId`, and ships a new admin wizard
+branded "MultiJackpot".
 
-## 1. Bet route fan-out (`src/routes/api/v1/event/bet.ts`)
+## 1. Legacy code purge
 
-### Schema additions
-- Extend `BetEventSchema` with `groupId: z.number().int().positive().optional()`.
-- Add a superRefine: reject (400 `ROUTING_CONFLICT`) when more than one of
-  `groupId`, `jackpotId`, `config`, `configs` is supplied. Exactly zero or one
-  routing token is allowed.
+### `src/lib/jackpot/types.ts`
+- Remove `"multi_level"` from `JackpotKind`.
+- Remove `"MULTI_LEVEL"` from `JackpotStructuralType`.
+- Delete the `TierDTO` interface (multiLevelTier/multiLevelWeight fields).
+- Drop the `tiers?: TierDTO[]` field from `JackpotConfigDTO` and from the
+  simulation result types; remove the "Per-tier roll-up" comment block.
+- Keep `CLASSIC`, `MUST_DROP`, `FREQUENCY` — those are unrelated.
 
-### New `groupId` branch (inserted before the legacy multi-campaign router)
-1. Load the parent group via a new `getGroupForBet(groupId, brandId)` helper
-   in `store.server.ts`. Reject 404 if missing, 409 if `status !== 'active'`,
-   403 if `brand_id` mismatches the request brand.
-2. Load enabled children: `jackpots` where `group_id = $1 AND enabled = true`
-   ordered by `tier_rank ASC`. Empty set → return the same empty-shape
-   response the multi-campaign branch returns today, with `groupId` echoed.
-3. **Fan-out splits**: build a `JackpotConfigDTO[]` from the children via the
-   existing `inlineConfigFromDto`, then reuse `computeMultiCampaignLedger`
-   (already does per-tier pool/seed/house splits in a single pass) — no
-   duplicate math.
-4. **Precision**: introduce `truncate6(n) = Math.trunc(n * 1e6) / 1e6`; apply
-   to every numeric field in `totals`, `totalContribution`, and each entry's
-   pool/seed/house before persisting or responding.
-5. **Hierarchical win evaluation**: iterate `children` from highest
-   `tier_rank` down to lowest, drawing one RNG sample per tier and comparing
-   against `trigger_probability` (column, fallback to existing
-   `readTriggerProbability`). First match wins, breaks loop, runs
-   community-payout branch if configured.
-6. **Atomicity**: add a Postgres RPC `apply_group_bet(p_payload jsonb)` via
-   migration that, inside a single `BEGIN/COMMIT`, (a) upserts each
-   `jackpot_pools.current_balance` with the truncated pool delta, (b) inserts
-   the `jackpot_transactions` row keyed by `transaction_id` (unique → natural
-   idempotency at the DB layer), and (c) returns the persisted row. The
-   server route calls `supabaseAdmin.rpc('apply_group_bet', { p_payload })`.
-   If the RPC raises (constraint, trigger, FK), the route returns 409/500 and
-   no partial state is committed — Postgres rolls back the whole block.
-7. **Response shape**: mirror today's multi-campaign payload exactly
-   (`matched`, `splitDenominator`, `contribution`, `house`, `totalContribution`,
-   `perJackpot[]`, `win`) so `/sandbox-demo` and dashboards keep working. Add
-   two additive fields: `groupId` and `routingMode: "group"`.
-8. Persist to in-memory `appendAudit` and `rememberTransaction` as today, plus
-   the new DB-level `jackpot_transactions` row written by the RPC.
+### `src/lib/jackpot/payload-to-config.ts`
+- Remove the `multi_level | multilevel | multi-level → MULTI_LEVEL` branch
+  in `mapStructural`.
+- Delete the entire "build tier array" block (lines ~112–130) and the
+  "Apply per-tier split / trigger odds" block (lines ~186–200).
+- Remove `tiers` from the returned config object.
 
-### Idempotency
-- Keep the in-memory `processedTransactions` cache.
-- Add a DB-level `UNIQUE (brand_id, transaction_id)` on `jackpot_transactions`
-  via migration. On unique-violation from the RPC, re-select the existing row
-  and return its stored `response` jsonb with `idempotentReplay: true`.
+### `src/lib/jackpot/ledger.ts`
+- Remove the `if (jp.structuralType === "MULTI_LEVEL" && Array.isArray(jp.tiers)…)`
+  branch in `computeBetLedger` (lines ~71–84). The function keeps its CLASSIC
+  single-slice behavior; relational fan-out is handled in the bet route via
+  `computeMultiCampaignLedger`.
+- Strip `tier`/`label` MULTI_LEVEL comments from the doc headers.
 
-## 2. New management routes
+### `src/lib/jackpot/build-create-body.ts`
+- Delete the `if (p.type === "multi_level" && Array.isArray(p.tiers))`
+  validation block (lines ~24–35).
+- Delete the trailing `…(p.type === "multi_level" … ? { tiers: p.tiers } : {})`
+  spread (line ~109).
+- Add an explicit guard at the top: if `p.type === "multi_level"` or
+  `Array.isArray(p.tiers)`, throw
+  `Error("Legacy multi_level jackpots are deprecated. Use POST /api/v1/jackpot-groups to create a MultiJackpot, then attach child tiers via /children.")`.
 
-All routes use `requireInternalSecret` + `requireBrandId`, return `preflight()`
-on OPTIONS, and JSON via the existing `json`/`errorJson` helpers. All store
-calls already exist (`createGroup`, `listGroups`, `getGroup`, `setGroupStatus`,
-`addChildJackpot`) — only one new helper (`updateGroupProfile`) is needed.
+## 2. Simulator realignment
 
-### `src/routes/api/v1/jackpot-groups/index.ts`
-- `GET` → `listGroups(brand)`.
-- `POST` → validates `{ name: string, overlappingRule?: "split"|"additive" }`
-  with Zod, calls `createGroup(brand, name, overlappingRule)`. Returns 201.
+### `src/lib/jackpot/simulator.ts`
+- Delete the `simulateMultiLevel` function and the
+  `if (structuralType === "MULTI_LEVEL" && jackpot.tiers …)` dispatch in the
+  top-level `simulate()` (lines ~58–60).
+- Remove the `liveTiers`, `tierState`, `winningTier`, and per-tier audit
+  paths. Keep CLASSIC + MUST_DROP/FREQUENCY paths intact.
+- Add a new exported function:
+  ```ts
+  simulateGroup(groupId: number, brandId: number, opts: {
+    iterations: number; wagerPerSpin: number;
+    onProgress?: (done: number, total: number) => void;
+  }): Promise<GroupSimResult>
+  ```
+  It loops `iterations` times, POSTs to `/api/v1/event/bet` with
+  `{ transactionId: <uuid>, wager, gameId: "sim", groupId }`, and aggregates
+  `perJackpot[]` slices into a per-tier roll-up:
+  `{ tierRank, jackpotId, jackpotName, totalPool, totalSeed, totalHouse,
+     wins, totalWinAmount }`.
+- `GroupSimResult` shape mirrors today's `MultiLevelSimResult` so the
+  existing chart components keep working with minimal prop changes.
 
-### `src/routes/api/v1/jackpot-groups/$id.ts`
-- `GET` → `getGroup(params.id)`; 404 if missing; 403 if brand mismatch.
-- `PATCH` → validates `{ name?, overlappingRule? }`. Calls new
-  `updateGroupProfile(id, patch)` in store; that helper first reads status and
-  throws `GroupConflictError` (mapped to 409) when status === `active`. The DB
-  trigger `jackpot_groups_guard` is the backstop.
+### `src/routes/sandbox-demo.tsx`
+- Replace the in-memory `inlineConfigFromDto`-style block (lines ~769–791)
+  with a "Choose MultiJackpot group" selector that lists groups via
+  `GET /api/v1/jackpot-groups` and lets the operator pick one.
+- Wire the "Run simulation" button to `simulateGroup(...)`.
+- Update the live telemetry table/chart to render the `perJackpot[]` array
+  returned from each spin (one row per child tier, color-coded by
+  `tierRank`). Replace any `multiLevelTier`/`tiers.map(x => x.multiLevelTier)`
+  reads with `tierRank` / `jackpotId`.
+- Keep the legacy single-jackpot simulation panel mounted but mark it
+  "Legacy (read-only)" — useful for back-compat verification.
 
-### `src/routes/api/v1/jackpot-groups/$id/status.ts`
-- `POST` → body `{ status: "draft"|"active"|"disabled" }`. Calls
-  `setGroupStatus(id, status)`. `GroupConflictError` → 409. 404 if missing.
-  Trigger enforces the legal transition matrix; route just surfaces errors.
+### `src/routes/admin.simulator.tsx`
+- Replace the `result.tierResults` cards (lines ~357–460) with the new
+  `perJackpot[]` shape from `simulateGroup`. Use `tierRank` for sort, drop
+  `multiLevelTier` lookups against `config.tiers`.
 
-### `src/routes/api/v1/jackpot-groups/$id/children.ts`
-- `GET` → returns `getGroup(id).children` (404 if group missing).
-- `POST` → body `{ jackpotId: number, tierRank: number }`. Calls
-  `addChildJackpot(id, jackpotId, tierRank)`. `GroupConflictError` → 409.
+## 3. "MultiJackpot" admin UI
 
-## 3. Store additions (`src/lib/jackpot/store.server.ts`)
+User-facing strings throughout this section use **"MultiJackpot"** verbatim.
+Internal code/types/routes keep the relational `jackpot_groups` naming.
 
-- `getGroupForBet(groupId, brandId)` — joins group + enabled children + brand
-  check in one call, returns `{ group, children[] }` or throws.
-- `updateGroupProfile(id, { name?, overlappingRule? })` — status-gated edit
-  helper for the PATCH route.
-- `recordGroupTransaction(...)` — thin wrapper around the RPC for the bet
-  route; on `23505` unique violation, re-reads and returns the existing row.
+### New: `src/components/jackpot/MultiJackpotWizard.tsx`
+Three-step wizard, controlled by an internal `step` state:
 
-## 4. Database migration
+1. **"MultiJackpot details"** — name, overlapping rule (`split`/`additive`),
+   submits → `POST /api/v1/jackpot-groups`, stores returned `groupId`.
+2. **"Attach child tiers"** — dynamic list (add/remove/reorder via
+   drag-handle). Each row collects: existing jackpot picker
+   (`GET /api/v1/jackpots`) **or** "create new", `tierRank`,
+   `triggerProbability`, `contributionRate`, `seedAmount`. On "Save tier",
+   creates the jackpot if needed (`POST /api/v1/jackpots`), then attaches it
+   (`POST /api/v1/jackpot-groups/$id/children`).
+3. **"Activate"** — review summary, button calls
+   `POST /api/v1/jackpot-groups/$id/status` with `{ status: "active" }`.
+   Shows a warning that activation locks all child config.
 
-Single migration adds:
-- `CREATE UNIQUE INDEX jackpot_transactions_brand_tx_uq ON jackpot_transactions (brand_id, transaction_id);`
-- `apply_group_bet(p_payload jsonb)` PL/pgSQL function (`SECURITY DEFINER`,
-  `search_path = public`) that performs the atomic pool updates + transaction
-  insert + returns the row. All work inside the function body runs in a single
-  implicit transaction.
+All numeric inputs use `step="0.000001"` and store values as plain strings
+internally, converting via `Number(...)` only at submit, to preserve the
+6-decimal contract used by the backend.
+
+### `src/routes/admin.jackpots.new.tsx`
+- Replace the body with a tabbed view: **"Single Jackpot"** (existing
+  `JackpotCreationForm`) and **"MultiJackpot"** (new wizard above).
+- Header: "Create MultiJackpot" when the MultiJackpot tab is active.
+
+### New: `src/routes/admin.jackpot-groups.index.tsx`
+- Table of MultiJackpots: name, status badge, child count, activated_at.
+- Row actions: View, Edit (disabled when active), Set status, Delete (later).
+- `GET /api/v1/jackpot-groups` for the list.
+
+### New: `src/routes/admin.jackpot-groups.$id.tsx`
+- Detail page: header card with group fields, status pill, lifecycle action
+  bar ("Activate" / "Disable" / "Move to Draft" — buttons hidden based on
+  legal transitions), and a children table sorted by `tierRank`.
+- When `status === "active"`:
+  - All inputs in the group profile section + every child row render
+    `readOnly` and `disabled`, wrapped in a `<fieldset disabled>`.
+  - A persistent yellow banner: *"MultiJackpot is active — disable it
+    before editing configuration."*
+  - "Disable" button calls `POST .../status` with `{ status: "disabled" }`
+    → on success, the page re-fetches and inputs unlock.
+- When `status !== "active"`: inputs are editable; "Save" calls
+  `PATCH /api/v1/jackpot-groups/$id` for group fields.
+- "Add child tier" button reuses the wizard's step-2 row component.
+
+### `src/routes/admin.jackpots.index.tsx`
+- Remove `multi_level: "Multi-Level"` from the type label map (line 44).
+- Add a "MultiJackpot" tab/link in the page header that routes to
+  `/admin/jackpot-groups`.
+
+### `src/components/jackpot/JackpotCreationForm.tsx` (touch-minimal)
+- This file is ~5,000 lines and high-risk to rewrite. Scope of edits:
+  - Remove `'multi_level'` from `JackpotType` union.
+  - Remove the multi_level type-picker card, the tier editor section, and
+    every `selectedType === 'multi_level'` conditional.
+  - Drop the `tiers` field from `JackpotSavePayload`, the `defaultTiers`
+    array, `addTier`/`removeTier`/`updateTier`, and `tierWeightTotal`.
+  - Leave Classic / Must-Drop / Frequency UI untouched.
+
+## 4. File checklist & verification
+
+### Files touched
+- Backend purge: `types.ts`, `payload-to-config.ts`, `ledger.ts`,
+  `build-create-body.ts`, `simulator.ts`.
+- Sandbox/simulator: `routes/sandbox-demo.tsx`, `routes/admin.simulator.tsx`.
+- Admin UI: `routes/admin.jackpots.new.tsx`,
+  `routes/admin.jackpots.index.tsx`,
+  `routes/admin.jackpot-groups.index.tsx` (new),
+  `routes/admin.jackpot-groups.$id.tsx` (new),
+  `components/jackpot/MultiJackpotWizard.tsx` (new),
+  `components/jackpot/JackpotCreationForm.tsx` (multi_level removal only).
+
+### Verification scenarios
+1. **Purge build check** — `tsc` shows zero references to `MULTI_LEVEL`,
+   `multi_level`, `multiLevelTier`, `multiLevelWeight`, or `TierDTO` in the
+   `src/lib/jackpot/` tree after the purge.
+2. **Legacy rejection** — `POST /api/v1/jackpots` with `{type:"multi_level",
+   tiers:[…]}` returns 400 with the new error message.
+3. **Group CRUD round-trip** — create via wizard, GET detail, verify
+   `overlapping_rule` and child `trigger_probability` persist as the exact
+   strings entered (e.g. `0.000125` → DB shows `0.00012500`).
+4. **Activation lock** — set group to active in DB or via wizard step 3, then
+   confirm: (a) UI inputs are disabled, (b) PATCH on group returns 409,
+   (c) attach child returns 409.
+5. **Simulator parity** — run 10,000-spin `simulateGroup` against a group
+   with 3 tiers; sum of `perJackpot[i].contribution.pool` across spins
+   matches the delta in `jackpot_pools.current_balance` for each child
+   (within 6-decimal truncation tolerance).
+6. **Sandbox telemetry** — concurrent spin chart renders one series per
+   `tierRank`, win events flag the correct `jackpotId`.
 
 ## Out of scope
-
-- Frontend admin UI for groups (separate phase).
-- Migrating the existing `MULTI_LEVEL` single-jackpot legacy branch into the
-  group model — kept untouched for backward compatibility.
-- Cross-Worker idempotency beyond what the DB unique index now provides.
-
-## Technical notes
-
-- The Supabase JS client has no client-side `BEGIN/COMMIT`; atomicity is
-  achieved by pushing all writes into the `apply_group_bet` RPC. This is the
-  standard pattern on this stack.
-- `truncate6` is floor-based (truncate, not round) to match the user's
-  "truncate down to 6 decimals" requirement and prevent any rounding-up drift
-  that could over-credit pools.
-- Response contract: the only additive fields on the response are `groupId`
-  and `routingMode`. All existing keys (`perJackpot`, `contribution`, `win`,
-  `tierBreakdown`) keep their shape so downstream consumers don't break.
+- Rewriting `JackpotCreationForm.tsx` end-to-end (only the multi_level
+  branches are removed).
+- Server-side delete of jackpot groups (no migration needed yet).
+- Bulk import / CSV of MultiJackpot configurations.
