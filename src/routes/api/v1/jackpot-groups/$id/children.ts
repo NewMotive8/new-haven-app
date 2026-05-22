@@ -17,6 +17,7 @@ const AttachSchema = z.object({
   tierRank: z.number().int().min(0),
   triggerProbability: z.number().min(0).max(1).optional(),
   contributionRate: z.number().min(0).max(1).optional(),
+  name: z.string().min(1).max(255).optional(),
 });
 
 export const Route = createFileRoute("/api/v1/jackpot-groups/$id/children")({
