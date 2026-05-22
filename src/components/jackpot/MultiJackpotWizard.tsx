@@ -261,6 +261,7 @@ export function MultiJackpotWizard() {
       )}
 
       {step === 2 && group && (
+        <Step2ErrorBoundary onReset={() => setChildren([newChildDraft((savedChildren.at(-1)?.tierRank ?? 0) + 1)])}>
         <Card className="p-6 bg-neutral-900/50 border-neutral-800">
           <h2 className="text-lg font-semibold text-white mb-1">
             Step 2 · Attach child tiers
