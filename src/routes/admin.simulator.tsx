@@ -450,7 +450,7 @@ function ResultsSummary({
       ) : (
         <div style={{ display: "grid", gap: 8 }}>
           {tiers.map((t) => {
-            const tierConfig = config?.tiers?.find((x) => x.multiLevelTier === t.tier);
+            const tierConfig = (config as any)?.tiers?.find((x: any) => x.multiLevelTier === t.tier);
             return (
               <MathAudit
                 key={t.tier}
