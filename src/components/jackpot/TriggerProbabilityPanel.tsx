@@ -157,7 +157,7 @@ function DropPaceInfoDialog() {
           aria-label="About Drop Pace"
           className="h-8 w-8 text-neutral-400 hover:text-white hover:bg-neutral-800"
         >
-          <Info className="h-4 w-4 border-amber-300 border-solid border" />
+          <Info className="lucide lucide-info h-4 w-4 border-amber-300 border-solid border" />
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-neutral-950 border-neutral-800 text-neutral-200">
