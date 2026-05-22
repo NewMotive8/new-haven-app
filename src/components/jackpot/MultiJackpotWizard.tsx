@@ -130,23 +130,6 @@ export function MultiJackpotWizard() {
     }>
   >([]);
 
-  const jackpotsQuery = useQuery<JackpotDTO[]>({
-    queryKey: ["wizard-jackpots", brandId],
-    enabled: brandId != null,
-    queryFn: async () => {
-      const res = await axios.get<JackpotDTO[]>("/api/v1/jackpots", {
-        headers: { brandId: String(brandId) },
-      });
-      return res.data;
-    },
-  });
-
-  const attachableJackpots = React.useMemo(() => {
-    return (jackpotsQuery.data ?? []).filter(
-      (j) => !savedChildren.some((c) => c.jackpotId === j.id),
-    );
-  }, [jackpotsQuery.data, savedChildren]);
-
   function nextRank() {
     return Math.max(0, ...savedChildren.map((c) => c.tierRank)) + 1;
   }
