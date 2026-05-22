@@ -334,6 +334,7 @@ export function MultiJackpotWizard() {
             </Button>
           </div>
         </Card>
+        </Step2ErrorBoundary>
       )}
 
       {step === 3 && group && (
