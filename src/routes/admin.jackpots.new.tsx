@@ -18,18 +18,20 @@ type Tab = "single" | "multi";
 type NewSearch = {
   editId?: number;
   cloneFrom?: number;
+  draftId?: number;
+  tab?: Tab;
 };
 
 function NewJackpotPage() {
   const { brandId } = React.useContext(BrandContext);
   const navigate = useNavigate();
   const search = Route.useSearch();
-  const editId = search.editId;
+  const editId = search.editId ?? search.draftId;
   const cloneFrom = search.cloneFrom;
   const isEditing = editId != null && cloneFrom == null;
 
   const [submitting, setSubmitting] = React.useState(false);
-  const [tab, setTab] = React.useState<Tab>("single");
+  const [tab, setTab] = React.useState<Tab>(search.tab ?? "single");
   const [initialDraft, setInitialDraft] = React.useState<JackpotSavePayload | undefined>(undefined);
   const [loading, setLoading] = React.useState<boolean>(editId != null || cloneFrom != null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
@@ -219,6 +221,9 @@ export const Route = createFileRoute("/admin/jackpots/new")({
     if (Number.isFinite(eid) && eid > 0) out.editId = eid;
     const cid = Number(raw.cloneFrom);
     if (Number.isFinite(cid) && cid > 0) out.cloneFrom = cid;
+    const did = Number(raw.draftId);
+    if (Number.isFinite(did) && did > 0) out.draftId = did;
+    if (raw.tab === "single" || raw.tab === "multi") out.tab = raw.tab;
     return out;
   },
   component: NewJackpotPage,

@@ -7,6 +7,7 @@ import type { JackpotConfigDTO, SimulatorResponseDTO } from "@/lib/jackpot/types
 import type { JackpotSavePayload } from "@/components/jackpot/JackpotCreationForm";
 import { mapPayloadToConfig } from "@/lib/jackpot/payload-to-config";
 import { buildCreateBody } from "@/lib/jackpot/build-create-body";
+import { BlueprintCenter } from "@/components/jackpot/BlueprintCenter";
 
 const DEFAULT_CONFIG: JackpotConfigDTO = {
   id: 1,
@@ -175,10 +176,25 @@ function SimulatorPage() {
       >
         ← Back
       </Link>
-      <h1 style={{ margin: 0, fontSize: 26 }}>Jackpot Simulator</h1>
-      <p style={{ margin: "4px 0 20px", color: "#9fb0c8", fontSize: 13 }}>
-        POST <code>/api/v1/event/simulate-bet</code> · brand <code>{String(brandId ?? "—")}</code>
-      </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 26 }}>Jackpot Simulator</h1>
+          <p style={{ margin: "4px 0 20px", color: "#9fb0c8", fontSize: 13 }}>
+            POST <code>/api/v1/event/simulate-bet</code> · brand <code>{String(brandId ?? "—")}</code>
+          </p>
+        </div>
+        <BlueprintCenter
+          host="simulator"
+          onInjectSingle={(cfg) => {
+            const text = JSON.stringify(cfg, null, 2);
+            activeConfigTextRef.current = text;
+            setConfigText(text);
+            setActiveConfig(cfg);
+            setResult(null);
+            setError(null);
+          }}
+        />
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 16 }}>
         <div style={panel}>
