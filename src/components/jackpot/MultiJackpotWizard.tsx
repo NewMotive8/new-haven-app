@@ -486,8 +486,8 @@ export function MultiJackpotWizard() {
         {
           name: name.trim(),
           overlappingRule: "split",
-          // Source is implicit: House weight (per tier) covers operator-funded share.
-          contributionSource: "player",
+          // Master-level Player vs Operator funding source.
+          contributionSource,
           contributionType,
           masterContributionValue: masterValue,
           assignedCategories: assignment.assignedCategories,
