@@ -275,55 +275,192 @@ function JackpotGroupDetailPage() {
                 No child jackpots attached yet.
               </div>
             ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-neutral-900 text-neutral-400 text-xs uppercase tracking-wider">
-                  <tr>
-                    <th className="text-left px-6 py-3">Rank</th>
-                    <th className="text-left px-6 py-3">Jackpot</th>
-                    <th className="text-left px-6 py-3">Trigger probability</th>
-                    <th className="text-left px-6 py-3">Contribution rate</th>
-                    <th className="text-left px-6 py-3">Pool balance</th>
-                    <th className="text-left px-6 py-3">Enabled</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {group.children
-                    .slice()
-                    .sort((a, b) => a.tierRank - b.tierRank)
-                    .map((c) => (
-                      <tr key={c.id} className="border-t border-neutral-800">
-                        <td className="px-6 py-4 text-white font-mono">{c.tierRank}</td>
-                        <td className="px-6 py-4">
-                          <div className="text-white">{c.name}</div>
-                          <div className="text-xs text-neutral-500 font-mono">#{c.id}</div>
-                        </td>
-                        <td className="px-6 py-4 font-mono text-neutral-200">
-                          {Number(c.triggerProbability).toFixed(8)}
-                        </td>
-                        <td className="px-6 py-4 font-mono text-neutral-200">
-                          {Number(c.contributionRate).toFixed(8)}
-                        </td>
-                        <td className="px-6 py-4 font-mono text-neutral-200">
-                          {Number(c.poolBalance).toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded ${
-                              c.enabled
-                                ? "bg-emerald-500/10 text-emerald-400"
-                                : "bg-neutral-700/40 text-neutral-400"
-                            }`}
-                          >
-                            {c.enabled ? "yes" : "no"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
+              <div className="p-4 space-y-4">
+                {group.children
+                  .slice()
+                  .sort((a, b) => a.tierRank - b.tierRank)
+                  .map((c) => (
+                    <ChildTierEditor
+                      key={c.id}
+                      child={c}
+                      brandId={brandId}
+                      onSaved={() => queryClient.invalidateQueries(["jackpot-group", id])}
+                    />
+                  ))}
+              </div>
             )}
           </Card>
         </fieldset>
+      </div>
+    </div>
+  );
+}
+
+function ChildTierEditor({
+  child,
+  brandId,
+  onSaved,
+}: {
+  child: ChildDTO;
+  brandId: string | number | null;
+  onSaved: () => void;
+}) {
+  const [name, setName] = React.useState(child.name);
+  const [denominator, setDenominator] = React.useState<string>(() =>
+    probabilityToDenominator(child.triggerProbability) || "0",
+  );
+  const [contribution, setContribution] = React.useState<string>(() =>
+    Number(child.contributionRate).toFixed(8),
+  );
+  const [dailyVolume, setDailyVolume] = React.useState<number>(DEFAULT_DAILY_VOLUME);
+  const [saving, setSaving] = React.useState(false);
+
+  // Re-seed local state when the server payload changes (e.g. after save).
+  React.useEffect(() => {
+    setName(child.name);
+    setDenominator(probabilityToDenominator(child.triggerProbability) || "0");
+    setContribution(Number(child.contributionRate).toFixed(8));
+  }, [child.id, child.name, child.triggerProbability, child.contributionRate]);
+
+  const probability = denominatorToProbability(denominator);
+  const dropText = formatDropFrequency(probability, dailyVolume);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await axios.put(
+        `/api/v1/jackpots/${child.id}`,
+        {
+          name: name.trim() || child.name,
+          triggerProbability: Number(probability.toFixed(8)),
+          contributionRate: Number(
+            (Number.parseFloat(contribution) || 0).toFixed(8),
+          ),
+        },
+        {
+          headers: {
+            brandId: String(brandId ?? ""),
+            "Content-Type": "application/json",
+          },
+        },
+      );
+      toast.success(`Tier "${name.trim() || child.name}" updated`);
+      onSaved();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error ?? err?.message ?? "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-neutral-800 bg-neutral-950/40 p-4 space-y-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-2 flex-1">
+          <Label className="text-neutral-300">
+            Tier Name{" "}
+            <span className="text-neutral-500 font-normal">
+              (operator-facing label)
+            </span>
+          </Label>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Mini, Super Drop, Friday Booster"
+            className="bg-neutral-800 border-neutral-700 text-white"
+          />
+        </div>
+        <div className="text-right pt-1">
+          <div className="text-xs uppercase text-neutral-500 tracking-wider">
+            Rank
+          </div>
+          <div className="text-white font-mono text-lg">{child.tierRank}</div>
+          <div className="text-xs text-neutral-500 font-mono">#{child.id}</div>
+        </div>
+      </div>
+
+      <div className="rounded-md border border-neutral-800 bg-neutral-900/60 p-4 space-y-3">
+        <div className="text-sm font-medium text-white">Trigger Probability</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+          <div className="space-y-1">
+            <Label className="text-neutral-400 text-xs uppercase tracking-wider">
+              Odds
+            </Label>
+            <div className="flex items-center gap-2">
+              <span className="text-neutral-300 text-sm whitespace-nowrap">1 in</span>
+              <Input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                step={1}
+                value={denominator}
+                onChange={(e) => setDenominator(e.target.value)}
+                placeholder="50000"
+                className="bg-neutral-800 border-neutral-700 text-white font-mono"
+              />
+              <span className="text-neutral-300 text-sm whitespace-nowrap">spins</span>
+            </div>
+            <div className="text-xs text-neutral-500 font-mono pt-1">
+              Raw probability: {probabilityFixed8(probability)}
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-neutral-400 text-xs uppercase tracking-wider">
+              Contribution rate
+            </Label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={contribution}
+              onChange={(e) => setContribution(e.target.value)}
+              placeholder="0.01000000"
+              className="bg-neutral-800 border-neutral-700 text-white font-mono"
+            />
+            <div className="text-xs text-neutral-500 pt-1">
+              Pool balance: {Number(child.poolBalance).toFixed(2)} · Enabled:{" "}
+              {child.enabled ? "yes" : "no"}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-md border border-neutral-800 bg-neutral-900/60 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-neutral-300">
+            Simulated Daily Volume{" "}
+            <span className="text-neutral-500 font-normal text-xs">
+              (preview only — not saved)
+            </span>
+          </Label>
+          <span className="font-mono text-sm text-white">
+            {dailyVolume.toLocaleString()} spins/day
+          </span>
+        </div>
+        <Slider
+          value={[dailyVolume]}
+          min={1000}
+          max={500000}
+          step={1000}
+          onValueChange={(v) => setDailyVolume(v[0] ?? DEFAULT_DAILY_VOLUME)}
+        />
+        <div className="rounded border border-blue-500/30 bg-blue-500/5 p-3">
+          <div className="text-xs uppercase tracking-wider text-blue-300 mb-1">
+            Estimated Drop Frequency
+          </div>
+          <div className="text-sm text-white">{dropText}</div>
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          size="sm"
+          onClick={save}
+          disabled={saving}
+          className="bg-blue-500 hover:bg-blue-600"
+        >
+          Save tier
+        </Button>
       </div>
     </div>
   );
