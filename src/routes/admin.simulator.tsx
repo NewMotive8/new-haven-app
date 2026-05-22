@@ -508,6 +508,9 @@ function ResultsSummary({
         </div>
       )}
 
+      {/* 2b. Visual analytics */}
+      <SimulatorCharts result={result} />
+
       {/* 3. Math Audit */}
       {!isMultiLevel ? (
         <MathAudit
