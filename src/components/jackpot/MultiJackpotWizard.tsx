@@ -609,8 +609,8 @@ export function MultiJackpotWizard() {
             Define group-level funding
           </h2>
           <p className="text-sm text-neutral-400 mb-8 max-w-2xl">
-            All children inherit funding from this MultiJackpot. Set the source,
-            type, and master value once — each tier will declare only its
+            All children inherit funding from this MultiJackpot. Configure the
+            Jackpot Contribution once — each tier will declare only its
             proportional split share in the next step.
           </p>
 
@@ -628,61 +628,21 @@ export function MultiJackpotWizard() {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label className="text-neutral-300">Contribution Source</Label>
-                <select
-                  value={contributionSource}
-                  onChange={(e) =>
-                    setContributionSource(e.target.value as ContributionSource)
-                  }
-                  className="w-full h-11 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-white"
-                >
-                  <option value="player">Player contribution</option>
-                  <option value="operator">Operator (house-funded)</option>
-                </select>
-                <div className="text-xs text-neutral-500">Who finances the pools.</div>
-              </div>
+            <JackpotContributionCard
+              contributionType={contributionType}
+              setContributionType={setContributionType}
+              totalContributionAmount={totalContributionAmount}
+              setTotalContributionAmount={setTotalContributionAmount}
+              poolWeight={poolWeight}
+              seedWeight={seedWeight}
+              houseWeight={houseWeight}
+              setSingleWeight={setSingleWeight}
+              minWagerAmount={minWagerAmount}
+              maxWagerAmount={maxWagerAmount}
+              setMinWagerAmount={setMinWagerAmount}
+              setMaxWagerAmount={setMaxWagerAmount}
+            />
 
-              <div className="space-y-2">
-                <Label className="text-neutral-300">Contribution Type</Label>
-                <select
-                  value={contributionType}
-                  onChange={(e) =>
-                    setContributionType(e.target.value as ContributionType)
-                  }
-                  className="w-full h-11 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-white"
-                >
-                  <option value="percentage">Percentage of wager</option>
-                  <option value="fixed">Fixed amount per spin</option>
-                </select>
-                <div className="text-xs text-neutral-500">
-                  How the master value is interpreted.
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-neutral-300">Master Contribution Value</Label>
-                <div className="relative">
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={masterValueInput}
-                    onChange={(e) => setMasterValueInput(e.target.value)}
-                    placeholder={contributionType === "percentage" ? "1.00" : "10.00"}
-                    className="bg-neutral-800 border-neutral-700 text-white h-11 font-mono pr-10"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">
-                    {contributionType === "percentage" ? "%" : "₵"}
-                  </span>
-                </div>
-                <div className="text-xs text-neutral-500">
-                  {contributionType === "percentage"
-                    ? "Total share of every wager funnelled into the MultiJackpot."
-                    : "Total amount drawn per spin and distributed across tiers."}
-                </div>
-              </div>
-            </div>
 
             <div className="pt-2 border-t border-neutral-800">
               <GameAssignmentStep
