@@ -324,7 +324,7 @@ const multiHigh: MultiBlueprint = {
     "Four-tier network progressive — Mini → Mega — with a 100k Mega cap and slow pacing.",
   targetGameTypes: ["Slots", "Live Casino"],
   kind: "multi",
-  group: { contributionType: "percentage", masterPlayerPercent: 2.0, walletType: "external" },
+  group: { contributionType: "percentage", masterPlayerPercent: 2.0, walletType: "external", operatorShare: 15 },
   tiers: [
     { tierName: "Mini", tierRank: 1, tierType: "classic", splitSharePct: 10, seedAmount: 50, reseedingAmount: 50, triggerOdds: 5000 },
     { tierName: "Minor", tierRank: 2, tierType: "classic", splitSharePct: 20, seedAmount: 250, reseedingAmount: 250, triggerOdds: 35000 },
