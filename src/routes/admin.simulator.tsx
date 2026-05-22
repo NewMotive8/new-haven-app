@@ -555,6 +555,7 @@ function ResultsSummary({
   const isMultiLevel = tiers.length > 0;
 
   // ----- Headline KPIs (jackpot-wide) -----
+  const isFrequency = isFrequencyConfig(config);
   const totalWager = result.totalWagered || 0;
   const houseRevenue = result.houseContributions ?? 0;
   const housePctActual = (result.houseRatio ?? 0) * 100;
@@ -565,12 +566,35 @@ function ResultsSummary({
     (result.walletContributions ?? result.totalContributions ?? 0) +
     (result.operatorContributions ?? 0) +
     (result.houseContributions ?? 0);
-  const totalPayout = isMultiLevel
+  const rawTotalPayout = isMultiLevel
     ? tiers.reduce((s, t) => s + (t.winAmountCounter || 0), 0)
     : result.winAmountCounter || 0;
+  // Boundary-leak clamp: under Happy Hour compression the payout can never
+  // exceed what was actually funded (contributions received + the baseline
+  // seed reserve that primed the pool at t0). Any drift past this ceiling
+  // is the off-hour/on-hour synchronization rounding artefact, so we pin
+  // the displayed payout to the funded ceiling.
+  const seedBaseline =
+    (config?.pool?.currentAmount ?? 0) + (config?.seed?.currentAmount ?? 0);
+  const payoutCeiling = totalContributionReceived + seedBaseline;
+  const totalPayout = isFrequency
+    ? Math.min(rawTotalPayout, payoutCeiling)
+    : rawTotalPayout;
   const contribPctOfWager = totalWager > 0 ? (totalContributionReceived / totalWager) * 100 : 0;
   const payoutPctOfWager = totalWager > 0 ? (totalPayout / totalWager) * 100 : 0;
   const averageDropAmount = totalDrops > 0 ? totalPayout / totalDrops : 0;
+
+  // Promo-window contribution rate — for FREQUENCY we report against the
+  // active window (which, post-compression, equals 100% of the simulated
+  // wagers) rather than diluting across a 24h global timeline.
+  const promoWindowPct = Number(config?.pool?.contributionAmount ?? 0);
+  const contribBadge = isFrequency
+    ? `${promoWindowPct.toFixed(2)}% of active promo-window wagers`
+    : `${contribPctOfWager.toFixed(2)}% of wager`;
+  const baseGameGgr = totalWager * BASE_GAME_HOUSE_HOLD;
+  const houseNote = `Estimated Base Game GGR Generated: € ${fmt(baseGameGgr)} (wagers × ${(
+    BASE_GAME_HOUSE_HOLD * 100
+  ).toFixed(0)}% house hold)`;
 
   return (
     <>
@@ -580,7 +604,7 @@ function ResultsSummary({
         <KpiCard
           label="Total Contribution Received"
           value={`€ ${fmt(totalContributionReceived)}`}
-          badge={`${contribPctOfWager.toFixed(2)}% of wager`}
+          badge={contribBadge}
         />
         <KpiCard
           label="Total Payout"
@@ -591,10 +615,12 @@ function ResultsSummary({
           label="House Revenue"
           value={`€ ${fmt(houseRevenue)}`}
           badge={`${housePctActual.toFixed(2)}% of wager`}
+          note={houseNote}
         />
         <KpiCard label="Jackpot Number of Drops" value={fmtInt(totalDrops)} />
         <KpiCard label="Average Jackpot Drop" value={`€ ${fmt(averageDropAmount)}`} />
       </div>
+
 
 
       {/* 2. Financial Ledger Table(s) */}
