@@ -158,14 +158,21 @@ function SimulatorPage() {
         throw new Error("Jackpot config is not valid JSON");
       }
       console.log(parsedPayload);
+      const autoIters = autoScaleIterations(parsedPayload, wager, iterations);
+      const effectiveIters = autoIters ?? iterations;
       const res = await axios.post<SimulatorResponseDTO>(
         "/api/v1/event/simulate-bet",
         parsedPayload,
         {
-          params: { wager, iterations },
+          params: { wager, iterations: effectiveIters },
           headers: { brandId: String(brandId ?? "") },
         },
       );
+      if (autoIters && autoIters !== iterations) {
+        toast.success(
+          `Curve model detected — auto-scaled to ${autoIters.toLocaleString()} spins for ${LIFECYCLES_PER_RUN} full drop cycles.`,
+        );
+      }
       setResult(res.data);
       setActiveConfig(parsedPayload);
     } catch (e: any) {
