@@ -928,13 +928,13 @@ function SandboxDemoPage() {
                     </button>
                   )}
                   <div id="jooba-widget-current-amount" className="jooba-widget-current-amount">
-                    {activePool ? fmt(poolDisplays[activePool.id] ?? activePool.poolBalance) : texts.loading}
+                    {activeDisplay ? fmt(activeDisplay.balance) : texts.loading}
                   </div>
                   {multi ? (
                     <button
                       className="jooba-icon-btn jooba-nav-btn"
-                      onClick={() => setActiveIndex((i) => Math.min(pools.length - 1, i + 1))}
-                      disabled={activeIndex >= pools.length - 1}
+                      onClick={() => setActiveIndex((i) => Math.min(displayPools.length - 1, i + 1))}
+                      disabled={activeIndex >= displayPools.length - 1}
                       aria-label="Next pool"
                     >
                       ›
