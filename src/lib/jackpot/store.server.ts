@@ -893,3 +893,123 @@ export async function recordGroupTransaction(payload: {
   }
   return { row: data, isReplay: false };
 }
+
+/**
+ * Hard-delete a jackpot group. Rejects with GroupConflictError when the
+ * group is active. Children are detached from the group (group_id → null)
+ * before the group is removed so child jackpots become standalone drafts
+ * that the operator can re-attach, edit, or delete individually.
+ */
+export async function deleteGroup(
+  brandId: string | number,
+  groupId: string | number,
+): Promise<boolean> {
+  const id = Number(groupId);
+  const { data: existing, error: rErr } = await supabaseAdmin
+    .from("jackpot_groups" as any)
+    .select("status, brand_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (rErr) throw new Error(rErr.message);
+  if (!existing) return false;
+  if (Number((existing as any).brand_id) !== toBrandNum(brandId)) return false;
+  if ((existing as any).status === "active") {
+    throw new GroupConflictError(
+      "Group is active; disable it before deleting.",
+    );
+  }
+
+  // Detach children first so the group_guard trigger doesn't reject
+  // the row-delete with a foreign-key-style read on the parent.
+  const { error: detachErr } = await supabaseAdmin
+    .from("jackpots")
+    .update({ group_id: null, tier_rank: null, split_share: 0 } as any)
+    .eq("group_id", id);
+  if (detachErr) throw new Error(detachErr.message);
+
+  const { error } = await supabaseAdmin
+    .from("jackpot_groups" as any)
+    .delete()
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  return true;
+}
+
+/**
+ * Duplicate a jackpot group and all of its child tiers. The clone is created
+ * in `draft` status with name "<original> (Copy)". Each child jackpot is
+ * cloned as a fresh standalone-then-attached row with its own pool (seeded
+ * to the original's seed amount) and seed record. Returns the new group id.
+ */
+export async function cloneGroup(
+  brandId: string | number,
+  groupId: string | number,
+): Promise<JackpotGroupWithChildrenDTO> {
+  const src = await getGroup(groupId);
+  if (!src) throw new Error(`Group ${groupId} not found`);
+  if (Number(src.brandId) !== toBrandNum(brandId)) {
+    throw new Error("Group does not belong to brand");
+  }
+
+  const cloned = await createGroup(brandId, {
+    name: `${src.name} (Copy)`,
+    overlappingRule: src.overlappingRule,
+    contributionSource: src.contributionSource,
+    contributionType: src.contributionType,
+    masterContributionValue: src.masterContributionValue,
+    assignedCategories: src.assignedCategories,
+    assignedGameIds: src.assignedGameIds,
+  });
+
+  for (const child of src.children) {
+    const newChild = await createJackpot(String(brandId), {
+      name: child.name,
+      enabled: child.enabled,
+      contributionRate: child.contributionRate,
+      triggerThreshold: child.triggerThreshold,
+      jackpotType: child.jackpotType,
+      config: child.config,
+      poolBalance: child.seedAmount,
+      seedAmount: child.seedAmount,
+      assignedCategories: child.assignedCategories,
+      assignedGameIds: child.assignedGameIds,
+      volatility: (child as any).volatility,
+    });
+    await addChildJackpot(cloned.id, newChild.id, child.tierRank, {
+      triggerProbability: child.triggerProbability,
+      splitShare: child.splitShare,
+      name: child.name,
+    });
+  }
+
+  const out = await getGroup(cloned.id);
+  if (!out) throw new Error("Failed to load cloned group");
+  return out;
+}
+
+/**
+ * Duplicate a standalone jackpot. The clone is created with name
+ * "<original> (Copy)" and is disabled by default so the operator can
+ * inspect it before enabling. Pool starts at the seed amount; trigger
+ * configuration (trigger_condition JSON) is copied verbatim.
+ */
+export async function cloneJackpot(
+  brandId: string,
+  id: number,
+): Promise<JackpotDTO | undefined> {
+  const src = await getJackpot(brandId, id);
+  if (!src) return undefined;
+  return createJackpot(brandId, {
+    name: `${src.name} (Copy)`,
+    enabled: false,
+    contributionRate: src.contributionRate,
+    triggerThreshold: src.triggerThreshold,
+    jackpotType: src.jackpotType,
+    config: src.config,
+    poolBalance: src.seedAmount,
+    seedAmount: src.seedAmount,
+    assignedCategories: src.assignedCategories,
+    assignedGameIds: src.assignedGameIds,
+    volatility: (src as any).volatility,
+  });
+}
