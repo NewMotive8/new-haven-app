@@ -8,6 +8,21 @@ import type { JackpotSavePayload } from "@/components/jackpot/JackpotCreationFor
 import { mapPayloadToConfig } from "@/lib/jackpot/payload-to-config";
 import { buildCreateBody } from "@/lib/jackpot/build-create-body";
 import { BlueprintCenter } from "@/components/jackpot/BlueprintCenter";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RTooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+  BarChart,
+  Bar,
+} from "recharts";
 
 const DEFAULT_CONFIG: JackpotConfigDTO = {
   id: 1,
