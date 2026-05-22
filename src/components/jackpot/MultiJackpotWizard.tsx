@@ -72,6 +72,7 @@ interface GroupDTO {
   status: "draft" | "active" | "disabled";
   overlappingRule: string;
   contributionSource: ContributionSource;
+  playerSharePct: number; // 0..100 — UI-only split between Player and Operator funding
   contributionType: ContributionType;
   masterContributionValue: number;
   // UI-only mirror of the Single-Jackpot Contribution card.
@@ -424,8 +425,9 @@ export function MultiJackpotWizard() {
   // Step 1 — Master Strategy
   const [name, setName] = React.useState("");
   // Contribution card (mirrors the Single Jackpot "Jackpot Contribution" block)
-  const [contributionSource, setContributionSource] =
-    React.useState<ContributionSource>("player");
+  const [playerSharePct, setPlayerSharePct] = React.useState<number>(100);
+  const contributionSource: ContributionSource =
+    playerSharePct >= 50 ? "player" : "operator";
   const [contributionType, setContributionType] =
     React.useState<ContributionType>("fixed");
   const [totalContributionAmount, setTotalContributionAmount] =
@@ -502,6 +504,7 @@ export function MultiJackpotWizard() {
       );
       setGroup({
         ...res.data,
+        playerSharePct,
         minWagerAmount,
         maxWagerAmount,
         assignedCategories: assignment.assignedCategories,
@@ -737,8 +740,8 @@ export function MultiJackpotWizard() {
             </div>
 
             <JackpotContributionCard
-              contributionSource={contributionSource}
-              setContributionSource={setContributionSource}
+              playerSharePct={playerSharePct}
+              setPlayerSharePct={setPlayerSharePct}
               contributionType={contributionType}
               setContributionType={setContributionType}
               totalContributionAmount={totalContributionAmount}
@@ -1699,8 +1702,8 @@ function LaunchGate({
           value={group.contributionType === "percentage" ? "Percentage" : "Fixed"}
         />
         <SummaryStat
-          label="Source"
-          value={group.contributionSource === "operator" ? "Operator-funded" : "Player-funded"}
+          label="Source split"
+          value={`Player ${group.playerSharePct ?? (group.contributionSource === "operator" ? 0 : 100)}% · Operator ${100 - (group.playerSharePct ?? (group.contributionSource === "operator" ? 0 : 100))}%`}
         />
       </div>
 
@@ -2020,8 +2023,8 @@ function DraftNumberInput({
 }
 
 function JackpotContributionCard({
-  contributionSource,
-  setContributionSource,
+  playerSharePct,
+  setPlayerSharePct,
   contributionType,
   setContributionType,
   totalContributionAmount,
@@ -2031,8 +2034,8 @@ function JackpotContributionCard({
   setMinWagerAmount,
   setMaxWagerAmount,
 }: {
-  contributionSource: ContributionSource;
-  setContributionSource: (s: ContributionSource) => void;
+  playerSharePct: number;
+  setPlayerSharePct: (n: number) => void;
   contributionType: ContributionType;
   setContributionType: (t: ContributionType) => void;
   totalContributionAmount: number;
@@ -2042,46 +2045,15 @@ function JackpotContributionCard({
   setMinWagerAmount: (n: number) => void;
   setMaxWagerAmount: (n: number) => void;
 }) {
+  const clampShare = (raw: number) => {
+    if (!Number.isFinite(raw)) return 0;
+    return Math.max(0, Math.min(100, Math.round(raw)));
+  };
+  const operatorSharePct = 100 - playerSharePct;
   return (
     <section className="scroll-mt-20">
       <h2 className="text-xl font-semibold mb-6 text-white">Jackpot Contribution</h2>
       <Card className="p-6 bg-neutral-900/50 border-neutral-800 mb-2">
-        {/* Player vs Operator funded — master-level decision */}
-        <div className="mb-6">
-          <div className="text-sm font-semibold text-neutral-100 mb-2">
-            Contribution Source
-          </div>
-          <div className="inline-flex gap-2">
-            <button
-              type="button"
-              onClick={() => setContributionSource("player")}
-              className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
-                contributionSource === "player"
-                  ? "bg-blue-500 text-white"
-                  : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
-              }`}
-            >
-              Player-funded
-            </button>
-            <button
-              type="button"
-              onClick={() => setContributionSource("operator")}
-              className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
-                contributionSource === "operator"
-                  ? "bg-blue-500 text-white"
-                  : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
-              }`}
-            >
-              Operator-funded
-            </button>
-          </div>
-          <p className="text-[11px] text-neutral-500 mt-2">
-            {contributionSource === "player"
-              ? "Contribution is deducted from each qualifying player wager."
-              : "Contribution is funded entirely by the operator on every spin."}
-          </p>
-        </div>
-
         <div className="inline-flex gap-2 mb-6">
           <button
             type="button"
@@ -2148,7 +2120,7 @@ function JackpotContributionCard({
           </div>
         )}
 
-        <div className="space-y-2" style={{ width: 193 }}>
+        <div className="space-y-2 mb-6" style={{ width: 193 }}>
           <BrightLabel
             htmlFor="mj-total"
             className="text-sm font-semibold text-neutral-100"
@@ -2168,9 +2140,57 @@ function JackpotContributionCard({
               {contributionType === "fixed" ? "€" : "%"}
             </span>
           </div>
-          <p className="text-[11px] text-neutral-500">
-            Per-tier Pool / Seed / House weight split is configured inside each tier card.
+        </div>
+
+        {/* Contribution Source — split between Player & Operator funding */}
+        <div className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-4 max-w-xl">
+          <div className="text-sm font-semibold text-neutral-100 mb-1">
+            Contribution Source
+          </div>
+          <p className="text-[11px] text-neutral-500 mb-4">
+            Split how the contribution amount above is funded. 100/0 = fully player-funded, 0/100 = fully operator-funded.
           </p>
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center gap-1 w-20 shrink-0">
+              <span className="text-[11px] uppercase tracking-wide text-neutral-400">Player</span>
+              <div className="relative w-20">
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={playerSharePct}
+                  onChange={(e) => setPlayerSharePct(clampShare(parseInt(e.target.value, 10)))}
+                  className="bg-neutral-900 border-neutral-700 pr-6 tabular-nums h-9 text-center"
+                />
+                <span className="absolute inset-y-0 right-2 flex items-center text-neutral-400 pointer-events-none text-xs">%</span>
+              </div>
+            </div>
+            <div className="flex-1 px-2">
+              <Slider
+                value={[playerSharePct]}
+                min={0}
+                max={100}
+                step={1}
+                onValueChange={(v) => setPlayerSharePct(clampShare(v[0] ?? 0))}
+              />
+            </div>
+            <div className="flex flex-col items-center gap-1 w-20 shrink-0">
+              <span className="text-[11px] uppercase tracking-wide text-neutral-400">Operator</span>
+              <div className="relative w-20">
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={operatorSharePct}
+                  onChange={(e) => setPlayerSharePct(clampShare(100 - parseInt(e.target.value, 10)))}
+                  className="bg-neutral-900 border-neutral-700 pr-6 tabular-nums h-9 text-center"
+                />
+                <span className="absolute inset-y-0 right-2 flex items-center text-neutral-400 pointer-events-none text-xs">%</span>
+              </div>
+            </div>
+          </div>
         </div>
       </Card>
     </section>
