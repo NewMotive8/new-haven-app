@@ -84,12 +84,16 @@ export function buildTriggerCondition(p: JackpotSavePayload): Record<string, unk
     eligibility: { games: p.eligibility ?? null },
     // ── Community Win Mechanics — mirrors Java Community.java
     community: p.community ?? null,
-    ...(p.type === "multi_level" && Array.isArray(p.tiers) ? { tiers: p.tiers } : {}),
   };
 }
 
 export function buildCreateBody(payload: JackpotSavePayload) {
-  // Strict gate — throws BEFORE any data layer touch.
+  // Legacy multi_level guard — relational MultiJackpot groups are the only supported path.
+  if ((payload as { type?: string }).type === "multi_level" || Array.isArray((payload as { tiers?: unknown }).tiers)) {
+    throw new Error(
+      "Legacy multi_level jackpots are deprecated. Use POST /api/v1/jackpot-groups to create a MultiJackpot.",
+    );
+  }
   validateSplitWeights(payload);
 
   const seedAmount = 1000;
