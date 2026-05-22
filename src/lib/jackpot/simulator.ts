@@ -13,8 +13,6 @@ import type {
   PoolDTO,
   SeedDTO,
   SimulatorResponseDTO,
-  TierDTO,
-  TierResultDTO,
   WinEventDTO,
 } from "./types";
 
