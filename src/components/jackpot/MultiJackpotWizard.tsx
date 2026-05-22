@@ -504,6 +504,7 @@ export function MultiJackpotWizard() {
       );
       setGroup({
         ...res.data,
+        playerSharePct,
         minWagerAmount,
         maxWagerAmount,
         assignedCategories: assignment.assignedCategories,
