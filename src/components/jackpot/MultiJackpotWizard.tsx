@@ -47,6 +47,13 @@ interface GroupDTO {
   contributionSource: ContributionSource;
   contributionType: ContributionType;
   masterContributionValue: number;
+  // UI-only mirror of the Single-Jackpot Contribution card.
+  // Persisted via masterContributionValue; these extras live in wizard memory.
+  poolWeight: number;
+  seedWeight: number;
+  houseWeight: number;
+  minWagerAmount: number;
+  maxWagerAmount: number;
   assignedCategories?: string[];
   assignedGameIds?: number[];
 }
@@ -319,16 +326,41 @@ export function MultiJackpotWizard() {
 
   // Step 1 — Master Strategy
   const [name, setName] = React.useState("");
-  const [contributionSource, setContributionSource] =
-    React.useState<ContributionSource>("player");
+  // Contribution card (mirrors the Single Jackpot "Jackpot Contribution" block)
   const [contributionType, setContributionType] =
-    React.useState<ContributionType>("percentage");
-  const [masterValueInput, setMasterValueInput] = React.useState("1.00");
+    React.useState<ContributionType>("fixed");
+  const [totalContributionAmount, setTotalContributionAmount] =
+    React.useState<number>(0.1);
+  const [poolWeight, setPoolWeight] = React.useState<number>(60);
+  const [seedWeight, setSeedWeight] = React.useState<number>(30);
+  const [houseWeight, setHouseWeight] = React.useState<number>(10);
+  const [minWagerAmount, setMinWagerAmount] = React.useState<number>(0);
+  const [maxWagerAmount, setMaxWagerAmount] = React.useState<number>(0);
   const [assignment, setAssignment] = React.useState<GameAssignmentValue>({
     assignedCategories: [],
     assignedGameIds: [],
   });
   const [group, setGroup] = React.useState<GroupDTO | null>(null);
+
+  // Update only the edited weight; cap so the trio never exceeds 100.
+  function setSingleWeight(
+    changed: "pool" | "seed" | "house",
+    nextRaw: number,
+  ) {
+    const others = (["pool", "seed", "house"] as const).filter(
+      (k) => k !== changed,
+    );
+    const current = { pool: poolWeight, seed: seedWeight, house: houseWeight };
+    const otherSum = current[others[0]] + current[others[1]];
+    const max = Math.max(0, 100 - otherSum);
+    const next = Math.max(0, Math.min(max, Number(nextRaw) || 0));
+    const set = {
+      pool: setPoolWeight,
+      seed: setSeedWeight,
+      house: setHouseWeight,
+    };
+    set[changed](next);
+  }
 
   // Step 2 — Tier Allocation
   const [draft, setDraft] = React.useState<ChildDraft | null>(null);
@@ -353,8 +385,10 @@ export function MultiJackpotWizard() {
     setDraft((prev) => (prev ? { ...prev, ...patch } : prev));
   }
 
+  // "Master value" persisted to the API mirrors the Single form's logic:
+  // store fraction for percent (1% → 0.01), absolute amount for fixed.
   function masterValueAsStored(): number {
-    const raw = Number.parseFloat(masterValueInput) || 0;
+    const raw = Number(totalContributionAmount) || 0;
     return contributionType === "percentage" ? raw / 100 : raw;
   }
 
@@ -364,7 +398,13 @@ export function MultiJackpotWizard() {
     if (brandId == null) return toast.error("No brand selected");
     const masterValue = masterValueAsStored();
     if (!(masterValue > 0))
-      return toast.error("Master contribution value must be greater than zero");
+      return toast.error("Contribution amount must be greater than zero");
+    const weightSum = poolWeight + seedWeight + houseWeight;
+    if (Math.abs(weightSum - 100) > 0.05) {
+      return toast.error(
+        `Contribution Weight must sum to 100% (currently ${weightSum.toFixed(2)}%)`,
+      );
+    }
     setSubmitting(true);
     try {
       const res = await axios.post<GroupDTO>(
@@ -372,7 +412,8 @@ export function MultiJackpotWizard() {
         {
           name: name.trim(),
           overlappingRule: "split",
-          contributionSource,
+          // Source is implicit: House weight covers operator-funded share.
+          contributionSource: "player",
           contributionType,
           masterContributionValue: masterValue,
           assignedCategories: assignment.assignedCategories,
@@ -387,6 +428,11 @@ export function MultiJackpotWizard() {
       );
       setGroup({
         ...res.data,
+        poolWeight,
+        seedWeight,
+        houseWeight,
+        minWagerAmount,
+        maxWagerAmount,
         assignedCategories: assignment.assignedCategories,
         assignedGameIds: assignment.assignedGameIds,
       });
@@ -563,8 +609,8 @@ export function MultiJackpotWizard() {
             Define group-level funding
           </h2>
           <p className="text-sm text-neutral-400 mb-8 max-w-2xl">
-            All children inherit funding from this MultiJackpot. Set the source,
-            type, and master value once — each tier will declare only its
+            All children inherit funding from this MultiJackpot. Configure the
+            Jackpot Contribution once — each tier will declare only its
             proportional split share in the next step.
           </p>
 
@@ -582,61 +628,21 @@ export function MultiJackpotWizard() {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label className="text-neutral-300">Contribution Source</Label>
-                <select
-                  value={contributionSource}
-                  onChange={(e) =>
-                    setContributionSource(e.target.value as ContributionSource)
-                  }
-                  className="w-full h-11 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-white"
-                >
-                  <option value="player">Player contribution</option>
-                  <option value="operator">Operator (house-funded)</option>
-                </select>
-                <div className="text-xs text-neutral-500">Who finances the pools.</div>
-              </div>
+            <JackpotContributionCard
+              contributionType={contributionType}
+              setContributionType={setContributionType}
+              totalContributionAmount={totalContributionAmount}
+              setTotalContributionAmount={setTotalContributionAmount}
+              poolWeight={poolWeight}
+              seedWeight={seedWeight}
+              houseWeight={houseWeight}
+              setSingleWeight={setSingleWeight}
+              minWagerAmount={minWagerAmount}
+              maxWagerAmount={maxWagerAmount}
+              setMinWagerAmount={setMinWagerAmount}
+              setMaxWagerAmount={setMaxWagerAmount}
+            />
 
-              <div className="space-y-2">
-                <Label className="text-neutral-300">Contribution Type</Label>
-                <select
-                  value={contributionType}
-                  onChange={(e) =>
-                    setContributionType(e.target.value as ContributionType)
-                  }
-                  className="w-full h-11 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-white"
-                >
-                  <option value="percentage">Percentage of wager</option>
-                  <option value="fixed">Fixed amount per spin</option>
-                </select>
-                <div className="text-xs text-neutral-500">
-                  How the master value is interpreted.
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-neutral-300">Master Contribution Value</Label>
-                <div className="relative">
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={masterValueInput}
-                    onChange={(e) => setMasterValueInput(e.target.value)}
-                    placeholder={contributionType === "percentage" ? "1.00" : "10.00"}
-                    className="bg-neutral-800 border-neutral-700 text-white h-11 font-mono pr-10"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">
-                    {contributionType === "percentage" ? "%" : "₵"}
-                  </span>
-                </div>
-                <div className="text-xs text-neutral-500">
-                  {contributionType === "percentage"
-                    ? "Total share of every wager funnelled into the MultiJackpot."
-                    : "Total amount drawn per spin and distributed across tiers."}
-                </div>
-              </div>
-            </div>
 
             <div className="pt-2 border-t border-neutral-800">
               <GameAssignmentStep
@@ -880,16 +886,10 @@ function SharesBar({
 }
 
 function MasterRecap({ group }: { group: GroupDTO }) {
-  const gameCount = (group.assignedGameIds?.length ?? 0);
-  const catCount = (group.assignedCategories?.length ?? 0);
+  const gameCount = group.assignedGameIds?.length ?? 0;
+  const catCount = group.assignedCategories?.length ?? 0;
   return (
     <div className="rounded-lg border border-neutral-800 bg-neutral-900/40 p-4 mb-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-      <div>
-        <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 mb-0.5">
-          Source
-        </div>
-        <div className="text-white capitalize">{group.contributionSource}</div>
-      </div>
       <div>
         <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 mb-0.5">
           Type
@@ -900,10 +900,19 @@ function MasterRecap({ group }: { group: GroupDTO }) {
       </div>
       <div>
         <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 mb-0.5">
-          Master value
+          Amount
         </div>
         <div className="text-white font-mono">
           {formatMasterValue(group.contributionType, group.masterContributionValue)}
+        </div>
+      </div>
+      <div>
+        <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 mb-0.5">
+          Weights (Pool / Seed / House)
+        </div>
+        <div className="text-white font-mono">
+          {group.poolWeight.toFixed(0)}% · {group.seedWeight.toFixed(0)}% ·{" "}
+          {group.houseWeight.toFixed(0)}%
         </div>
       </div>
       <div>
@@ -1555,12 +1564,12 @@ function LaunchGate({
       <div className="grid md:grid-cols-3 gap-4 mb-4">
         <SummaryStat label="MultiJackpot" value={group.name} />
         <SummaryStat
-          label="Source"
-          value={group.contributionSource === "player" ? "Player" : "Operator"}
-        />
-        <SummaryStat
           label="Type"
           value={group.contributionType === "percentage" ? "Percentage" : "Fixed"}
+        />
+        <SummaryStat
+          label="Weights · Pool / Seed / House"
+          value={`${group.poolWeight.toFixed(0)}% / ${group.seedWeight.toFixed(0)}% / ${group.houseWeight.toFixed(0)}%`}
         />
       </div>
 
@@ -1789,3 +1798,292 @@ class Step2ErrorBoundary extends React.Component<
 // Re-export parseFrequencyJSON helpers so future edit flows can hydrate a
 // saved tier card from a child jackpot's stored trigger_condition.
 export { parseFrequencyJSON, pickFrequencyInterval, pickTime };
+
+/* ────────────────────────────────────────────────────────────────── */
+/* Jackpot Contribution Card — mirrors Single Jackpot pattern         */
+/* (Fixed/Percent · Amount · Pool/Seed/House weights · wager limits)  */
+/* ────────────────────────────────────────────────────────────────── */
+
+const BrightLabel = ({
+  htmlFor,
+  children,
+  className = "",
+}: {
+  htmlFor?: string;
+  children: React.ReactNode;
+  className?: string;
+}) => (
+  <Label htmlFor={htmlFor} className={`text-neutral-100 ${className}`}>
+    {children}
+  </Label>
+);
+
+const CurrencyInput = ({
+  id,
+  ...props
+}: React.ComponentProps<typeof Input> & { id: string }) => (
+  <div className="relative">
+    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">
+      €
+    </span>
+    <Input id={id} {...props} className={`pl-8 ${props.className || ""}`} />
+  </div>
+);
+
+const formatDraft = (value: number) =>
+  Number.isFinite(value) && value !== 0 ? `${value}` : "";
+
+function DraftNumberInput({
+  id,
+  value,
+  onCommit,
+  className = "",
+  placeholder,
+}: {
+  id?: string;
+  value: number;
+  onCommit: (next: number) => void;
+  className?: string;
+  placeholder?: string;
+}) {
+  const [draft, setDraft] = React.useState(formatDraft(value));
+  const [editing, setEditing] = React.useState(false);
+  React.useEffect(() => {
+    if (!editing) setDraft(formatDraft(value));
+  }, [value, editing]);
+  const commit = () => {
+    setEditing(false);
+    const raw = draft.trim().replace(",", ".");
+    if (raw === "" || raw === ".") {
+      onCommit(0);
+      setDraft("");
+      return;
+    }
+    const next = Number(raw);
+    if (!Number.isFinite(next)) {
+      setDraft(formatDraft(value));
+      return;
+    }
+    onCommit(next);
+  };
+  return (
+    <Input
+      id={id}
+      type="text"
+      inputMode="decimal"
+      value={draft}
+      placeholder={placeholder}
+      onFocus={() => setEditing(true)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+      }}
+      onChange={(e) => {
+        const raw = e.target.value.replace(",", ".");
+        if (!/^\d*\.?\d*$/.test(raw)) return;
+        setDraft(raw);
+      }}
+      className={className}
+    />
+  );
+}
+
+function JackpotContributionCard({
+  contributionType,
+  setContributionType,
+  totalContributionAmount,
+  setTotalContributionAmount,
+  poolWeight,
+  seedWeight,
+  houseWeight,
+  setSingleWeight,
+  minWagerAmount,
+  maxWagerAmount,
+  setMinWagerAmount,
+  setMaxWagerAmount,
+}: {
+  contributionType: ContributionType;
+  setContributionType: (t: ContributionType) => void;
+  totalContributionAmount: number;
+  setTotalContributionAmount: (n: number) => void;
+  poolWeight: number;
+  seedWeight: number;
+  houseWeight: number;
+  setSingleWeight: (k: "pool" | "seed" | "house", n: number) => void;
+  minWagerAmount: number;
+  maxWagerAmount: number;
+  setMinWagerAmount: (n: number) => void;
+  setMaxWagerAmount: (n: number) => void;
+}) {
+  const sum = poolWeight + seedWeight + houseWeight;
+  const sumOk = Math.abs(sum - 100) < 0.05;
+  const base = totalContributionAmount; // amount per spin in selected unit
+  const rows: Array<{
+    label: string;
+    k: "pool" | "seed" | "house";
+    value: number;
+  }> = [
+    { label: "Pool", k: "pool", value: poolWeight },
+    { label: "Seed", k: "seed", value: seedWeight },
+    { label: "House", k: "house", value: houseWeight },
+  ];
+  // Largest-remainder allocator @ 3 decimals — same logic as Single.
+  const allocated = React.useMemo(() => {
+    if (!sumOk || base <= 0) return rows.map((r) => base * (r.value / 100));
+    const target = Math.round(base * 1000);
+    const exacts = rows.map((r) => base * (r.value / 100) * 1000);
+    const floors = exacts.map((x) => Math.floor(x));
+    let gap = target - floors.reduce((a, b) => a + b, 0);
+    const order = exacts
+      .map((x, i) => ({ i, rem: x - Math.floor(x) }))
+      .sort((a, b) => b.rem - a.rem)
+      .map((o) => o.i);
+    const units = floors.slice();
+    for (let j = 0; j < order.length && gap > 0; j++, gap--) units[order[j]]++;
+    return units.map((u) => u / 1000);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [base, sumOk, poolWeight, seedWeight, houseWeight]);
+
+  return (
+    <section className="scroll-mt-20">
+      <h2 className="text-xl font-semibold mb-6 text-white">Jackpot Contribution</h2>
+      <Card className="p-6 bg-neutral-900/50 border-neutral-800 mb-2">
+        <div className="inline-flex gap-2 mb-6">
+          <button
+            type="button"
+            onClick={() => setContributionType("fixed")}
+            className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
+              contributionType === "fixed"
+                ? "bg-blue-500 text-white"
+                : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+            }`}
+          >
+            Fixed
+          </button>
+          <button
+            type="button"
+            onClick={() => setContributionType("percentage")}
+            className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
+              contributionType === "percentage"
+                ? "bg-blue-500 text-white"
+                : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+            }`}
+          >
+            Percent
+          </button>
+        </div>
+
+        {contributionType === "percentage" && (
+          <div className="mb-8 p-4 rounded-lg border border-neutral-800 bg-neutral-900/60">
+            <div className="text-sm font-semibold text-neutral-100 mb-1">
+              Wager Eligibility Limits
+            </div>
+            <p className="text-[11px] text-neutral-500 mb-4">
+              Applies globally to all contribution buckets. Bets outside this
+              range do not contribute.
+            </p>
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <BrightLabel htmlFor="mj-min-wager">
+                  Minimum Qualifying Wager
+                </BrightLabel>
+                <CurrencyInput
+                  id="mj-min-wager"
+                  placeholder="0"
+                  value={minWagerAmount || ""}
+                  onChange={(e) =>
+                    setMinWagerAmount(parseFloat(e.target.value) || 0)
+                  }
+                  className="bg-neutral-800 border-neutral-700"
+                />
+              </div>
+              <div className="space-y-2">
+                <BrightLabel htmlFor="mj-max-wager">
+                  Maximum Qualifying Wager
+                </BrightLabel>
+                <CurrencyInput
+                  id="mj-max-wager"
+                  placeholder="0"
+                  value={maxWagerAmount || ""}
+                  onChange={(e) =>
+                    setMaxWagerAmount(parseFloat(e.target.value) || 0)
+                  }
+                  className="bg-neutral-800 border-neutral-700"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2 mb-8" style={{ width: 193 }}>
+          <BrightLabel
+            htmlFor="mj-total"
+            className="text-sm font-semibold text-neutral-100"
+          >
+            {contributionType === "fixed"
+              ? "Fixed Contribution Amount"
+              : "Percent of Wager"}
+          </BrightLabel>
+          <div className="relative">
+            <DraftNumberInput
+              id="mj-total"
+              value={totalContributionAmount}
+              onCommit={setTotalContributionAmount}
+              className="bg-neutral-900 border-neutral-700 pr-8 tabular-nums h-10"
+            />
+            <span className="absolute inset-y-0 right-3 flex items-center text-neutral-400 pointer-events-none text-sm">
+              {contributionType === "fixed" ? "€" : "%"}
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <div className="text-sm font-semibold text-neutral-100 mb-3">
+            Contribution Weight
+          </div>
+          <div className="grid grid-cols-[140px_200px_200px] gap-6 pb-3 border-b border-neutral-800">
+            <span />
+            <span className="text-sm font-semibold text-neutral-100">Weight</span>
+            <span className="text-sm font-semibold text-neutral-100">Amount</span>
+          </div>
+          {rows.map(({ label, k, value }, i) => (
+            <div
+              key={k}
+              className="grid grid-cols-[140px_200px_200px] items-center gap-6 py-3"
+            >
+              <span className="text-sm font-semibold text-neutral-100">
+                {label}
+              </span>
+              <div className="relative">
+                <DraftNumberInput
+                  value={value}
+                  onCommit={(next) => setSingleWeight(k, next)}
+                  className="h-10 bg-neutral-900 border-neutral-700 pr-8 tabular-nums"
+                />
+                <span className="absolute inset-y-0 right-3 flex items-center text-sm text-neutral-400 pointer-events-none">
+                  %
+                </span>
+              </div>
+              <Input
+                readOnly
+                tabIndex={-1}
+                value={allocated[i].toFixed(3)}
+                className="h-10 bg-neutral-900 border-neutral-700 text-neutral-400 tabular-nums cursor-default"
+              />
+            </div>
+          ))}
+          {!sumOk && (
+            <div className="mt-2 text-xs text-amber-400">
+              Sum: {sum.toFixed(2)}% — must equal 100 to save
+            </div>
+          )}
+          <p className="mt-3 text-[11px] text-neutral-500">
+            <span className="text-neutral-300">House</span> covers the
+            operator-funded slice of every contribution — replaces the legacy
+            Player/Operator source selector.
+          </p>
+        </div>
+      </Card>
+    </section>
+  );
+}
