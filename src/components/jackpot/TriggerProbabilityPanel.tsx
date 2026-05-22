@@ -12,8 +12,15 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Zap, Flame, TrendingUp, Trophy, Gem, Info } from "lucide-react";
-import { BlockMath } from "react-katex";
-import "katex/dist/katex.min.css";
+import { ClientOnly } from "@tanstack/react-router";
+
+const LazyBlockMath = React.lazy(async () => {
+  const [mod] = await Promise.all([
+    import("react-katex"),
+    import("katex/dist/katex.min.css"),
+  ]);
+  return { default: mod.BlockMath };
+});
 
 /* Logarithmic interval slider helpers (Pure Chance) — 1k–10M spins. */
 export const MIN_SPINS = 1000;
