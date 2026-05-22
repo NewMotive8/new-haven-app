@@ -3219,7 +3219,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
               {eligibilitySection}
               {communityWinSection}
-              {triggerProbabilitySection}
+              {/* Trigger Probability is disabled for Must-Drop (value-driven). */}
               {playerTargetingSection}
 
               {/* Widget Configuration Section */}
