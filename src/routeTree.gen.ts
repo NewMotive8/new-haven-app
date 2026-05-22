@@ -22,6 +22,7 @@ import { Route as AdminJackpotsIndexRouteImport } from './routes/admin.jackpots.
 import { Route as AdminJackpotsNewRouteImport } from './routes/admin.jackpots.new'
 import { Route as ApiV2JackpotsIndexRouteImport } from './routes/api/v2/jackpots/index'
 import { Route as ApiV1JackpotsIndexRouteImport } from './routes/api/v1/jackpots/index'
+import { Route as ApiV1JackpotGroupsIndexRouteImport } from './routes/api/v1/jackpot-groups/index'
 import { Route as ApiV1JackpotsTopupRouteImport } from './routes/api/v1/jackpots/topup'
 import { Route as ApiV1JackpotsIdRouteImport } from './routes/api/v1/jackpots/$id'
 import { Route as ApiV1EventSimulateBetRouteImport } from './routes/api/v1/event/simulate-bet'
@@ -96,6 +97,11 @@ const ApiV1JackpotsIndexRoute = ApiV1JackpotsIndexRouteImport.update({
   path: '/api/v1/jackpots/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1JackpotGroupsIndexRoute = ApiV1JackpotGroupsIndexRouteImport.update({
+  id: '/api/v1/jackpot-groups/',
+  path: '/api/v1/jackpot-groups/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiV1JackpotsTopupRoute = ApiV1JackpotsTopupRouteImport.update({
   id: '/api/v1/jackpots/topup',
   path: '/api/v1/jackpots/topup',
@@ -154,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/api/v1/event/simulate-bet': typeof ApiV1EventSimulateBetRoute
   '/api/v1/jackpots/$id': typeof ApiV1JackpotsIdRoute
   '/api/v1/jackpots/topup': typeof ApiV1JackpotsTopupRoute
+  '/api/v1/jackpot-groups/': typeof ApiV1JackpotGroupsIndexRoute
   '/api/v1/jackpots/': typeof ApiV1JackpotsIndexRoute
   '/api/v2/jackpots/': typeof ApiV2JackpotsIndexRoute
   '/api/v1/event/bet/ledger': typeof ApiV1EventBetLedgerRoute
@@ -175,6 +182,7 @@ export interface FileRoutesByTo {
   '/api/v1/event/simulate-bet': typeof ApiV1EventSimulateBetRoute
   '/api/v1/jackpots/$id': typeof ApiV1JackpotsIdRoute
   '/api/v1/jackpots/topup': typeof ApiV1JackpotsTopupRoute
+  '/api/v1/jackpot-groups': typeof ApiV1JackpotGroupsIndexRoute
   '/api/v1/jackpots': typeof ApiV1JackpotsIndexRoute
   '/api/v2/jackpots': typeof ApiV2JackpotsIndexRoute
   '/api/v1/event/bet/ledger': typeof ApiV1EventBetLedgerRoute
@@ -199,6 +207,7 @@ export interface FileRoutesById {
   '/api/v1/event/simulate-bet': typeof ApiV1EventSimulateBetRoute
   '/api/v1/jackpots/$id': typeof ApiV1JackpotsIdRoute
   '/api/v1/jackpots/topup': typeof ApiV1JackpotsTopupRoute
+  '/api/v1/jackpot-groups/': typeof ApiV1JackpotGroupsIndexRoute
   '/api/v1/jackpots/': typeof ApiV1JackpotsIndexRoute
   '/api/v2/jackpots/': typeof ApiV2JackpotsIndexRoute
   '/api/v1/event/bet/ledger': typeof ApiV1EventBetLedgerRoute
@@ -224,6 +233,7 @@ export interface FileRouteTypes {
     | '/api/v1/event/simulate-bet'
     | '/api/v1/jackpots/$id'
     | '/api/v1/jackpots/topup'
+    | '/api/v1/jackpot-groups/'
     | '/api/v1/jackpots/'
     | '/api/v2/jackpots/'
     | '/api/v1/event/bet/ledger'
@@ -245,6 +255,7 @@ export interface FileRouteTypes {
     | '/api/v1/event/simulate-bet'
     | '/api/v1/jackpots/$id'
     | '/api/v1/jackpots/topup'
+    | '/api/v1/jackpot-groups'
     | '/api/v1/jackpots'
     | '/api/v2/jackpots'
     | '/api/v1/event/bet/ledger'
@@ -268,6 +279,7 @@ export interface FileRouteTypes {
     | '/api/v1/event/simulate-bet'
     | '/api/v1/jackpots/$id'
     | '/api/v1/jackpots/topup'
+    | '/api/v1/jackpot-groups/'
     | '/api/v1/jackpots/'
     | '/api/v2/jackpots/'
     | '/api/v1/event/bet/ledger'
@@ -286,6 +298,7 @@ export interface RootRouteChildren {
   ApiV1EventSimulateBetRoute: typeof ApiV1EventSimulateBetRoute
   ApiV1JackpotsIdRoute: typeof ApiV1JackpotsIdRoute
   ApiV1JackpotsTopupRoute: typeof ApiV1JackpotsTopupRoute
+  ApiV1JackpotGroupsIndexRoute: typeof ApiV1JackpotGroupsIndexRoute
   ApiV1JackpotsIndexRoute: typeof ApiV1JackpotsIndexRoute
   ApiV2JackpotsIndexRoute: typeof ApiV2JackpotsIndexRoute
   ApiV1JackpotsDisableIdRoute: typeof ApiV1JackpotsDisableIdRoute
@@ -383,6 +396,13 @@ declare module '@tanstack/react-router' {
       path: '/api/v1/jackpots'
       fullPath: '/api/v1/jackpots/'
       preLoaderRoute: typeof ApiV1JackpotsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/jackpot-groups/': {
+      id: '/api/v1/jackpot-groups/'
+      path: '/api/v1/jackpot-groups'
+      fullPath: '/api/v1/jackpot-groups/'
+      preLoaderRoute: typeof ApiV1JackpotGroupsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/v1/jackpots/topup': {
@@ -497,6 +517,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1EventSimulateBetRoute: ApiV1EventSimulateBetRoute,
   ApiV1JackpotsIdRoute: ApiV1JackpotsIdRoute,
   ApiV1JackpotsTopupRoute: ApiV1JackpotsTopupRoute,
+  ApiV1JackpotGroupsIndexRoute: ApiV1JackpotGroupsIndexRoute,
   ApiV1JackpotsIndexRoute: ApiV1JackpotsIndexRoute,
   ApiV2JackpotsIndexRoute: ApiV2JackpotsIndexRoute,
   ApiV1JackpotsDisableIdRoute: ApiV1JackpotsDisableIdRoute,
@@ -505,3 +526,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
