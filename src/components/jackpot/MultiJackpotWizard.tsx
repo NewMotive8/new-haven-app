@@ -8,8 +8,15 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { BrandContext } from "@/backoffice/app";
 import type { JackpotDTO } from "@/lib/jackpot/types";
+import {
+  denominatorToProbability,
+  formatDropFrequency,
+  probabilityFixed8,
+  probabilityToDenominator,
+} from "@/lib/jackpot/tier-forecast";
 
 type OverlappingRule = "split" | "additive";
 
