@@ -656,7 +656,7 @@ function ResultsSummary({
         <KpiCard
           label="House Revenue"
           value={`€ ${fmt(houseRevenue)}`}
-          badge={`${housePctActual.toFixed(2)}% of wager`}
+          badge={`Direct jackpot skim · ${housePctActual.toFixed(2)}% of wager`}
           note={houseNote}
         />
         <KpiCard label="Jackpot Number of Drops" value={fmtInt(totalDrops)} />
