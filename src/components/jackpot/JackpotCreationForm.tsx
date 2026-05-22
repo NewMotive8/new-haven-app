@@ -610,7 +610,9 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
     // Wager limits only apply when contributionType === 'percentage'.
     const isClassic = selectedType === 'classic';
     const isMustDrop = selectedType === 'must_drop';
-    const isPercentage = contributionType === 'percentage';
+    const isPercentage =
+      (contributionMode === 'split' ? totalContributionType : contributionType) === 'percentage';
+
 
     return {
       name: name.trim(),
@@ -732,6 +734,44 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
             }`}
           >Percent</button>
         </div>
+
+        {/* ── Unified Wager Eligibility Limits — Percentage-only ───────────
+            Single source of truth for Min/Max qualifying wager. Hidden &
+            nullified when contribution is Fixed (flat-fee side bet). */}
+        {totalContributionType === 'percentage' && (
+          <div className="mb-8 p-4 rounded-lg border border-neutral-800 bg-neutral-900/60">
+            <div className="text-sm font-semibold text-neutral-100 mb-1">Wager Eligibility Limits</div>
+            <p className="text-[11px] text-neutral-500 mb-4">
+              Applies globally to all contribution buckets. Bets outside this range do not contribute.
+            </p>
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <BrightLabel htmlFor="global-min-wager">Minimum Qualifying Wager</BrightLabel>
+                <CurrencyInput
+                  id="global-min-wager"
+                  type="number"
+                  placeholder="0"
+                  value={minWagerAmount || ''}
+                  onChange={(e) => setMinWagerAmount(parseFloat(e.target.value) || 0)}
+                  className="bg-neutral-800 border-neutral-700"
+                />
+              </div>
+              <div className="space-y-2">
+                <BrightLabel htmlFor="global-max-wager">Maximum Qualifying Wager</BrightLabel>
+                <CurrencyInput
+                  id="global-max-wager"
+                  type="number"
+                  placeholder="0"
+                  value={maxWagerAmount || ''}
+                  onChange={(e) => setMaxWagerAmount(parseFloat(e.target.value) || 0)}
+                  className="bg-neutral-800 border-neutral-700"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+
 
 
         <div className="space-y-2 mb-8" style={{ width: 193 }}>
@@ -2545,35 +2585,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                         <div></div>
                       </div>
 
-                      {contributionType === 'percentage' && (
-                        <>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="min-wager-must-drop">Minimum Wager Amount</BrightLabel>
-                              <CurrencyInput
-                                id="min-wager-must-drop"
-                                type="number"
-                                placeholder="0"
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
+                      {/* Wager limits moved to unified "Wager Eligibility Limits" block in Jackpot Contribution card. */}
 
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="max-wager-must-drop">Maximum Wager Amount</BrightLabel>
-                              <CurrencyInput
-                                id="max-wager-must-drop"
-                                type="number"
-                                placeholder="0"
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
-                        </>
-                      )}
                     </div>
                   </Card>
                 </div>
@@ -3664,34 +3677,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                             </div>
                             <div></div>
                           </div>
-                          {contributionType === 'percentage' && (
-                            <>
-                              <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                  <BrightLabel htmlFor="frequency-min-wager-fixed">Minimum Wager Amount</BrightLabel>
-                                  <CurrencyInput
-                                    id="frequency-min-wager-fixed"
-                                    type="number"
-                                    placeholder="0"
-                                    className="bg-neutral-800 border-neutral-700"
-                                  />
-                                </div>
-                                <div></div>
-                              </div>
-                              <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                  <BrightLabel htmlFor="frequency-max-wager-fixed">Maximum Wager Amount</BrightLabel>
-                                  <CurrencyInput
-                                    id="frequency-max-wager-fixed"
-                                    type="number"
-                                    placeholder="0"
-                                    className="bg-neutral-800 border-neutral-700"
-                                  />
-                                </div>
-                                <div></div>
-                              </div>
-                            </>
-                          )}
+                          {/* Wager limits moved to unified "Wager Eligibility Limits" block in Jackpot Contribution card. */}
+
                         </div>
                       )}
 
@@ -3756,34 +3743,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                             </div>
                             <div></div>
                           </div>
-                          {contributionType === 'percentage' && (
-                            <>
-                              <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                  <BrightLabel htmlFor="frequency-min-wager">Minimum Wager Amount</BrightLabel>
-                                  <CurrencyInput
-                                    id="frequency-min-wager"
-                                    type="number"
-                                    placeholder="0"
-                                    className="bg-neutral-800 border-neutral-700"
-                                  />
-                                </div>
-                                <div></div>
-                              </div>
-                              <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                  <BrightLabel htmlFor="frequency-max-wager">Maximum Wager Amount</BrightLabel>
-                                  <CurrencyInput
-                                    id="frequency-max-wager"
-                                    type="number"
-                                    placeholder="0"
-                                    className="bg-neutral-800 border-neutral-700"
-                                  />
-                                </div>
-                                <div></div>
-                              </div>
-                            </>
-                          )}
+                          {/* Wager limits moved to unified "Wager Eligibility Limits" block in Jackpot Contribution card. */}
+
                         </div>
                       )}
 
@@ -3835,34 +3796,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                             </div>
                             <div></div>
                           </div>
-                          {contributionType === 'percentage' && (
-                            <>
-                              <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                  <BrightLabel htmlFor="frequency-min-wager-max">Minimum Wager Amount</BrightLabel>
-                                  <CurrencyInput
-                                    id="frequency-min-wager-max"
-                                    type="number"
-                                    placeholder="0"
-                                    className="bg-neutral-800 border-neutral-700"
-                                  />
-                                </div>
-                                <div></div>
-                              </div>
-                              <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                  <BrightLabel htmlFor="frequency-max-wager-max">Maximum Wager Amount</BrightLabel>
-                                  <CurrencyInput
-                                    id="frequency-max-wager-max"
-                                    type="number"
-                                    placeholder="0"
-                                    className="bg-neutral-800 border-neutral-700"
-                                  />
-                                </div>
-                                <div></div>
-                              </div>
-                            </>
-                          )}
+                          {/* Wager limits moved to unified "Wager Eligibility Limits" block in Jackpot Contribution card. */}
+
                         </div>
                       )}
                     </div>
