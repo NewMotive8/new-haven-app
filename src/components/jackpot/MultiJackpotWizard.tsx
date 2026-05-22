@@ -156,13 +156,14 @@ export function MultiJackpotWizard() {
       return;
     }
     const tierRank = Math.max(0, Math.trunc(Number(draft.tierRank) || 0));
-    const body = {
+    const probability = denominatorToProbability(draft.triggerDenominator);
+    const body: Record<string, unknown> = {
       jackpotId: draft.jackpotId,
       tierRank,
-      // Precision boundary: string → fixed-8 → number, only at submit.
-      triggerProbability: toFixed8(draft.triggerProbability),
-      contributionRate: toFixed8(draft.contributionRate),
+      triggerProbability: Number(probability.toFixed(8)),
+      contributionRate: Number((Number.parseFloat(draft.contributionRate) || 0).toFixed(8)),
     };
+    if (draft.tierName.trim()) body.name = draft.tierName.trim();
     setSubmitting(true);
     try {
       const res = await axios.post(
