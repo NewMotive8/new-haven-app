@@ -354,10 +354,13 @@ export interface JackpotGroupDTO {
   contributionSource: ContributionSource;
   contributionType: GroupContributionType;
   masterContributionValue: number;
+  assignedCategories: string[];
+  assignedGameIds: number[];
   activatedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
 
 export interface JackpotGroupWithChildrenDTO extends JackpotGroupDTO {
   children: Array<
