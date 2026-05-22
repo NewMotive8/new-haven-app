@@ -3040,7 +3040,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
               {/* Jackpot Recurrence Section */}
               <section ref={recurrenceRef} className="scroll-mt-20">
-                <h2 className="text-xl font-semibold mb-6">Jackpot Recurrence</h2>
+                <h2 className="text-xl font-semibold mb-6">Jackpot Recurrence &amp; Timing</h2>
 
                 <div className="grid gap-6">
                   <Card className="p-6 bg-neutral-900/50 border-neutral-800">
