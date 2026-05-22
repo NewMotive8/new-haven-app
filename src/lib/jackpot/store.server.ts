@@ -391,6 +391,8 @@ type GroupRow = {
   contribution_source: ContributionSource;
   contribution_type: GroupContributionType;
   master_contribution_value: number;
+  assigned_categories: string[] | null;
+  assigned_game_ids: Array<number | string> | null;
   activated_at: string | null;
   created_at: string;
   updated_at: string;
@@ -406,6 +408,10 @@ function groupRowToDTO(row: GroupRow): JackpotGroupDTO {
     contributionSource: (row.contribution_source ?? "player") as ContributionSource,
     contributionType: (row.contribution_type ?? "percentage") as GroupContributionType,
     masterContributionValue: Number(row.master_contribution_value ?? 0),
+    assignedCategories: Array.isArray(row.assigned_categories) ? row.assigned_categories : [],
+    assignedGameIds: Array.isArray(row.assigned_game_ids)
+      ? row.assigned_game_ids.map((x) => Number(x))
+      : [],
     activatedAt: row.activated_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -413,7 +419,8 @@ function groupRowToDTO(row: GroupRow): JackpotGroupDTO {
 }
 
 const GROUP_SELECT =
-  "id, brand_id, name, status, overlapping_rule, contribution_source, contribution_type, master_contribution_value, activated_at, created_at, updated_at";
+  "id, brand_id, name, status, overlapping_rule, contribution_source, contribution_type, master_contribution_value, assigned_categories, assigned_game_ids, activated_at, created_at, updated_at";
+
 
 function toBrandNum(brandId: string | number): number {
   return typeof brandId === "number" ? brandId : brandIdNum(brandId);
