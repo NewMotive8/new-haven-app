@@ -342,6 +342,8 @@ export async function getJackpotConfig(
 // ===========================================================================
 
 export type GroupStatus = "draft" | "active" | "disabled";
+export type ContributionSource = "player" | "operator";
+export type GroupContributionType = "percentage" | "fixed";
 
 export interface JackpotGroupDTO {
   id: number;
@@ -349,13 +351,22 @@ export interface JackpotGroupDTO {
   name: string;
   status: GroupStatus;
   overlappingRule: string;
+  contributionSource: ContributionSource;
+  contributionType: GroupContributionType;
+  masterContributionValue: number;
   activatedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface JackpotGroupWithChildrenDTO extends JackpotGroupDTO {
-  children: Array<JackpotDTO & { tierRank: number; triggerProbability: number }>;
+  children: Array<
+    JackpotDTO & {
+      tierRank: number;
+      triggerProbability: number;
+      splitShare: number;
+    }
+  >;
 }
 
 export class GroupConflictError extends Error {
@@ -374,6 +385,9 @@ type GroupRow = {
   name: string;
   status: GroupStatus;
   overlapping_rule: string;
+  contribution_source: ContributionSource;
+  contribution_type: GroupContributionType;
+  master_contribution_value: number;
   activated_at: string | null;
   created_at: string;
   updated_at: string;
@@ -386,6 +400,9 @@ function groupRowToDTO(row: GroupRow): JackpotGroupDTO {
     name: row.name,
     status: row.status,
     overlappingRule: row.overlapping_rule,
+    contributionSource: (row.contribution_source ?? "player") as ContributionSource,
+    contributionType: (row.contribution_type ?? "percentage") as GroupContributionType,
+    masterContributionValue: Number(row.master_contribution_value ?? 0),
     activatedAt: row.activated_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -393,30 +410,51 @@ function groupRowToDTO(row: GroupRow): JackpotGroupDTO {
 }
 
 const GROUP_SELECT =
-  "id, brand_id, name, status, overlapping_rule, activated_at, created_at, updated_at";
+  "id, brand_id, name, status, overlapping_rule, contribution_source, contribution_type, master_contribution_value, activated_at, created_at, updated_at";
 
 function toBrandNum(brandId: string | number): number {
   return typeof brandId === "number" ? brandId : brandIdNum(brandId);
 }
 
+/** Derive absolute per-spin contribution from master value × share %. */
+export function deriveContributionRate(
+  masterValue: number,
+  splitShare: number,
+): number {
+  const v = Number(masterValue) || 0;
+  const s = Number(splitShare) || 0;
+  return Number(((v * s) / 100).toFixed(8));
+}
+
+export interface CreateGroupInput {
+  name: string;
+  overlappingRule?: string;
+  contributionSource?: ContributionSource;
+  contributionType?: GroupContributionType;
+  masterContributionValue?: number;
+}
+
 export async function createGroup(
   brandId: string | number,
-  name: string,
-  overlappingRule = "split",
+  input: CreateGroupInput,
 ): Promise<JackpotGroupDTO> {
   const { data, error } = await supabaseAdmin
     .from("jackpot_groups" as any)
     .insert({
       brand_id: toBrandNum(brandId),
-      name,
+      name: input.name,
       status: "draft",
-      overlapping_rule: overlappingRule,
+      overlapping_rule: input.overlappingRule ?? "split",
+      contribution_source: input.contributionSource ?? "player",
+      contribution_type: input.contributionType ?? "percentage",
+      master_contribution_value: Number(input.masterContributionValue ?? 0),
     })
     .select(GROUP_SELECT)
     .single();
   if (error) throw new Error(error.message);
   return groupRowToDTO(data as unknown as GroupRow);
 }
+
 
 export async function listGroups(
   brandId: string | number,
