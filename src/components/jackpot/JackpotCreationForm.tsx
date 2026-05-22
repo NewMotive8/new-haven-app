@@ -172,9 +172,15 @@ export type JackpotType = 'classic' | 'must_drop' | 'multi_level' | 'frequency';
 export type RecurrenceType = 'single' | 'daily' | 'weekly' | 'monthly';
 export type DisplayFrequency = 'daily' | 'weekly' | 'monthly';
 
+export type WalletType = 'internal' | 'external';
+
 export type JackpotSavePayload = {
   name: string;
   description: string;
+  // Prize Economy & Wallet Type — backend contract primitives.
+  walletType: WalletType;
+  currencyId: string | null;
+  amountScale: number;
   type: JackpotType;
   payoutModel: PayoutModel;
   contributionType: ContributionType;
