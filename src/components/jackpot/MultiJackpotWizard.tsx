@@ -291,39 +291,40 @@ function spinsToSlider(n: number): number {
 }
 
 function pickPureChanceVibe(spins: number) {
+  const n = spins.toLocaleString();
   if (spins < 10_000)
     return {
       Icon: Zap,
       label: "⚡ Rapid-Fire Mode",
       chip: "bg-yellow-400/15 text-yellow-200 border-yellow-400/40",
-      copy: "Constant action — drops roughly every spin-cluster network-wide.",
+      copy: `Expect a hit roughly every ${n} spins network-wide. Ideal for ultra-high engagement or promotional happy hours.`,
     };
   if (spins < 100_000)
     return {
       Icon: Flame,
       label: "🔥 Action-Packed",
       chip: "bg-orange-400/15 text-orange-200 border-orange-400/40",
-      copy: "Frequent wins with healthy energy across the floor.",
+      copy: `Expect a hit roughly every ${n} spins network-wide. Perfect for keeping players glued during peak weekend traffic windows.`,
     };
   if (spins < 500_000)
     return {
       Icon: TrendingUp,
       label: "📈 Daily Driver",
       chip: "bg-blue-400/15 text-blue-200 border-blue-400/40",
-      copy: "Reliable daily pacing for steady, consistent engagement.",
+      copy: `Expect a hit roughly every ${n} spins network-wide. This provides a classic, steady promotional heartbeat across your games.`,
     };
   if (spins < 2_500_000)
     return {
       Icon: Trophy,
       label: "🏆 Major Milestone",
       chip: "bg-amber-400/15 text-amber-200 border-amber-400/40",
-      copy: "Buzz-worthy, high-value tracking event. Expect headline drops.",
+      copy: `Expect a rare, high-anticipation drop roughly every ${n} spins network-wide. Builds significant community buzz.`,
     };
   return {
     Icon: Gem,
     label: "💎 The Mega Event",
     chip: "bg-fuchsia-400/15 text-fuchsia-200 border-fuchsia-400/40",
-    copy: "Ultra-rare, legendary network event — your headline campaign.",
+    copy: `An ultra-rare, legendary network event. Expect a drop roughly once every ${n} spins network-wide. This is your headline-grabbing marketing campaign.`,
   };
 }
 
@@ -1543,8 +1544,11 @@ function PureChancePanel({
       <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-end">
         <div className="space-y-2">
           <Label className="text-neutral-400 text-xs uppercase tracking-wider">
-            Interval (logarithmic — 1k to 10M spins)
+            Drop Pace
           </Label>
+          <p className="text-sm text-neutral-300">
+            How often do you want players to win? Move the slider to set the target number of total spins needed to trigger a drop.
+          </p>
           <Slider
             value={[sliderPct]}
             min={0}
