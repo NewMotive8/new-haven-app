@@ -4815,7 +4815,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
               </Card>
             )}
 
-            {(selectedType === 'must_drop' || selectedType === 'frequency') && (
+            {selectedType === 'frequency' && (
               <Card className="p-6 bg-neutral-900/50 border-neutral-800">
                 <BrightLabel className="text-base">Virtual Lifespan</BrightLabel>
                 <p className="text-xs text-neutral-400 mt-1 mb-4">
@@ -4848,22 +4848,6 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                     <BrightLabel htmlFor="lifespan-minutes">Lifespan (minutes)</BrightLabel>
                     <Input id="lifespan-minutes" type="number" min={1} value={lifespanMinutes} onChange={(e) => setLifespanMinutes(Math.max(1, parseInt(e.target.value) || 1))} className="bg-neutral-800 border-neutral-700" />
                   </div>
-                  {selectedType === 'must_drop' && (
-                    <div className="space-y-2">
-                      <BrightLabel>Must-Drop Period</BrightLabel>
-                      <Select value={String(mustDropPeriod)} onValueChange={(v) => setMustDropPeriod(Number(v) as 1 | 2 | 3 | 4)}>
-                        <SelectTrigger className="bg-neutral-800 border-neutral-700 text-white">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-neutral-800 border-neutral-700 text-white">
-                          <SelectItem value="1" className="text-white">Single</SelectItem>
-                          <SelectItem value="2" className="text-white">Daily</SelectItem>
-                          <SelectItem value="3" className="text-white">Weekly</SelectItem>
-                          <SelectItem value="4" className="text-white">Monthly</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
                 </div>
               </Card>
             )}
