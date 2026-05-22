@@ -108,51 +108,6 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
 
 
 
-  // ── MULTI_LEVEL — build tier array (fall back to even-weighted single tier).
-  let tiers: TierDTO[] | undefined;
-  if (structuralType === "MULTI_LEVEL" && payload.tiers && payload.tiers.length > 0) {
-    const raw = payload.tiers.slice(0, 4);
-    const evenWeight = raw.length > 0 ? 1 / raw.length : 1;
-    tiers = raw.map((t, idx) => {
-      const rank = Number(t.multiLevelTier) || idx + 1;
-      const weight = Number.isFinite(t.multiLevelWeight) && t.multiLevelWeight > 0
-        ? Math.max(0, Math.min(1, t.multiLevelWeight))
-        : evenWeight;
-      const tierReseed = num(t.reseedingAmount, reseed);
-      const tierAvgWin = num(t.averageWinAmount, avgWin);
-      return {
-        multiLevelTier: rank,
-        multiLevelWeight: weight,
-        label: t.label,
-        pool: {
-          currentAmount: tierReseed,
-          minimumAmount: tierReseed,
-          maximumAmount: num(t.maximumPoolAmount, 0),
-          minimumWinAmount: num(t.minWinAmount, minWin),
-          maximumWinAmount: num(t.maxWinAmount, maxWin),
-          // Per-tier CDF center — Mini=400, Major=4000, Mega=40000 in the
-          // default template. Falls back to global avgWin then maxWin.
-          targetAmount: num(t.averageWinAmount, tierAvgWin),
-          contributionAmount: num(t.poolContributionAmount, poolContributionAmount),
-          contributionType:
-            (t.poolContributionType ?? payload.contributionType) === "fixed"
-              ? "FIXED"
-              : "PERCENTAGE",
-          operatorShare: num(t.operatorShare, poolOperatorShare),
-        },
-        seed: {
-          currentAmount: num(t.seedInitialAmount, num(t.seedContributionAmount, seedContributionAmount)),
-          targetAmount: num(t.seedTargetAmount, tierAvgWin),
-          contributionAmount: num(t.seedContributionAmount, seedContributionAmount),
-          contributionType:
-            (t.seedContributionType ?? payload.seedContributionType) === "fixed"
-              ? "FIXED"
-              : "PERCENTAGE",
-          operatorShare: num(t.seedOperatorShare, seedOperatorShare),
-        },
-      };
-    });
-  }
 
   // ── Timed lifespan for MUST_DROP / FREQUENCY.
   let timed: JackpotConfigDTO["timed"];
