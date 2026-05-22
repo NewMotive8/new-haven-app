@@ -512,6 +512,7 @@ export async function addChildJackpot(
   groupId: string | number,
   jackpotId: string | number,
   tierRank: number,
+  opts: { triggerProbability?: number; contributionRate?: number } = {},
 ): Promise<JackpotDTO> {
   const gid = Number(groupId);
   const jid = Number(jackpotId);
@@ -527,9 +528,20 @@ export async function addChildJackpot(
     throw new GroupConflictError();
   }
 
+  const updates: Record<string, unknown> = {
+    group_id: gid,
+    tier_rank: tierRank,
+  };
+  if (opts.triggerProbability !== undefined) {
+    updates.trigger_probability = opts.triggerProbability;
+  }
+  if (opts.contributionRate !== undefined) {
+    updates.contribution_percentage = opts.contributionRate;
+  }
+
   const { error } = await supabaseAdmin
     .from("jackpots")
-    .update({ group_id: gid, tier_rank: tierRank } as any)
+    .update(updates as any)
     .eq("id", jid);
   if (error) {
     if (/is active|status/.test(error.message)) {

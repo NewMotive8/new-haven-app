@@ -5,7 +5,6 @@ import {
   json,
   preflight,
   requireBrandId,
-  requireInternalSecret,
 } from "@/lib/jackpot/http";
 import {
   getGroup,
@@ -16,6 +15,8 @@ import {
 const AttachSchema = z.object({
   jackpotId: z.number().int().positive(),
   tierRank: z.number().int().min(0),
+  triggerProbability: z.number().min(0).max(1).optional(),
+  contributionRate: z.number().min(0).max(1).optional(),
 });
 
 export const Route = createFileRoute("/api/v1/jackpot-groups/$id/children")({
@@ -23,8 +24,6 @@ export const Route = createFileRoute("/api/v1/jackpot-groups/$id/children")({
     handlers: {
       OPTIONS: async () => preflight(),
       GET: async ({ request, params }) => {
-        const blocked = requireInternalSecret(request);
-        if (blocked) return blocked;
         const brand = requireBrandId(request);
         if (brand instanceof Response) return brand;
         const grp = await getGroup(params.id);
@@ -35,8 +34,6 @@ export const Route = createFileRoute("/api/v1/jackpot-groups/$id/children")({
         return json(grp.children);
       },
       POST: async ({ request, params }) => {
-        const blocked = requireInternalSecret(request);
-        if (blocked) return blocked;
         const brand = requireBrandId(request);
         if (brand instanceof Response) return brand;
         let raw: unknown;
@@ -64,6 +61,10 @@ export const Route = createFileRoute("/api/v1/jackpot-groups/$id/children")({
             params.id,
             parsed.data.jackpotId,
             parsed.data.tierRank,
+            {
+              triggerProbability: parsed.data.triggerProbability,
+              contributionRate: parsed.data.contributionRate,
+            },
           );
           return json(dto, { status: 201 });
         } catch (e: any) {
