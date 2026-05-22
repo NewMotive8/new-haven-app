@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 
 
 import { useNavigate, useRouterState } from '@tanstack/react-router';
-import { Clock, LogOut, Plus, X } from 'lucide-react';
+import { Clock, LogOut, Plus, X, Zap, Flame, TrendingUp, Trophy, Gem, Dice5, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
