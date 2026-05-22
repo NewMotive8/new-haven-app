@@ -498,3 +498,187 @@ function simulateTimed(
     houseRatio,
   };
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Phase 3 — relational group fan-out simulator.
+// Posts batched concurrent spins to /api/v1/event/bet with `groupId` and
+// aggregates the returned perJackpot[] slices into a GroupSimResult roll-up
+// matching the legacy multi-level chart shape so existing UI keeps working.
+// ──────────────────────────────────────────────────────────────────────────────
+
+export interface GroupTierRollupDTO {
+  tierRank: number;
+  jackpotId: number;
+  jackpotName: string;
+  totalPool: number;
+  totalSeed: number;
+  totalHouse: number;
+  totalContribution: number;
+  wins: number;
+  totalWinAmount: number;
+  maxWinAmount: number;
+}
+
+export interface GroupSimResult {
+  groupId: number;
+  iterations: number;
+  completed: number;
+  failed: number;
+  wagerPerSpin: number;
+  totalWagered: number;
+  totalContribution: number;
+  totalHouse: number;
+  winCounter: number;
+  winAmountCounter: number;
+  perTier: GroupTierRollupDTO[];
+  winEvents: WinEventDTO[];
+}
+
+export interface SimulateGroupOpts {
+  iterations: number;
+  wagerPerSpin: number;
+  /** Chunk size for concurrent POST batches. Default 25. */
+  concurrency?: number;
+  /** Base URL override (default: window.location.origin or ''). */
+  baseUrl?: string;
+  /** INTERNAL_SERVICE_SECRET for the internal handshake. */
+  internalSecret?: string;
+  gameId?: string;
+  onProgress?: (done: number, total: number) => void;
+  signal?: AbortSignal;
+}
+
+export async function simulateGroup(
+  groupId: number,
+  brandId: number,
+  opts: SimulateGroupOpts,
+): Promise<GroupSimResult> {
+  const iterations = Math.max(0, Math.min(Number(opts.iterations) || 0, MAX_ITERATIONS));
+  const wager = Number(opts.wagerPerSpin) || 0;
+  const concurrency = Math.max(1, Math.min(Number(opts.concurrency) || 25, 100));
+  const baseUrl = opts.baseUrl ?? (typeof window !== "undefined" ? window.location.origin : "");
+  const gameId = opts.gameId ?? "sim";
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "x-brand-id": String(brandId),
+  };
+  if (opts.internalSecret) {
+    headers["X-Internal-Service-Secret"] = opts.internalSecret;
+  }
+
+  const perTier = new Map<number, GroupTierRollupDTO>();
+  const winEvents: WinEventDTO[] = [];
+  let completed = 0;
+  let failed = 0;
+  let totalContribution = 0;
+  let totalHouse = 0;
+  let winCounter = 0;
+  let winAmountCounter = 0;
+
+  async function postOne(i: number): Promise<void> {
+    if (opts.signal?.aborted) return;
+    const txId = `sim-${groupId}-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 10)}`;
+    try {
+      const res = await fetch(`${baseUrl}/api/v1/event/bet`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          transactionId: txId,
+          wager,
+          gameId,
+          groupId,
+        }),
+        signal: opts.signal,
+      });
+      if (!res.ok) {
+        failed++;
+        return;
+      }
+      const data = (await res.json()) as {
+        perJackpot?: Array<{
+          jackpotId: number;
+          jackpotName: string;
+          contribution: { pool: number; seed: number; house: number };
+          totalContribution: number;
+        }>;
+        totalContribution?: number;
+        contribution?: { pool: number; seed: number; house: number };
+        win?: {
+          jackpotId?: number;
+          tierRank?: number;
+          amount?: number;
+        } | null;
+      };
+      const list = Array.isArray(data.perJackpot) ? data.perJackpot : [];
+      list.forEach((entry, idx) => {
+        const tierRank = idx + 1;
+        const prev = perTier.get(entry.jackpotId) ?? {
+          tierRank,
+          jackpotId: entry.jackpotId,
+          jackpotName: entry.jackpotName,
+          totalPool: 0,
+          totalSeed: 0,
+          totalHouse: 0,
+          totalContribution: 0,
+          wins: 0,
+          totalWinAmount: 0,
+          maxWinAmount: 0,
+        };
+        prev.totalPool += entry.contribution.pool || 0;
+        prev.totalSeed += entry.contribution.seed || 0;
+        prev.totalHouse += entry.contribution.house || 0;
+        prev.totalContribution += entry.totalContribution || 0;
+        perTier.set(entry.jackpotId, prev);
+      });
+      totalContribution += Number(data.totalContribution) || 0;
+      totalHouse += Number(data.contribution?.house) || 0;
+      if (data.win && typeof data.win.amount === "number") {
+        winCounter++;
+        winAmountCounter += data.win.amount;
+        const target = data.win.jackpotId != null ? perTier.get(data.win.jackpotId) : undefined;
+        if (target) {
+          target.wins++;
+          target.totalWinAmount += data.win.amount;
+          if (data.win.amount > target.maxWinAmount) target.maxWinAmount = data.win.amount;
+        }
+        if (winEvents.length < MAX_WIN_EVENTS_RETAINED) {
+          winEvents.push({
+            iteration: i + 1,
+            amount: data.win.amount,
+            poolBeforeWin: 0,
+            timestamp: new Date().toISOString(),
+            winningTier: data.win.tierRank,
+          });
+        }
+      }
+      completed++;
+    } catch {
+      failed++;
+    }
+  }
+
+  for (let start = 0; start < iterations; start += concurrency) {
+    if (opts.signal?.aborted) break;
+    const batch: Promise<void>[] = [];
+    const end = Math.min(start + concurrency, iterations);
+    for (let i = start; i < end; i++) batch.push(postOne(i));
+    await Promise.all(batch);
+    opts.onProgress?.(completed + failed, iterations);
+  }
+
+  return {
+    groupId,
+    iterations,
+    completed,
+    failed,
+    wagerPerSpin: wager,
+    totalWagered: wager * completed,
+    totalContribution,
+    totalHouse,
+    winCounter,
+    winAmountCounter,
+    perTier: Array.from(perTier.values()).sort((a, b) => a.tierRank - b.tierRank),
+    winEvents,
+  };
+}
