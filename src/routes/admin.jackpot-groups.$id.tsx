@@ -85,6 +85,9 @@ function JackpotGroupDetailPage() {
   const { id } = useParams({ from: "/admin/jackpot-groups/$id" });
   const { brandId } = React.useContext(BrandContext);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
 
   const query = useQuery<GroupDetailDTO>({
     queryKey: ["jackpot-group", id, brandId],
