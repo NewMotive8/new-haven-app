@@ -3,7 +3,7 @@ import * as React from "react";
 import axios from "axios";
 import { useQuery, useQueryClient } from "react-query";
 import { toast } from "react-toastify";
-import { AlertTriangle, ArrowLeft, Layers } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Layers, Coins } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,8 @@ import {
 const DEFAULT_DAILY_VOLUME = 25000;
 
 type GroupStatus = "draft" | "active" | "disabled";
+type ContributionSource = "player" | "operator";
+type ContributionType = "percentage" | "fixed";
 
 interface ChildDTO {
   id: number;
@@ -27,6 +29,7 @@ interface ChildDTO {
   tierRank: number;
   triggerProbability: number;
   contributionRate: number;
+  splitShare: number;
   enabled: boolean;
   poolBalance: number;
 }
@@ -36,6 +39,9 @@ interface GroupDetailDTO {
   name: string;
   status: GroupStatus;
   overlappingRule: string;
+  contributionSource: ContributionSource;
+  contributionType: ContributionType;
+  masterContributionValue: number;
   activatedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -55,6 +61,14 @@ function StatusPill({ status }: { status: GroupStatus }) {
       {status}
     </span>
   );
+}
+
+function formatMasterValue(type: ContributionType, value: number): string {
+  if (type === "percentage") return `${(value * 100).toFixed(4)}%`;
+  return value.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 function JackpotGroupDetailPage() {
@@ -79,20 +93,43 @@ function JackpotGroupDetailPage() {
 
   // Local edit state for header card (only used when not active).
   const [draftName, setDraftName] = React.useState("");
-  const [draftRule, setDraftRule] = React.useState<"split" | "additive">("split");
+  const [draftSource, setDraftSource] = React.useState<ContributionSource>("player");
+  const [draftType, setDraftType] = React.useState<ContributionType>("percentage");
+  const [draftMasterValue, setDraftMasterValue] = React.useState("0.00");
+
   React.useEffect(() => {
     if (group) {
       setDraftName(group.name);
-      setDraftRule((group.overlappingRule as any) === "additive" ? "additive" : "split");
+      setDraftSource(group.contributionSource);
+      setDraftType(group.contributionType);
+      // Display percentage as human %, fixed as currency
+      setDraftMasterValue(
+        group.contributionType === "percentage"
+          ? (group.masterContributionValue * 100).toFixed(4)
+          : group.masterContributionValue.toFixed(2),
+      );
     }
   }, [group?.id, group?.updatedAt]);
 
+  const sharesTotal = (group?.children ?? []).reduce(
+    (acc, c) => acc + Number(c.splitShare ?? 0),
+    0,
+  );
+  const sharesValid = Math.abs(sharesTotal - 100) <= 0.01;
+
   async function saveProfile() {
     if (!group) return;
+    const raw = Number.parseFloat(draftMasterValue) || 0;
+    const stored = draftType === "percentage" ? raw / 100 : raw;
     try {
       await axios.patch(
         `/api/v1/jackpot-groups/${group.id}`,
-        { name: draftName, overlappingRule: draftRule },
+        {
+          name: draftName,
+          contributionSource: draftSource,
+          contributionType: draftType,
+          masterContributionValue: stored,
+        },
         { headers: { brandId: String(brandId), "Content-Type": "application/json" } },
       );
       toast.success("MultiJackpot updated");
@@ -158,8 +195,8 @@ function JackpotGroupDetailPage() {
                 MultiJackpot is active — disable it before editing configuration.
               </p>
               <p className="text-amber-200/70 text-sm mt-1">
-                All child jackpot configuration is locked across the platform while
-                this MultiJackpot is live.
+                All master funding rules and child tier configurations are locked
+                across the platform while this MultiJackpot is live.
               </p>
             </div>
             <Button
@@ -173,7 +210,6 @@ function JackpotGroupDetailPage() {
           </div>
         )}
 
-        {/* fieldset disabled → entire profile + children rows are read-only when active */}
         <fieldset disabled={isActive} className="space-y-6 group/active">
           <Card className="p-6 bg-neutral-900/50 border-neutral-800">
             <div className="flex items-start justify-between gap-4 mb-6">
@@ -193,6 +229,7 @@ function JackpotGroupDetailPage() {
                       <Button
                         size="sm"
                         onClick={() => setStatus("active")}
+                        disabled={!sharesValid || group.children.length === 0}
                         className="bg-emerald-500 hover:bg-emerald-600"
                       >
                         Activate
@@ -211,6 +248,7 @@ function JackpotGroupDetailPage() {
                         <Button
                           size="sm"
                           onClick={() => setStatus("active")}
+                          disabled={!sharesValid || group.children.length === 0}
                           className="bg-emerald-500 hover:bg-emerald-600"
                         >
                           Activate
@@ -222,7 +260,7 @@ function JackpotGroupDetailPage() {
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6 max-w-3xl">
+            <div className="grid md:grid-cols-2 gap-6 max-w-3xl mb-6">
               <div className="space-y-2">
                 <Label className="text-neutral-300">Name</Label>
                 <Input
@@ -231,26 +269,68 @@ function JackpotGroupDetailPage() {
                   className="bg-neutral-800 border-neutral-700 text-white disabled:opacity-60"
                 />
               </div>
-              <div className="space-y-2">
-                <Label className="text-neutral-300">Overlapping rule</Label>
-                <select
-                  value={draftRule}
-                  onChange={(e) => setDraftRule(e.target.value as any)}
-                  className="w-full h-10 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-white disabled:opacity-60"
-                >
-                  <option value="split">Split</option>
-                  <option value="additive">Additive</option>
-                </select>
-              </div>
             </div>
 
-            {!isActive && (
-              <div className="mt-6">
-                <Button onClick={saveProfile} className="bg-blue-500 hover:bg-blue-600">
-                  Save
-                </Button>
+            {/* Master Funding card */}
+            <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-5 mb-4">
+              <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-blue-300 mb-3">
+                <Coins className="w-3.5 h-3.5" /> Master funding
               </div>
-            )}
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-neutral-300">Contribution Source</Label>
+                  <select
+                    value={draftSource}
+                    onChange={(e) => setDraftSource(e.target.value as ContributionSource)}
+                    className="w-full h-10 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-white disabled:opacity-60"
+                  >
+                    <option value="player">Player (deducted from wager)</option>
+                    <option value="operator">Operator (house-funded)</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-neutral-300">Contribution Type</Label>
+                  <select
+                    value={draftType}
+                    onChange={(e) => setDraftType(e.target.value as ContributionType)}
+                    className="w-full h-10 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-white disabled:opacity-60"
+                  >
+                    <option value="percentage">Percentage of wager</option>
+                    <option value="fixed">Fixed amount per spin</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-neutral-300">Master Value</Label>
+                  <div className="relative">
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      value={draftMasterValue}
+                      onChange={(e) => setDraftMasterValue(e.target.value)}
+                      className="bg-neutral-800 border-neutral-700 text-white font-mono pr-10 disabled:opacity-60"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">
+                      {draftType === "percentage" ? "%" : "₵"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 flex items-center justify-between gap-4 flex-wrap">
+                <div className="text-xs text-neutral-400">
+                  Allocated shares:{" "}
+                  <span
+                    className={`font-mono font-semibold ${sharesValid ? "text-emerald-300" : "text-amber-300"}`}
+                  >
+                    {sharesTotal.toFixed(2)}% / 100.00%
+                  </span>
+                </div>
+                {!isActive && (
+                  <Button onClick={saveProfile} size="sm" className="bg-blue-500 hover:bg-blue-600">
+                    Save funding settings
+                  </Button>
+                )}
+              </div>
+            </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-neutral-800 text-sm">
               <Stat label="Created" value={new Date(group.createdAt).toLocaleString()} />
@@ -267,7 +347,7 @@ function JackpotGroupDetailPage() {
             <div className="p-4 border-b border-neutral-800 flex items-center justify-between">
               <h2 className="text-lg font-semibold">Child tiers</h2>
               <span className="text-xs text-neutral-500">
-                Sorted by tier rank (ascending)
+                Sorted by tier rank (ascending) · Split shares must total 100.00%
               </span>
             </div>
             {group.children.length === 0 ? (
@@ -283,6 +363,7 @@ function JackpotGroupDetailPage() {
                     <ChildTierEditor
                       key={c.id}
                       child={c}
+                      group={group}
                       brandId={brandId}
                       onSaved={() => queryClient.invalidateQueries(["jackpot-group", id])}
                     />
@@ -298,10 +379,12 @@ function JackpotGroupDetailPage() {
 
 function ChildTierEditor({
   child,
+  group,
   brandId,
   onSaved,
 }: {
   child: ChildDTO;
+  group: GroupDetailDTO;
   brandId: string | number | null | undefined;
   onSaved: () => void;
 }) {
@@ -309,33 +392,40 @@ function ChildTierEditor({
   const [denominator, setDenominator] = React.useState<string>(() =>
     probabilityToDenominator(child.triggerProbability) || "0",
   );
-  const [contribution, setContribution] = React.useState<string>(() =>
-    Number(child.contributionRate).toFixed(8),
+  const [splitShare, setSplitShare] = React.useState<string>(() =>
+    Number(child.splitShare ?? 0).toFixed(2),
   );
   const [dailyVolume, setDailyVolume] = React.useState<number>(DEFAULT_DAILY_VOLUME);
   const [saving, setSaving] = React.useState(false);
 
-  // Re-seed local state when the server payload changes (e.g. after save).
   React.useEffect(() => {
     setName(child.name);
     setDenominator(probabilityToDenominator(child.triggerProbability) || "0");
-    setContribution(Number(child.contributionRate).toFixed(8));
-  }, [child.id, child.name, child.triggerProbability, child.contributionRate]);
+    setSplitShare(Number(child.splitShare ?? 0).toFixed(2));
+  }, [child.id, child.name, child.triggerProbability, child.splitShare]);
 
   const probability = denominatorToProbability(denominator);
   const dropText = formatDropFrequency(probability, dailyVolume);
+  const shareNum = Number.parseFloat(splitShare) || 0;
+  const derived =
+    (group.masterContributionValue * shareNum) / 100;
+  const derivedLabel =
+    group.contributionType === "percentage"
+      ? `${(derived * 100).toFixed(4)}% of wager`
+      : `${derived.toFixed(4)} / spin`;
 
   async function save() {
     setSaving(true);
     try {
-      await axios.put(
-        `/api/v1/jackpots/${child.id}`,
+      // 1) Re-attach via children endpoint to re-derive contribution_percentage from master × share
+      await axios.post(
+        `/api/v1/jackpot-groups/${group.id}/children`,
         {
-          name: name.trim() || child.name,
+          jackpotId: child.id,
+          tierRank: child.tierRank,
           triggerProbability: Number(probability.toFixed(8)),
-          contributionRate: Number(
-            (Number.parseFloat(contribution) || 0).toFixed(8),
-          ),
+          splitShare: shareNum,
+          name: name.trim() || child.name,
         },
         {
           headers: {
@@ -380,7 +470,6 @@ function ChildTierEditor({
       </div>
 
       <div className="rounded-md border border-neutral-800 bg-neutral-900/60 p-4 space-y-3">
-        <div className="text-sm font-medium text-white">Trigger Probability</div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
           <div className="space-y-1">
             <Label className="text-neutral-400 text-xs uppercase tracking-wider">
@@ -406,18 +495,24 @@ function ChildTierEditor({
           </div>
           <div className="space-y-1">
             <Label className="text-neutral-400 text-xs uppercase tracking-wider">
-              Contribution rate
+              Group Split Share (%)
             </Label>
-            <Input
-              type="text"
-              inputMode="decimal"
-              value={contribution}
-              onChange={(e) => setContribution(e.target.value)}
-              placeholder="0.01000000"
-              className="bg-neutral-800 border-neutral-700 text-white font-mono"
-            />
+            <div className="relative">
+              <Input
+                type="text"
+                inputMode="decimal"
+                value={splitShare}
+                onChange={(e) => setSplitShare(e.target.value)}
+                placeholder="25.00"
+                className="bg-neutral-800 border-neutral-700 text-white font-mono pr-8"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">
+                %
+              </span>
+            </div>
             <div className="text-xs text-neutral-500 pt-1">
-              Pool balance: {Number(child.poolBalance).toFixed(2)} · Enabled:{" "}
+              Derived: <span className="text-neutral-300 font-mono">{derivedLabel}</span>{" "}
+              · Pool: {Number(child.poolBalance).toFixed(2)} · Enabled:{" "}
               {child.enabled ? "yes" : "no"}
             </div>
           </div>
@@ -476,6 +571,8 @@ function Stat({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+export { formatMasterValue };
 
 export const Route = createFileRoute("/admin/jackpot-groups/$id")({
   ssr: false,
