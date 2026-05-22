@@ -712,6 +712,9 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
     return {
       name: name.trim(),
       description: description.trim(),
+      walletType: prizeEconomy.walletType,
+      currencyId: prizeEconomy.walletType === 'internal' ? prizeEconomy.currencyId : null,
+      amountScale: prizeEconomy.walletType === 'internal' ? 1 : 100,
       type: selectedType,
       // Must-Drop is structurally a Maximum-Win mechanic — force the payout model.
       // Frequency keeps the operator-selected payout model (fixed/average/maximum).
