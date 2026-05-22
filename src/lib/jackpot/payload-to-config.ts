@@ -137,48 +137,6 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
       : undefined;
   const triggerOdds = num(payload.triggerOdds, 0);
 
-  // Apply per-tier split / trigger odds onto the already-built tiers array.
-  if (tiers && payload.tiers) {
-    tiers = tiers.map((t, idx) => {
-      const src = payload.tiers![idx];
-      if (!src) return t;
-      const tSplit =
-        src.contributionMode === "split"
-          ? {
-              mode: "split" as const,
-              totalContributionAmount: num(src.totalContributionAmount, 0),
-              totalContributionType:
-                (src.totalContributionType ?? "fixed") === "fixed"
-                  ? ("FIXED" as const)
-                  : ("PERCENTAGE" as const),
-              poolWeight: num(src.poolWeight, 60),
-              seedWeight: num(src.seedWeight, 30),
-              houseWeight: num(src.houseWeight, 10),
-            }
-          : undefined;
-      // When the tier uses Split mode, override its pool/seed contribution
-      // amount + type from the split inputs (largest-remainder rounding so
-      // pool+seed+house sum exactly to the tier total).
-      let pool = t.pool;
-      let seed = t.seed;
-      if (tSplit) {
-        const [pAmt, sAmt] = splitAllocation(
-          tSplit.totalContributionAmount,
-          [tSplit.poolWeight, tSplit.seedWeight, tSplit.houseWeight],
-        );
-        pool = { ...pool, contributionAmount: pAmt, contributionType: tSplit.totalContributionType };
-        seed = { ...seed, contributionAmount: sAmt, contributionType: tSplit.totalContributionType };
-      }
-      return {
-        ...t,
-        pool,
-        seed,
-        ...(tSplit ? { contribution: tSplit } : {}),
-        ...(num(src.triggerOdds, 0) > 0 ? { triggerOdds: num(src.triggerOdds, 0) } : {}),
-      };
-
-    });
-  }
 
   return {
     id: 0,
