@@ -27,7 +27,20 @@ type Jackpot = {
   volatility?: number;
   brandId: string;
   config?: Record<string, unknown>;
+  groupId?: number | null;
+  tierRank?: number | null;
 };
+
+type JackpotGroup = {
+  id: number;
+  name: string;
+  status: string;
+  overlappingRule?: string;
+};
+
+type DisplayPool =
+  | { kind: "single"; id: string; name: string; balance: number; jackpot: Jackpot }
+  | { kind: "group"; id: string; name: string; balance: number; group: JackpotGroup; tiers: Jackpot[] };
 
 type OverlappingRule = "split" | "additive";
 
