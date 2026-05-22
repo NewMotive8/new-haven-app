@@ -43,7 +43,6 @@ const ACTIVE: CardDef[] = [
 
 const COMING_SOON: CardDef[] = [
   { title: "Lucky Wheel", description: "Manage wheel campaigns and prizes.", icon: <FaCircleNotch size={22} /> },
-  { title: "Raffles", description: "Schedule and draw raffle campaigns.", icon: <FaTicketAlt size={22} /> },
   { title: "Spin Sprint", description: "Time-boxed spin competitions.", icon: <FaBolt size={22} /> },
   { title: "Tournament", description: "Leaderboard-driven tournaments.", icon: <FaTrophy size={22} /> },
   { title: "Admin", description: "Brands, users and exchange rates.", icon: <FaUsersCog size={22} /> },
