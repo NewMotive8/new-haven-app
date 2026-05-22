@@ -99,7 +99,9 @@ function SimulatorPage() {
   );
 
   const cameFromCreationFlow = Boolean(originalPayloadRef.current);
-  const [wager, setWager] = React.useState(1);
+  // Default wager tuned to give the curve engine enough volume per run
+  // (multiple full lifecycle drop windows) without distorting per-bet economics.
+  const [wager, setWager] = React.useState(25);
   const [iterations, setIterations] = React.useState(1000000);
   const [configText, setConfigText] = React.useState(JSON.stringify(initialConfig, null, 2));
   const activeConfigTextRef = React.useRef(JSON.stringify(initialConfig, null, 2));
@@ -415,6 +417,31 @@ function configuredProbability(
   return 0;
 }
 
+/** Returns 0 when no fixed-odds override is configured (curve/must-drop model). */
+function getTriggerOdds(config: JackpotConfigDTO | null, scope: "jackpot" | { tier: any }): number {
+  if (!config) return 0;
+  if (scope === "jackpot") return Number(config.triggerOdds) || 0;
+  return Number(scope.tier?.triggerOdds) || 0;
+}
+
+/** Target cap drives the curve engine's hit chance — used as the curve-mode label. */
+function getTargetCap(config: JackpotConfigDTO | null, scope: "jackpot" | { tier: any }): number {
+  if (!config) return 0;
+  if (scope === "jackpot") {
+    return Number(
+      config.pool?.targetAmount ??
+        (config as any).pool?.maximumAmount ??
+        config.maximumWinAmount ??
+        config.fixedWinAmount ??
+        0,
+    );
+  }
+  const t = scope.tier;
+  return Number(
+    t?.pool?.targetAmount ?? t?.pool?.maximumAmount ?? t?.maximumWinAmount ?? 0,
+  );
+}
+
 function ResultsSummary({
   result,
   config,
@@ -518,6 +545,8 @@ function ResultsSummary({
           iterations={result.iterations}
           wins={result.winCounter || 0}
           rejectedByGate={result.rejectedByGate ?? 0}
+          triggerOdds={getTriggerOdds(config, "jackpot")}
+          targetCap={getTargetCap(config, "jackpot")}
         />
       ) : (
         <div style={{ display: "grid", gap: 8 }}>
@@ -531,6 +560,8 @@ function ResultsSummary({
                 iterations={result.iterations}
                 wins={t.winCounter || 0}
                 rejectedByGate={t.rejectedByGate ?? 0}
+                triggerOdds={getTriggerOdds(config, { tier: tierConfig })}
+                targetCap={getTargetCap(config, { tier: tierConfig })}
               />
             );
           })}
@@ -658,18 +689,26 @@ function MathAudit({
   iterations,
   wins,
   rejectedByGate = 0,
+  triggerOdds = 0,
+  targetCap = 0,
 }: {
   title?: string;
   configuredProb: number;
   iterations: number;
   wins: number;
   rejectedByGate?: number;
+  /** > 0 means fixed-odds Classic; 0 means curve/must-drop model. */
+  triggerOdds?: number;
+  /** Pool target/max — drives curve cadence in must-drop mode. */
+  targetCap?: number;
 }) {
+  const isCurveMode = !(triggerOdds > 0);
   const configuredN = configuredProb > 0 ? 1 / configuredProb : 0;
   const actualN = wins > 0 ? iterations / wins : 0;
-  // Within ±25% of configured = compliant. Also pass if no configured target.
-  const ratio = configuredN > 0 && actualN > 0 ? actualN / configuredN : 0;
-  const compliant = configuredN === 0 || (ratio >= 0.75 && ratio <= 1.25);
+  // Variance compliance only makes sense in fixed-odds mode. A curve engine's
+  // hit rate is shaped by pool dynamics, so we don't compare it to a flat baseline.
+  const ratio = !isCurveMode && configuredN > 0 && actualN > 0 ? actualN / configuredN : 0;
+  const compliant = isCurveMode || configuredN === 0 || (ratio >= 0.75 && ratio <= 1.25);
 
   const cell: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 4 };
   const k: React.CSSProperties = { fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "#9fb0c8" };
@@ -680,15 +719,40 @@ function MathAudit({
       {title && <div style={{ fontSize: 13, fontWeight: 600, color: "#cbd5e1", marginBottom: 12 }}>{title}</div>}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 16, alignItems: "center" }}>
         <div style={cell}>
-          <span style={k}>Configured Probability</span>
-          <span style={v}>{configuredN > 0 ? `1 in ${fmt(configuredN, 0)}` : "—"}</span>
+          <span style={k}>{isCurveMode ? "Target Cap" : "Configured Probability"}</span>
+          <span style={v}>
+            {isCurveMode
+              ? targetCap > 0
+                ? `€ ${fmt(targetCap)}`
+                : "—"
+              : configuredN > 0
+                ? `1 in ${fmt(configuredN, 0)}`
+                : "—"}
+          </span>
         </div>
         <div style={cell}>
-          <span style={k}>Actual Hit Rate</span>
+          <span style={k}>{isCurveMode ? "Observed Drop Cadence" : "Actual Hit Rate"}</span>
           <span style={v}>{actualN > 0 ? `1 in ${fmt(actualN, 0)}` : "—"}</span>
         </div>
         <div>
-          {compliant ? (
+          {isCurveMode ? (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 14px",
+                background: "rgba(56, 189, 248, 0.12)",
+                color: "#7dd3fc",
+                border: "1px solid rgba(56, 189, 248, 0.35)",
+                borderRadius: 999,
+                fontSize: 13,
+                fontWeight: 700,
+              }}
+            >
+              ◐ Curve Model
+            </span>
+          ) : compliant ? (
             <span
               style={{
                 display: "inline-flex",
@@ -726,20 +790,26 @@ function MathAudit({
         </div>
       </div>
 
-      {configuredN > 0 && (() => {
-        const expectedWins = Math.round(iterations * configuredProb);
+
+      {(configuredN > 0 || isCurveMode) && (() => {
+        const expectedWins = isCurveMode ? 0 : Math.round(iterations * configuredProb);
         const triggersFired = wins + rejectedByGate;
         const gateExplains =
+          !isCurveMode &&
           rejectedByGate > 0 &&
           expectedWins > 0 &&
           Math.abs(triggersFired - expectedWins) / expectedWins <= 0.25;
-        const hint = compliant
-          ? null
-          : gateExplains
-            ? "Gate rejections explain the gap — wins were suppressed because pool/seed conditions weren't met."
-            : rejectedByGate > 0
-              ? "Some triggers were blocked by pool/seed gates, but the gap is larger than that — likely sample-size variance. Increase iterations."
-              : "Variance is sample-size driven — increase iterations for a tighter rate.";
+        const hint = isCurveMode
+          ? rejectedByGate > 0
+            ? "Curve engine: some triggers were suppressed by pool/seed gates before payout. Higher wager or lower target accelerates the cycle."
+            : "Curve engine: drop cadence emerges from pool growth toward the target cap — not from a flat probability."
+          : compliant
+            ? null
+            : gateExplains
+              ? "Gate rejections explain the gap — wins were suppressed because pool/seed conditions weren't met."
+              : rejectedByGate > 0
+                ? "Some triggers were blocked by pool/seed gates, but the gap is larger than that — likely sample-size variance. Increase iterations."
+                : "Variance is sample-size driven — increase iterations for a tighter rate.";
 
         const diagCell: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 2 };
         const diagK: React.CSSProperties = {
@@ -764,10 +834,12 @@ function MathAudit({
                 gap: 16,
               }}
             >
-              <div style={diagCell}>
-                <span style={diagK}>Expected Wins</span>
-                <span style={diagV}>{fmtInt(expectedWins)}</span>
-              </div>
+              {!isCurveMode && (
+                <div style={diagCell}>
+                  <span style={diagK}>Expected Wins</span>
+                  <span style={diagV}>{fmtInt(expectedWins)}</span>
+                </div>
+              )}
               <div style={diagCell}>
                 <span style={diagK}>Actual Wins</span>
                 <span style={diagV}>{fmtInt(wins)}</span>
