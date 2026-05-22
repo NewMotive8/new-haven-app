@@ -1626,8 +1626,71 @@ function SandboxDemoPage() {
               />
             </div>
           </div>
+
+          {Object.keys(batchStats.perJackpot).length > 0 ? (
+            <div className="mt-5">
+              <div className="text-xs uppercase tracking-wider text-slate-400 mb-2">
+                Per-Tier Breakdown
+              </div>
+              <div className="overflow-x-auto border border-slate-800 rounded-lg">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-950/80 text-slate-400 uppercase tracking-wider text-[10px]">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">Tier</th>
+                      <th className="text-right px-3 py-2 font-medium">Spins</th>
+                      <th className="text-right px-3 py-2 font-medium">Σ Pool</th>
+                      <th className="text-right px-3 py-2 font-medium">Σ Seed</th>
+                      <th className="text-right px-3 py-2 font-medium">Σ House</th>
+                      <th className="text-right px-3 py-2 font-medium">Σ Total</th>
+                      <th className="text-right px-3 py-2 font-medium">Hits</th>
+                      <th className="text-right px-3 py-2 font-medium">Hit Freq</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {Object.values(batchStats.perJackpot)
+                      .slice()
+                      .sort((a, b) => {
+                        const ra = pools.find((p) => p.id === a.jackpotId)?.tierRank ?? 999;
+                        const rb = pools.find((p) => p.id === b.jackpotId)?.tierRank ?? 999;
+                        if (ra !== rb) return ra - rb;
+                        return a.jackpotName.localeCompare(b.jackpotName);
+                      })
+                      .map((row) => (
+                        <tr key={row.jackpotId} className="hover:bg-slate-950/40">
+                          <td className="px-3 py-1.5 text-slate-200">{row.jackpotName}</td>
+                          <td className="px-3 py-1.5 text-right tabular-nums text-slate-300">
+                            {row.spins.toLocaleString()}
+                          </td>
+                          <td className="px-3 py-1.5 text-right tabular-nums text-emerald-300">
+                            {fmtPrecise(row.poolTotal)}
+                          </td>
+                          <td className="px-3 py-1.5 text-right tabular-nums text-sky-300">
+                            {fmtPrecise(row.seedTotal)}
+                          </td>
+                          <td className="px-3 py-1.5 text-right tabular-nums text-amber-300">
+                            {fmtPrecise(row.houseTotal)}
+                          </td>
+                          <td className="px-3 py-1.5 text-right tabular-nums text-slate-100">
+                            {fmtPrecise(row.totalContribution)}
+                          </td>
+                          <td className="px-3 py-1.5 text-right tabular-nums text-emerald-300">
+                            {row.hits.toLocaleString()}
+                          </td>
+                          <td className="px-3 py-1.5 text-right tabular-nums text-slate-300">
+                            {row.hits > 0
+                              ? `1 in ${Math.round(row.spins / row.hits).toLocaleString()}`
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
         </section>
       ) : null}
+
 
       {/* ── Phase 3 — Compliance Audit Ledger (GLI-12 Log) ─────────────── */}
       <section className="max-w-6xl mx-auto mt-6 bg-slate-900/60 border border-slate-800 rounded-xl p-5">
