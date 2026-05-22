@@ -242,7 +242,7 @@ function BlueprintCardView({
           size="sm"
           variant="outline"
           onClick={onClone}
-          className="border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/10 gap-1.5"
+          className="border-emerald-500/40 bg-green-400 text-zinc-50 rounded-sm gap-1.5"
         >
           <Save className="h-3.5 w-3.5" />
           Clone as Campaign Draft
