@@ -26,6 +26,9 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { BrandContext } from "@/backoffice/app";
 import type { JackpotDTO } from "@/lib/jackpot/types";
+import { GameAssignmentStep, type GameAssignmentValue } from "@/components/jackpot/GameAssignmentStep";
+import type { MasterCategory } from "@/lib/jackpot/master-categories";
+
 import {
   denominatorToProbability,
   formatDropFrequency,
