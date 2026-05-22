@@ -3675,34 +3675,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                             </div>
                             <div></div>
                           </div>
-                          {contributionType === 'percentage' && (
-                            <>
-                              <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                  <BrightLabel htmlFor="frequency-min-wager-fixed">Minimum Wager Amount</BrightLabel>
-                                  <CurrencyInput
-                                    id="frequency-min-wager-fixed"
-                                    type="number"
-                                    placeholder="0"
-                                    className="bg-neutral-800 border-neutral-700"
-                                  />
-                                </div>
-                                <div></div>
-                              </div>
-                              <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                  <BrightLabel htmlFor="frequency-max-wager-fixed">Maximum Wager Amount</BrightLabel>
-                                  <CurrencyInput
-                                    id="frequency-max-wager-fixed"
-                                    type="number"
-                                    placeholder="0"
-                                    className="bg-neutral-800 border-neutral-700"
-                                  />
-                                </div>
-                                <div></div>
-                              </div>
-                            </>
-                          )}
+                          {/* Wager limits moved to unified "Wager Eligibility Limits" block in Jackpot Contribution card. */}
+
                         </div>
                       )}
 
