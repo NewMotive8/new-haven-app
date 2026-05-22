@@ -16,6 +16,9 @@ const PatchSchema = z
   .object({
     name: z.string().min(1).max(255).optional(),
     overlappingRule: z.enum(["split", "additive"]).optional(),
+    contributionSource: z.enum(["player", "operator"]).optional(),
+    contributionType: z.enum(["percentage", "fixed"]).optional(),
+    masterContributionValue: z.number().min(0).max(1_000_000).optional(),
   })
   .refine((v) => Object.keys(v).length > 0, {
     message: "At least one field is required",

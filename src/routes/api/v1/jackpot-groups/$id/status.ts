@@ -43,6 +43,25 @@ export const Route = createFileRoute("/api/v1/jackpot-groups/$id/status")({
         if (Number(existing.brandId) !== Number(brand)) {
           return errorJson("Group does not belong to brand", 403);
         }
+        // Activation gate: split shares must sum to exactly 100.00%
+        if (parsed.data.status === "active") {
+          if (existing.children.length === 0) {
+            return errorJson(
+              "Cannot activate: attach at least one child tier first",
+              400,
+            );
+          }
+          const sum = existing.children.reduce(
+            (acc, c) => acc + Number(c.splitShare ?? 0),
+            0,
+          );
+          if (Math.abs(sum - 100) > 0.01) {
+            return errorJson(
+              `Cannot activate: tier split shares must total 100.00% (currently ${sum.toFixed(2)}%)`,
+              400,
+            );
+          }
+        }
         try {
           const updated = await setGroupStatus(params.id, parsed.data.status);
           if (!updated) return errorJson(`Group ${params.id} not found`, 404);

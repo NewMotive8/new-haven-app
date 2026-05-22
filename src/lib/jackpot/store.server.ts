@@ -342,6 +342,8 @@ export async function getJackpotConfig(
 // ===========================================================================
 
 export type GroupStatus = "draft" | "active" | "disabled";
+export type ContributionSource = "player" | "operator";
+export type GroupContributionType = "percentage" | "fixed";
 
 export interface JackpotGroupDTO {
   id: number;
@@ -349,13 +351,22 @@ export interface JackpotGroupDTO {
   name: string;
   status: GroupStatus;
   overlappingRule: string;
+  contributionSource: ContributionSource;
+  contributionType: GroupContributionType;
+  masterContributionValue: number;
   activatedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface JackpotGroupWithChildrenDTO extends JackpotGroupDTO {
-  children: Array<JackpotDTO & { tierRank: number; triggerProbability: number }>;
+  children: Array<
+    JackpotDTO & {
+      tierRank: number;
+      triggerProbability: number;
+      splitShare: number;
+    }
+  >;
 }
 
 export class GroupConflictError extends Error {
@@ -374,6 +385,9 @@ type GroupRow = {
   name: string;
   status: GroupStatus;
   overlapping_rule: string;
+  contribution_source: ContributionSource;
+  contribution_type: GroupContributionType;
+  master_contribution_value: number;
   activated_at: string | null;
   created_at: string;
   updated_at: string;
@@ -386,6 +400,9 @@ function groupRowToDTO(row: GroupRow): JackpotGroupDTO {
     name: row.name,
     status: row.status,
     overlappingRule: row.overlapping_rule,
+    contributionSource: (row.contribution_source ?? "player") as ContributionSource,
+    contributionType: (row.contribution_type ?? "percentage") as GroupContributionType,
+    masterContributionValue: Number(row.master_contribution_value ?? 0),
     activatedAt: row.activated_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -393,30 +410,51 @@ function groupRowToDTO(row: GroupRow): JackpotGroupDTO {
 }
 
 const GROUP_SELECT =
-  "id, brand_id, name, status, overlapping_rule, activated_at, created_at, updated_at";
+  "id, brand_id, name, status, overlapping_rule, contribution_source, contribution_type, master_contribution_value, activated_at, created_at, updated_at";
 
 function toBrandNum(brandId: string | number): number {
   return typeof brandId === "number" ? brandId : brandIdNum(brandId);
 }
 
+/** Derive absolute per-spin contribution from master value × share %. */
+export function deriveContributionRate(
+  masterValue: number,
+  splitShare: number,
+): number {
+  const v = Number(masterValue) || 0;
+  const s = Number(splitShare) || 0;
+  return Number(((v * s) / 100).toFixed(8));
+}
+
+export interface CreateGroupInput {
+  name: string;
+  overlappingRule?: string;
+  contributionSource?: ContributionSource;
+  contributionType?: GroupContributionType;
+  masterContributionValue?: number;
+}
+
 export async function createGroup(
   brandId: string | number,
-  name: string,
-  overlappingRule = "split",
+  input: CreateGroupInput,
 ): Promise<JackpotGroupDTO> {
   const { data, error } = await supabaseAdmin
     .from("jackpot_groups" as any)
     .insert({
       brand_id: toBrandNum(brandId),
-      name,
+      name: input.name,
       status: "draft",
-      overlapping_rule: overlappingRule,
+      overlapping_rule: input.overlappingRule ?? "split",
+      contribution_source: input.contributionSource ?? "player",
+      contribution_type: input.contributionType ?? "percentage",
+      master_contribution_value: Number(input.masterContributionValue ?? 0),
     })
     .select(GROUP_SELECT)
     .single();
   if (error) throw new Error(error.message);
   return groupRowToDTO(data as unknown as GroupRow);
 }
+
 
 export async function listGroups(
   brandId: string | number,
@@ -449,7 +487,7 @@ export async function getGroup(
 
   const { data: childRows, error: cErr } = await supabaseAdmin
     .from("jackpots")
-    .select(`${SELECT}, group_id, tier_rank, trigger_probability`)
+    .select(`${SELECT}, group_id, tier_rank, trigger_probability, split_share`)
     .eq("group_id", id)
     .order("tier_rank", { ascending: true });
   if (cErr) throw new Error(cErr.message);
@@ -459,11 +497,13 @@ export async function getGroup(
       group_id: number | null;
       tier_rank: number | null;
       trigger_probability: number | null;
+      split_share: number | null;
     }
   >).map((row) => ({
     ...rowToDTO(row),
     tierRank: Number(row.tier_rank ?? 0),
     triggerProbability: Number(row.trigger_probability ?? 0),
+    splitShare: Number(row.split_share ?? 0),
   }));
 
   return { ...group, children };
@@ -506,22 +546,27 @@ export async function setGroupStatus(
 }
 
 /**
- * Attach an existing standalone jackpot to a parent group. Rejects with a
- * GroupConflictError when the parent group is `active`; the DB trigger
- * provides a backstop guarantee.
+ * Attach an existing standalone jackpot to a parent group. Derives the
+ * child's `contribution_percentage` from the parent's master funding value
+ * × the supplied `splitShare` (%). Rejects with a GroupConflictError when
+ * the parent group is `active`; the DB trigger provides a backstop guarantee.
  */
 export async function addChildJackpot(
   groupId: string | number,
   jackpotId: string | number,
   tierRank: number,
-  opts: { triggerProbability?: number; contributionRate?: number; name?: string } = {},
-): Promise<JackpotDTO> {
+  opts: {
+    triggerProbability?: number;
+    splitShare?: number;
+    name?: string;
+  } = {},
+): Promise<JackpotDTO & { splitShare: number; tierRank: number; triggerProbability: number }> {
   const gid = Number(groupId);
   const jid = Number(jackpotId);
 
   const { data: parent, error: pErr } = await supabaseAdmin
     .from("jackpot_groups" as any)
-    .select("status, brand_id")
+    .select("status, brand_id, master_contribution_value")
     .eq("id", gid)
     .maybeSingle();
   if (pErr) throw new Error(pErr.message);
@@ -530,15 +575,18 @@ export async function addChildJackpot(
     throw new GroupConflictError();
   }
 
+  const masterValue = Number((parent as any).master_contribution_value ?? 0);
+  const splitShare =
+    opts.splitShare !== undefined ? Number(opts.splitShare) : 0;
+
   const updates: Record<string, unknown> = {
     group_id: gid,
     tier_rank: tierRank,
+    split_share: splitShare,
+    contribution_percentage: deriveContributionRate(masterValue, splitShare),
   };
   if (opts.triggerProbability !== undefined) {
     updates.trigger_probability = opts.triggerProbability;
-  }
-  if (opts.contributionRate !== undefined) {
-    updates.contribution_percentage = opts.contributionRate;
   }
   if (opts.name !== undefined && opts.name.trim() !== "") {
     updates.name = opts.name.trim();
@@ -558,8 +606,44 @@ export async function addChildJackpot(
   const brandId = String((parent as any).brand_id);
   const dto = await getJackpot(brandId, jid);
   if (!dto) throw new Error(`Jackpot ${jid} not found after attach`);
-  return dto;
+  return {
+    ...dto,
+    tierRank,
+    triggerProbability: Number(opts.triggerProbability ?? 0),
+    splitShare,
+  };
 }
+
+/**
+ * Update a single child's split share and re-derive its absolute contribution
+ * rate from the parent group's master value. Rejects when the parent is active.
+ */
+export async function updateChildSplitShare(
+  groupId: string | number,
+  jackpotId: string | number,
+  splitShare: number,
+): Promise<void> {
+  const gid = Number(groupId);
+  const jid = Number(jackpotId);
+  const { data: parent, error: pErr } = await supabaseAdmin
+    .from("jackpot_groups" as any)
+    .select("status, master_contribution_value")
+    .eq("id", gid)
+    .maybeSingle();
+  if (pErr) throw new Error(pErr.message);
+  if (!parent) throw new GroupConflictError(`Group ${gid} not found`);
+  if ((parent as any).status === "active") throw new GroupConflictError();
+  const masterValue = Number((parent as any).master_contribution_value ?? 0);
+  const { error } = await supabaseAdmin
+    .from("jackpots")
+    .update({
+      split_share: splitShare,
+      contribution_percentage: deriveContributionRate(masterValue, splitShare),
+    } as any)
+    .eq("id", jid);
+  if (error) throw new Error(error.message);
+}
+
 
 /**
  * Compliance guard: throws GroupConflictError when a jackpot belongs to a
@@ -662,10 +746,18 @@ export async function getGroupForBet(
 /**
  * Status-gated profile edit. Reads current status first and throws a friendly
  * GroupConflictError when the group is `active`; the DB trigger backstops.
+ * When master funding fields change, recomputes every child's derived
+ * `contribution_percentage` in the same call.
  */
 export async function updateGroupProfile(
   groupId: string | number,
-  patch: { name?: string; overlappingRule?: string },
+  patch: {
+    name?: string;
+    overlappingRule?: string;
+    contributionSource?: ContributionSource;
+    contributionType?: GroupContributionType;
+    masterContributionValue?: number;
+  },
 ): Promise<JackpotGroupDTO | undefined> {
   const id = Number(groupId);
   const { data: current, error: rErr } = await supabaseAdmin
@@ -683,6 +775,13 @@ export async function updateGroupProfile(
   if (patch.name !== undefined) update.name = patch.name;
   if (patch.overlappingRule !== undefined)
     update.overlapping_rule = patch.overlappingRule;
+  if (patch.contributionSource !== undefined)
+    update.contribution_source = patch.contributionSource;
+  if (patch.contributionType !== undefined)
+    update.contribution_type = patch.contributionType;
+  if (patch.masterContributionValue !== undefined)
+    update.master_contribution_value = Number(patch.masterContributionValue);
+
   if (Object.keys(update).length === 0) {
     const { data } = await supabaseAdmin
       .from("jackpot_groups" as any)
@@ -704,8 +803,30 @@ export async function updateGroupProfile(
     }
     throw new Error(error.message);
   }
-  return groupRowToDTO(data as unknown as GroupRow);
+  const dto = groupRowToDTO(data as unknown as GroupRow);
+
+  // If master value changed, recompute every child's derived rate.
+  if (patch.masterContributionValue !== undefined) {
+    const { data: childRows } = await supabaseAdmin
+      .from("jackpots")
+      .select("id, split_share")
+      .eq("group_id", id);
+    const newMaster = dto.masterContributionValue;
+    for (const row of (childRows as Array<{ id: number; split_share: number | null }> | null) ?? []) {
+      const share = Number(row.split_share ?? 0);
+      const { error: uErr } = await supabaseAdmin
+        .from("jackpots")
+        .update({
+          contribution_percentage: deriveContributionRate(newMaster, share),
+        } as any)
+        .eq("id", row.id);
+      if (uErr) throw new Error(uErr.message);
+    }
+  }
+
+  return dto;
 }
+
 
 /**
  * Persist a group bet via the atomic `apply_group_bet` Postgres function.

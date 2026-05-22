@@ -11,6 +11,9 @@ import { createGroup, listGroups } from "@/lib/jackpot/store.server";
 const CreateGroupSchema = z.object({
   name: z.string().min(1).max(255),
   overlappingRule: z.enum(["split", "additive"]).optional(),
+  contributionSource: z.enum(["player", "operator"]).optional(),
+  contributionType: z.enum(["percentage", "fixed"]).optional(),
+  masterContributionValue: z.number().min(0).max(1_000_000).optional(),
 });
 
 export const Route = createFileRoute("/api/v1/jackpot-groups/")({
@@ -40,11 +43,7 @@ export const Route = createFileRoute("/api/v1/jackpot-groups/")({
             400,
           );
         }
-        const grp = await createGroup(
-          brand,
-          parsed.data.name,
-          parsed.data.overlappingRule,
-        );
+        const grp = await createGroup(brand, parsed.data);
         return json(grp, { status: 201 });
       },
     },
