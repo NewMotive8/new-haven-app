@@ -1338,7 +1338,7 @@ function DraftTierCard({
                         inputMode="decimal"
                         value={String(draft[f.key])}
                         onChange={(e) =>
-                          onChange({ [f.key]: clampPct(e.target.value) } as Partial<ChildDraftForm>)
+                          onChange({ [f.key]: clampPct(e.target.value) } as Partial<ChildDraft>)
                         }
                         className={`bg-neutral-800 border-neutral-700 text-white font-mono h-10 pr-8 ${
                           !sumOk ? "border-red-500/60" : ""
