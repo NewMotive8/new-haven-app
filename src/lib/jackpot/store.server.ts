@@ -14,6 +14,8 @@ type JackpotRow = {
   trigger_condition: any;
   created_at: string;
   updated_at: string;
+  assigned_categories?: string[] | null;
+  assigned_game_ids?: Array<number | string> | null;
   jackpot_pools: { id: number; current_balance: number }[] | null;
   jackpot_seeds: { id: number; base_seed_amount: number }[] | null;
 };
@@ -41,15 +43,20 @@ function rowToDTO(row: JackpotRow): JackpotDTO {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     config: cfg,
+    assignedCategories: Array.isArray(row.assigned_categories) ? row.assigned_categories : [],
+    assignedGameIds: Array.isArray(row.assigned_game_ids)
+      ? row.assigned_game_ids.map((x) => Number(x))
+      : [],
   };
 }
 
 const SELECT = `
   id, name, brand_id, enabled, contribution_percentage, volatility,
-  trigger_condition, created_at, updated_at,
+  trigger_condition, assigned_categories, assigned_game_ids, created_at, updated_at,
   jackpot_pools ( id, current_balance ),
   jackpot_seeds ( id, base_seed_amount )
 `;
+
 
 function brandIdNum(brandId: string): number {
   const n = Number(brandId);
