@@ -99,7 +99,9 @@ function SimulatorPage() {
   );
 
   const cameFromCreationFlow = Boolean(originalPayloadRef.current);
-  const [wager, setWager] = React.useState(1);
+  // Default wager tuned to give the curve engine enough volume per run
+  // (multiple full lifecycle drop windows) without distorting per-bet economics.
+  const [wager, setWager] = React.useState(25);
   const [iterations, setIterations] = React.useState(1000000);
   const [configText, setConfigText] = React.useState(JSON.stringify(initialConfig, null, 2));
   const activeConfigTextRef = React.useRef(JSON.stringify(initialConfig, null, 2));
