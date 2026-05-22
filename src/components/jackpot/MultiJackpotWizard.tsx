@@ -368,7 +368,6 @@ export function MultiJackpotWizard() {
             {draft ? (
               <DraftTierCard
                 draft={draft}
-                jackpots={attachableJackpots}
                 onChange={patchDraft}
                 onCancel={() => setDraft(null)}
                 onSave={saveDraft}
