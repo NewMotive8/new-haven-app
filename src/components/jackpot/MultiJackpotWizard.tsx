@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BrandContext } from "../../routes/backoffice/app";
+import { BrandContext } from "@/backoffice/app";
 import type { JackpotDTO } from "@/lib/jackpot/types";
 
 type OverlappingRule = "split" | "additive";
