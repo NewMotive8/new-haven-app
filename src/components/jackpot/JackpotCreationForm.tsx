@@ -1682,12 +1682,50 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
                         budget limits (Max # of Wins, Max Total Payout) are <strong>completely disabled</strong>
                         to guarantee math alignment, prevent silent engine rejections, and meet regulatory
                         compliance standards. Configure the RNG denominator in the
-                        <strong> Trigger Probability</strong> section below.
+                        <strong> Trigger Probability</strong> subsection below.
                       </p>
                     </div>
                   </div>
                 </Card>
+
+                <Card className="p-6 bg-neutral-900/50 border-neutral-800 mt-4">
+                  <h3 className="text-sm font-semibold text-neutral-100 mb-4">Trigger Probability</h3>
+                  <div className="space-y-2 max-w-xl">
+                    <BrightLabel htmlFor="single-trigger-odds-inline" className="text-sm font-semibold text-neutral-100">
+                      Trigger Probability Denominator (N)
+                    </BrightLabel>
+                    <div className="flex items-stretch gap-2">
+                      <Input
+                        id="single-trigger-odds-inline"
+                        type="number"
+                        min={0}
+                        max={10_000_000}
+                        step={1}
+                        value={triggerOdds}
+                        onChange={(e) => {
+                          const raw = parseInt(e.target.value.slice(0, 8)) || 0;
+                          setTriggerOdds(Math.max(0, Math.min(10_000_000, raw)));
+                        }}
+                        placeholder="0 = disabled"
+                        aria-invalid={triggerOdds > 10_000_000}
+                        className={`flex-1 bg-neutral-900 border-neutral-700 tabular-nums ${triggerOdds > 10_000_000 ? 'border-red-500 ring-1 ring-red-500' : ''}`}
+                      />
+                      <div className="flex items-center px-3 rounded-md bg-neutral-800/60 border border-neutral-800 text-xs text-emerald-400 tabular-nums whitespace-nowrap min-w-[160px] justify-center">
+                        {triggerOdds > 0 ? `1 in ${triggerOdds.toLocaleString()} spins` : 'disabled'}
+                      </div>
+                    </div>
+                    <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300">
+                      <span className="font-semibold">RNG Boundary Limit:</span> Max 10,000,000
+                    </div>
+                    <p className="text-[11px] text-neutral-500">
+                      {triggerOdds > 0
+                        ? `p = ${(1 / triggerOdds).toExponential(3)} per spin`
+                        : 'Empty / 0 → uses curve-based hit chance.'}
+                    </p>
+                  </div>
+                </Card>
               </section>
+
 
               {jackpotContributionSection}
 
@@ -2200,8 +2238,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
               {eligibilitySection}
               {communityWinSection}
-              {triggerProbabilitySection}
               {playerTargetingSection}
+
 
               {/* Widget Configuration Section */}
               <section ref={configRef} className="scroll-mt-20">
