@@ -1,61 +1,36 @@
-## Problem
+## Add diagnostic line to MathAudit
 
-The dashboard's **Draft** tab always shows `0` for single jackpots because:
+Show why a simulation flags **Variance Detected** by surfacing the three numbers that explain the gap: expected wins, actual wins, and triggers blocked by safety gates.
 
-- The schema rule we agreed on is: single drafts are stored with `enabled: false` (no DB migration).
-- The dashboard (`src/routes/admin.jackpots.index.tsx`, line 162) maps every `enabled: false` single into the `disabled` bucket. There's no signal saying "this was saved as a draft."
-- The Blueprint Center's **Clone as Campaign Draft** does write `enabled: false` correctly, but the row then shows up under **Disabled (3)**, not **Draft (0)**.
-- The simulator's only save button is **Save Jackpot**, which forces `enabled: true`. There is no actual "Save as Draft" affordance for the user-built form flow yet.
+### Data already available
+- `result.rejectedByGate` — wins that hit the RNG but were rejected by `performSafetyChecks` (pool below minimum, seed not filled, etc.).
+- Per tier: `tierResults[i].rejectedByGate`.
 
-## Fix
+### Changes to `src/routes/admin.simulator.tsx`
 
-Use a lightweight marker inside the jackpot's `config` JSON — `config.isDraft = true` — to distinguish a draft from a paused/disabled jackpot. No DB migration required.
+1. **Extend `MathAudit` props** with optional `rejectedByGate?: number`.
 
-### 1. Carry `isDraft` through the payload pipeline
+2. **Compute and render a diagnostic row** under the existing 3-column grid (only when `configuredProb > 0`):
+   - Expected wins = `iterations × configuredProb` (rounded)
+   - Actual wins = `wins`
+   - Blocked by gate = `rejectedByGate ?? 0`
+   - Triggers fired = `wins + rejectedByGate` (so user sees the RNG hit rate vs the awarded rate)
+   - Layout: a compact stat strip (4 small cells) with muted labels, separated from the badge row by a thin divider.
+   - If `rejectedByGate > 0` and roughly closes the gap (triggers fired ≈ expected), add a one-line hint: *"Gate rejections explain the gap — wins were suppressed because pool/seed conditions weren't met."* Otherwise: *"Variance is sample-size driven — increase iterations for a tighter rate."*
 
-- `src/lib/jackpot/types.ts` — add optional `isDraft?: boolean` to `JackpotSavePayload`.
-- `src/lib/jackpot/build-create-body.ts`:
-  - When `payload.isDraft === true`, set `enabled: false` and merge `isDraft: true` into the returned `config` object.
-  - Otherwise leave behavior unchanged (`enabled: true`).
-- `src/lib/jackpot/dto-to-payload.ts` — read `cfg.isDraft` back into the rehydrated payload so re-opening a draft from the dashboard keeps the draft flag.
-- `src/lib/jackpot/types.ts` `JackpotDTO` already exposes `config`; no change needed there.
+3. **Wire `rejectedByGate` through both call sites** in `ResultsSummary`:
+   - Single jackpot: pass `result.rejectedByGate`.
+   - Multi-level: pass `t.rejectedByGate` for each tier.
 
-### 2. Surface drafts in the dashboard
+### Out of scope
+- No change to tolerance thresholds (still ±25%).
+- No new API fields, no engine changes.
+- Multi-level summary card unchanged; diagnostic appears per-tier in each tier's MathAudit.
 
-- `src/routes/admin.jackpots.index.tsx`:
-  - In the `rows` `useMemo` (around line 153), change the single-jackpot status derivation:
-
-    ```
-    const cfgIsDraft = (j.config as any)?.isDraft === true;
-    status: cfgIsDraft ? "draft" : (j.enabled ? "active" : "disabled")
-    ```
-
-  - No changes to the tab list, counters, filter logic, or `StatusBadge` — they already understand `"draft"`.
-  - Result: the existing Blueprint-cloned draft moves out of **Disabled** into **Draft**.
-
-### 3. Make Blueprint clones explicitly drafts
-
-- `src/components/jackpot/BlueprintCenter.tsx`, `cloneSingleDraft`:
-  - Pass `isDraft: true` on the payload before calling `buildCreateBody`. Drop the ad-hoc `{ ...buildCreateBody(payload), enabled: false }` override — the builder now handles it.
-
-### 4. Add a "Save as Draft" button on the simulator
-
-- `src/routes/admin.simulator.tsx`:
-  - Add a second button next to **Save Jackpot** labeled **Save as Draft** (neutral/outline styling vs. the green primary).
-  - New `handleSaveDraft` mirrors `handleSave` but calls `buildCreateBody({ ...payload, isDraft: true })` and toasts `"Draft saved"`.
-  - Both buttons navigate back to `/admin/jackpots`; the dashboard's Draft tab will now reflect the new row.
-
-### 5. (Optional, same edit) Edit-mode hint
-
-- In `src/routes/admin.jackpots.new.tsx`, when `draftId` is present, the page title already reads "Edit Jackpot." No change needed — the draft flag is preserved by step 1's round-trip.
-
-## Out of scope
-
-- No migration, no new status enum, no changes to `jackpot_groups` (multi drafts already use `status: "draft"`).
-- No change to the wizard's `Continue` button — drafts continue to be produced via the simulator step or Blueprint clone.
-
-## What you'll see after the fix
-
-- The row you just cloned will move from **Disabled** into **Draft (1)**.
-- The 3 existing **Disabled** rows stay where they are (they have no `config.isDraft`).
-- The simulator now has both **Save Jackpot** (live) and **Save as Draft** (parked under Draft tab).
+### Expected result
+Below the **Variance Detected** badge you'll see something like:
+```
+Expected wins  200    Actual wins  8    Blocked by gate  192    Triggers fired  200
+Gate rejections explain the gap — wins were suppressed because pool/seed conditions weren't met.
+```
+Making it obvious whether the variance is bad luck, too few iterations, or the pool/seed gating starving payouts.
