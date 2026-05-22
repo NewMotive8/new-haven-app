@@ -1,6 +1,5 @@
 import * as React from "react";
 import axios from "axios";
-import { useQuery } from "react-query";
 import { toast } from "react-toastify";
 import { useNavigate } from "@tanstack/react-router";
 import {
@@ -42,7 +41,6 @@ interface GroupDTO {
 
 interface ChildDraft {
   uid: string;
-  jackpotId: number | null;
   tierName: string;
   tierRank: string;
   seedAmount: string;
@@ -56,7 +54,6 @@ const DEFAULT_DAILY_VOLUME = 25000;
 function newChildDraft(rank: number): ChildDraft {
   return {
     uid: crypto.randomUUID(),
-    jackpotId: null,
     tierName: "",
     tierRank: String(rank),
     seedAmount: "100.00",
@@ -133,23 +130,6 @@ export function MultiJackpotWizard() {
     }>
   >([]);
 
-  const jackpotsQuery = useQuery<JackpotDTO[]>({
-    queryKey: ["wizard-jackpots", brandId],
-    enabled: brandId != null,
-    queryFn: async () => {
-      const res = await axios.get<JackpotDTO[]>("/api/v1/jackpots", {
-        headers: { brandId: String(brandId) },
-      });
-      return res.data;
-    },
-  });
-
-  const attachableJackpots = React.useMemo(() => {
-    return (jackpotsQuery.data ?? []).filter(
-      (j) => !savedChildren.some((c) => c.jackpotId === j.id),
-    );
-  }, [jackpotsQuery.data, savedChildren]);
-
   function nextRank() {
     return Math.max(0, ...savedChildren.map((c) => c.tierRank)) + 1;
   }
@@ -194,26 +174,29 @@ export function MultiJackpotWizard() {
   /* ───────────────── Step 2 ───────────────── */
   async function saveDraft() {
     if (!group || !draft) return;
-    if (draft.jackpotId == null) return toast.error("Select a jackpot to attach");
+    const tierName = draft.tierName.trim();
+    if (!tierName) return toast.error("Tier Name is required");
     const tierRank = Math.max(0, Math.trunc(Number(draft.tierRank) || 0));
     const probability = denominatorToProbability(draft.triggerDenominator);
     const contributionRate = Number(
       (Number.parseFloat(draft.contributionRate) || 0).toFixed(8),
     );
     const seedAmount = Number.parseFloat(draft.seedAmount) || 0;
-    const body: Record<string, unknown> = {
-      jackpotId: draft.jackpotId,
-      tierRank,
-      triggerProbability: Number(probability.toFixed(8)),
-      contributionRate,
-      seedAmount,
-    };
-    if (draft.tierName.trim()) body.name = draft.tierName.trim();
+    const triggerProbability = Number(probability.toFixed(8));
+
     setSubmitting(true);
     try {
-      const res = await axios.post(
-        `/api/v1/jackpot-groups/${group.id}/children`,
-        body,
+      // 1) Create the standalone jackpot row inline.
+      const createRes = await axios.post<JackpotDTO>(
+        "/api/v1/jackpots",
+        {
+          name: tierName,
+          enabled: true,
+          contributionRate,
+          seedAmount,
+          poolBalance: seedAmount,
+          triggerThreshold: seedAmount * 2,
+        },
         {
           headers: {
             brandId: String(brandId),
@@ -221,34 +204,56 @@ export function MultiJackpotWizard() {
           },
         },
       );
-      const attached = (res.data ?? {}) as Partial<JackpotDTO>;
-      if (typeof attached.id !== "number") {
-        toast.error("Server returned an unexpected response while attaching the tier");
+      const created = (createRes.data ?? {}) as Partial<JackpotDTO>;
+      if (typeof created.id !== "number") {
+        toast.error("Server did not return a jackpot id while creating the tier");
         return;
       }
-      const jackpotName = attached.name ?? "Attached jackpot";
+      const newJackpotId = created.id;
+
+      // 2) Attach it to the parent MultiJackpot group.
+      const attachRes = await axios.post(
+        `/api/v1/jackpot-groups/${group.id}/children`,
+        {
+          jackpotId: newJackpotId,
+          tierRank,
+          triggerProbability,
+          contributionRate,
+          name: tierName,
+        },
+        {
+          headers: {
+            brandId: String(brandId),
+            "Content-Type": "application/json",
+          },
+        },
+      );
+      const attached = (attachRes.data ?? {}) as Partial<JackpotDTO>;
+      const jackpotName = attached.name ?? created.name ?? tierName;
+
       setSavedChildren((prev) => [
         ...prev,
         {
-          jackpotId: attached.id as number,
+          jackpotId: newJackpotId,
           tierRank,
           jackpotName,
-          tierName: draft.tierName.trim() || jackpotName,
+          tierName,
           probability,
           contributionRate,
           seedAmount,
         },
       ]);
       setDraft(null);
-      toast.success(`Attached ${jackpotName} at tier ${tierRank}`);
+      toast.success(`Created tier "${tierName}" at rank ${tierRank}`);
     } catch (err: any) {
       toast.error(
-        err?.response?.data?.error ?? err?.message ?? "Failed to attach child tier",
+        err?.response?.data?.error ?? err?.message ?? "Failed to create child tier",
       );
     } finally {
       setSubmitting(false);
     }
   }
+
 
   /* ───────────────── Step 3 ───────────────── */
   async function handleActivate() {
@@ -363,7 +368,6 @@ export function MultiJackpotWizard() {
             {draft ? (
               <DraftTierCard
                 draft={draft}
-                jackpots={attachableJackpots}
                 onChange={patchDraft}
                 onCancel={() => setDraft(null)}
                 onSave={saveDraft}
@@ -633,14 +637,12 @@ function TierLadder({
 /* ────────────────────────────────────────────────────────────────── */
 function DraftTierCard({
   draft,
-  jackpots,
   onChange,
   onCancel,
   onSave,
   submitting,
 }: {
   draft: ChildDraft;
-  jackpots: JackpotDTO[];
   onChange: (patch: Partial<ChildDraft>) => void;
   onCancel: () => void;
   onSave: () => void;
@@ -651,15 +653,6 @@ function DraftTierCard({
   const probability = denominatorToProbability(draft.triggerDenominator);
   const dropText = formatDropFrequency(probability, dailyVolume);
   const theme = rankTheme(Number(draft.tierRank) || 1);
-
-  function pickJackpot(nextId: number | null) {
-    const patch: Partial<ChildDraft> = { jackpotId: nextId };
-    if (nextId != null && !draft.tierName.trim()) {
-      const picked = jackpots.find((j) => j.id === nextId);
-      if (picked?.name) patch.tierName = picked.name;
-    }
-    onChange(patch);
-  }
 
   return (
     <div
@@ -673,7 +666,7 @@ function DraftTierCard({
             {theme.label} · New tier
           </span>
           <span className="text-sm text-neutral-400">
-            Configure and save to attach this level to the stack.
+            A fresh child jackpot will be created and attached to this MultiJackpot.
           </span>
         </div>
         <Button
@@ -715,23 +708,6 @@ function DraftTierCard({
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2 space-y-2">
-          <Label className="text-neutral-300">Jackpot</Label>
-          <select
-            value={draft.jackpotId ?? ""}
-            onChange={(e) =>
-              pickJackpot(e.target.value ? Number(e.target.value) : null)
-            }
-            className="w-full h-10 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-white"
-          >
-            <option value="">Select existing jackpot…</option>
-            {jackpots.map((j) => (
-              <option key={j.id} value={j.id}>
-                #{j.id} · {j.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-2">
           <Label className="text-neutral-300">Tier rank</Label>
           <Input
             type="number"
@@ -740,8 +716,12 @@ function DraftTierCard({
             onChange={(e) => onChange({ tierRank: e.target.value })}
             className="bg-neutral-800 border-neutral-700 text-white h-10"
           />
+          <div className="text-xs text-neutral-500">
+            Higher numbers sit at the top of the ladder (e.g. Grand = 4).
+          </div>
         </div>
       </div>
+
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -847,7 +827,7 @@ function DraftTierCard({
           type="button"
           size="sm"
           onClick={onSave}
-          disabled={submitting || draft.jackpotId == null}
+          disabled={submitting || !draft.tierName.trim()}
           className="bg-blue-500 hover:bg-blue-600"
         >
           Save tier
