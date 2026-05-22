@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { GameAssignmentStep, type GameAssignmentValue } from '@/components/jackpot/GameAssignmentStep';
-import type { MasterCategory } from '@/lib/jackpot/master-categories';
+import { toast } from 'sonner';
+
+
 
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { Clock, LogOut, Plus, X } from 'lucide-react';
@@ -250,8 +251,8 @@ export type JackpotSavePayload = {
   poolWeight?: number;
   seedWeight?: number;
   houseWeight?: number;
-  overlappingRule?: 'split' | 'additive';
   triggerOdds?: number;
+
   previewWager?: number;
   // ── Eligibility & Rules Engine — game/event targeting metadata.
   eligibility?: {
@@ -274,11 +275,10 @@ export type JackpotSavePayload = {
       crmSegmentsExclude: string[];
       restrictedCountries: string[];
       blacklistedPlayerIds: string[];
+      includedPlayerIds: string[];
     };
   };
-  // ── Game Assignment — internal master categories + games catalog IDs.
-  assignedCategories?: string[];
-  assignedGameIds?: number[];
+
 };
 
 
@@ -356,7 +356,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   const [poolWeight, setPoolWeight] = useState<number>(initial?.poolWeight ?? 60);
   const [seedWeight, setSeedWeight] = useState<number>(initial?.seedWeight ?? 30);
   const [houseWeight, setHouseWeight] = useState<number>(initial?.houseWeight ?? 10);
-  const [overlappingRule, setOverlappingRule] = useState<'split' | 'additive'>(initial?.overlappingRule ?? 'split');
+  // overlappingRule removed — see "Overlapping Jackpot Rule" cleanup
   const [triggerOdds, setTriggerOdds] = useState<number>(initial?.triggerOdds ?? 0);
   const [previewWager, setPreviewWager] = useState<number>(initial?.previewWager ?? 1.0);
 
@@ -414,7 +414,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
     arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 
   function buildPlayers(): NonNullable<JackpotSavePayload['eligibility']>['players'] {
-    if (audienceMode === 'all') return { audienceMode: 'all', vipTiers: [], crmSegmentsInclude: [], crmSegmentsExclude: [], restrictedCountries: [], blacklistedPlayerIds: [] };
+    if (audienceMode === 'all') return { audienceMode: 'all', vipTiers: [], crmSegmentsInclude: [], crmSegmentsExclude: [], restrictedCountries: [], blacklistedPlayerIds: [], includedPlayerIds: [] };
     return {
       audienceMode: 'custom',
       vipTiers,
@@ -422,11 +422,13 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       crmSegmentsExclude,
       restrictedCountries,
       blacklistedPlayerIds: blacklistedIdsRaw
-        .split(',')
+        .split(/[,\n]/)
         .map((s) => s.trim())
         .filter(Boolean),
+      includedPlayerIds,
     };
   }
+
 
   function buildEligibility(): JackpotSavePayload['eligibility'] {
     const base = { players: buildPlayers() };
@@ -573,13 +575,13 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
   const [continueError, setContinueError] = useState<string | null>(null);
 
-  // ── Game Assignment ────────────────────────────────────────────────
-  const [assignedCategories, setAssignedCategories] = useState<string[]>(
-    (initial?.assignedCategories as string[] | undefined) ?? [],
+  // ── Inclusions: bulk-uploaded allow-list of player IDs (CSV)
+  const [includedPlayerIds, setIncludedPlayerIds] = useState<string[]>(
+    initial?.eligibility?.players?.includedPlayerIds ?? [],
   );
-  const [assignedGameIds, setAssignedGameIds] = useState<number[]>(
-    (initial?.assignedGameIds as number[] | undefined) ?? [],
-  );
+
+
+
 
 
   function buildPayload(): JackpotSavePayload {
@@ -642,14 +644,11 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       poolWeight,
       seedWeight,
       houseWeight,
-      overlappingRule,
       triggerOdds,
       previewWager,
       eligibility: buildEligibility(),
-      assignedCategories,
-      assignedGameIds,
-
     };
+
   }
 
   function handleContinue() {
@@ -795,32 +794,51 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
     </section>
   ) : null;
 
-  const overlappingSection = selectedType !== 'multi_level' && contributionMode === 'split' ? (
+  // Trigger Probability — top-level fixed-odds trigger for Single Jackpots
+  // (Classic / Must-Drop / Frequency). Mirrors the per-tier UI used inside
+  // the legacy multi-level block. Writes `triggerOdds` (denominator N) into
+  // the payload; engine interprets it as p = 1/N per spin.
+  const triggerProbabilitySection = selectedType !== 'multi_level' ? (
     <section className="scroll-mt-20">
-      <h2 className="text-xl font-semibold mb-6">Overlapping Jackpot Rule</h2>
+      <h2 className="text-xl font-semibold mb-6">Trigger Probability</h2>
       <Card className="p-6 bg-neutral-900/50 border-neutral-800">
         <div className="space-y-2 max-w-xl">
-          <BrightLabel htmlFor="v2-overlap" className="text-sm font-semibold text-neutral-100">
-            Overlapping Jackpot Rule
+          <BrightLabel htmlFor="single-trigger-odds" className="text-sm font-semibold text-neutral-100">
+            Trigger Probability Denominator (N)
           </BrightLabel>
-          <select
-            id="v2-overlap"
-            value={overlappingRule}
-            onChange={(e) => setOverlappingRule(e.target.value as 'split' | 'additive')}
-            className="w-full h-10 rounded-md bg-neutral-900 border border-neutral-700 px-3 text-sm text-neutral-100 tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="split">Split Mode (Divide contribution equally among matching active pools)</option>
-            <option value="additive">Additive Mode (Charge independent contribution fee per active pool / Double-Dip)</option>
-          </select>
-          <p className="text-xs text-neutral-400">
-            When a single spin matches several active jackpots: <strong>Split</strong> divides the configured
-            contribution between them; <strong>Additive</strong> charges this jackpot's full contribution
-            independently of any others (double-dip).
+          <div className="flex items-stretch gap-2">
+            <Input
+              id="single-trigger-odds"
+              type="number"
+              min={0}
+              max={10_000_000}
+              step={1}
+              value={triggerOdds}
+              onChange={(e) => {
+                const raw = parseInt(e.target.value.slice(0, 8)) || 0;
+                setTriggerOdds(Math.max(0, Math.min(10_000_000, raw)));
+              }}
+              placeholder="0 = disabled"
+              aria-invalid={triggerOdds > 10_000_000}
+              className={`flex-1 bg-neutral-900 border-neutral-700 tabular-nums ${triggerOdds > 10_000_000 ? 'border-red-500 ring-1 ring-red-500' : ''}`}
+            />
+            <div className="flex items-center px-3 rounded-md bg-neutral-800/60 border border-neutral-800 text-xs text-emerald-400 tabular-nums whitespace-nowrap min-w-[160px] justify-center">
+              {triggerOdds > 0 ? `1 in ${triggerOdds.toLocaleString()} spins` : 'disabled'}
+            </div>
+          </div>
+          <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300">
+            <span className="font-semibold">RNG Boundary Limit:</span> Max 10,000,000
+          </div>
+          <p className="text-[11px] text-neutral-500">
+            {triggerOdds > 0
+              ? `p = ${(1 / triggerOdds).toExponential(3)} per spin`
+              : 'Empty / 0 → uses curve-based hit chance.'}
           </p>
         </div>
       </Card>
     </section>
   ) : null;
+
 
   // ── Eligibility & Rules Engine section (casino vs sportsbook targeting) ──
   const CASINO_CATEGORIES = ['Slots', 'Live Casino', 'Table Games', 'Crash Games'];
@@ -2498,7 +2516,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
               {eligibilitySection}
               {communityWinSection}
-              {overlappingSection}
+              {triggerProbabilitySection}
               {playerTargetingSection}
 
               {/* Widget Configuration Section */}
@@ -3529,7 +3547,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
               {eligibilitySection}
               {communityWinSection}
-              {overlappingSection}
+              {triggerProbabilitySection}
               {playerTargetingSection}
 
               {/* Widget Configuration Section */}
@@ -4702,7 +4720,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
               {eligibilitySection}
               {communityWinSection}
-              {overlappingSection}
+              {triggerProbabilitySection}
               {playerTargetingSection}
 
             </>
@@ -5080,20 +5098,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
           </section>
         )}
 
-        {/* Game Assignment — internal master categories + games catalog. */}
-        <section className="mt-8">
-          <GameAssignmentStep
-            value={{
-              assignedCategories: assignedCategories as MasterCategory[],
-              assignedGameIds,
-            }}
-            onChange={(next: GameAssignmentValue) => {
-              setAssignedCategories(next.assignedCategories);
-              setAssignedGameIds(next.assignedGameIds);
-            }}
-          />
 
-        </section>
+
 
         {/* Continue bar — bottom-right, navigates to /backoffice/simulator */}
 

@@ -76,7 +76,6 @@ export function buildTriggerCondition(p: JackpotSavePayload): Record<string, unk
       poolWeight: p.poolWeight ?? null,
       seedWeight: p.seedWeight ?? null,
       houseWeight: p.houseWeight ?? null,
-      overlappingRule: p.overlappingRule ?? "split",
       triggerOdds: p.triggerOdds ?? null,
     },
     // ── Eligibility & Rules Engine — game/event targeting metadata for the
@@ -108,8 +107,7 @@ export function buildCreateBody(payload: JackpotSavePayload) {
     volatility: payload.volatility,
     jackpotType: payload.type,
     config: buildTriggerCondition(payload),
-    assignedCategories: payload.assignedCategories ?? [],
-    assignedGameIds: payload.assignedGameIds ?? [],
   };
 
 }
+
