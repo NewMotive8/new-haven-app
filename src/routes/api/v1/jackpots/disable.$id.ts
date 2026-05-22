@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { errorJson, json, preflight, requireBrandId } from "@/lib/jackpot/http";
-import { setEnabled } from "@/lib/jackpot/store.server";
+import { setEnabled, GroupConflictError } from "@/lib/jackpot/store.server";
 
 export const Route = createFileRoute("/api/v1/jackpots/disable/$id")({
   server: {
@@ -11,9 +11,14 @@ export const Route = createFileRoute("/api/v1/jackpots/disable/$id")({
         if (brand instanceof Response) return brand;
         const id = Number(params.id);
         if (!Number.isFinite(id)) return errorJson("Invalid id", 400);
-        const updated = await setEnabled(brand, id, false);
-        if (!updated) return errorJson(`Jackpot ${id} not found`, 404);
-        return json(updated);
+        try {
+          const updated = await setEnabled(brand, id, false);
+          if (!updated) return errorJson(`Jackpot ${id} not found`, 404);
+          return json(updated);
+        } catch (e: any) {
+          if (e instanceof GroupConflictError) return errorJson(e.message, 409);
+          return errorJson(e?.message ?? "Disable failed", 500);
+        }
       },
     },
   },
