@@ -16,6 +16,8 @@ import {
   Medal,
   Gem,
   ShieldAlert,
+  Coins,
+  AlertCircle,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,13 +32,17 @@ import {
   probabilityFixed8,
 } from "@/lib/jackpot/tier-forecast";
 
-type OverlappingRule = "split" | "additive";
+type ContributionSource = "player" | "operator";
+type ContributionType = "percentage" | "fixed";
 
 interface GroupDTO {
   id: number;
   name: string;
   status: "draft" | "active" | "disabled";
   overlappingRule: string;
+  contributionSource: ContributionSource;
+  contributionType: ContributionType;
+  masterContributionValue: number;
 }
 
 interface ChildDraft {
@@ -45,7 +51,7 @@ interface ChildDraft {
   tierRank: string;
   seedAmount: string;
   triggerDenominator: string;
-  contributionRate: string;
+  splitShare: string;
 }
 
 const TIER_PRESETS = ["Mini", "Minor", "Major", "Grand"] as const;
@@ -58,7 +64,7 @@ function newChildDraft(rank: number): ChildDraft {
     tierRank: String(rank),
     seedAmount: "100.00",
     triggerDenominator: "10000",
-    contributionRate: "0.01000000",
+    splitShare: "0.00",
   };
 }
 
@@ -104,19 +110,43 @@ function rankTheme(rank: number) {
   };
 }
 
+function formatMasterValue(
+  type: ContributionType,
+  value: number,
+): string {
+  if (type === "percentage") return `${(value * 100).toFixed(4)}%`;
+  return value.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function formatDerivedRate(
+  type: ContributionType,
+  masterValue: number,
+  splitShare: number,
+): string {
+  const derived = (masterValue * splitShare) / 100;
+  if (type === "percentage") return `${(derived * 100).toFixed(4)}% of wager`;
+  return `${derived.toFixed(4)} / spin`;
+}
+
 export function MultiJackpotWizard() {
   const { brandId } = React.useContext(BrandContext);
   const navigate = useNavigate();
   const [step, setStep] = React.useState<1 | 2 | 3>(1);
   const [submitting, setSubmitting] = React.useState(false);
 
-  // Step 1
+  // Step 1 — Master Strategy
   const [name, setName] = React.useState("");
-  const [overlappingRule, setOverlappingRule] =
-    React.useState<OverlappingRule>("split");
+  const [contributionSource, setContributionSource] =
+    React.useState<ContributionSource>("player");
+  const [contributionType, setContributionType] =
+    React.useState<ContributionType>("percentage");
+  const [masterValueInput, setMasterValueInput] = React.useState("1.00"); // % when percentage, currency when fixed
   const [group, setGroup] = React.useState<GroupDTO | null>(null);
 
-  // Step 2
+  // Step 2 — Tier Allocation
   const [draft, setDraft] = React.useState<ChildDraft | null>(null);
   const [savedChildren, setSavedChildren] = React.useState<
     Array<{
@@ -125,10 +155,16 @@ export function MultiJackpotWizard() {
       jackpotName: string;
       tierName: string;
       probability: number;
-      contributionRate: number;
+      splitShare: number;
       seedAmount: number;
     }>
   >([]);
+
+  const sharesTotal = React.useMemo(
+    () => savedChildren.reduce((acc, c) => acc + c.splitShare, 0),
+    [savedChildren],
+  );
+  const sharesValid = Math.abs(sharesTotal - 100) <= 0.01;
 
   function nextRank() {
     return Math.max(0, ...savedChildren.map((c) => c.tierRank)) + 1;
@@ -142,15 +178,31 @@ export function MultiJackpotWizard() {
     setDraft((prev) => (prev ? { ...prev, ...patch } : prev));
   }
 
+  /** Convert the human-facing master input to the stored value.
+   *  Percentage → fraction (1.00% input → 0.01 stored). Fixed → currency as-is. */
+  function masterValueAsStored(): number {
+    const raw = Number.parseFloat(masterValueInput) || 0;
+    return contributionType === "percentage" ? raw / 100 : raw;
+  }
+
   /* ───────────────── Step 1 ───────────────── */
   async function handleCreateGroup() {
     if (!name.trim()) return toast.error("MultiJackpot name is required");
     if (brandId == null) return toast.error("No brand selected");
+    const masterValue = masterValueAsStored();
+    if (!(masterValue > 0))
+      return toast.error("Master contribution value must be greater than zero");
     setSubmitting(true);
     try {
       const res = await axios.post<GroupDTO>(
         "/api/v1/jackpot-groups",
-        { name: name.trim(), overlappingRule },
+        {
+          name: name.trim(),
+          overlappingRule: "split",
+          contributionSource,
+          contributionType,
+          masterContributionValue: masterValue,
+        },
         {
           headers: {
             brandId: String(brandId),
@@ -178,21 +230,29 @@ export function MultiJackpotWizard() {
     if (!tierName) return toast.error("Tier Name is required");
     const tierRank = Math.max(0, Math.trunc(Number(draft.tierRank) || 0));
     const probability = denominatorToProbability(draft.triggerDenominator);
-    const contributionRate = Number(
-      (Number.parseFloat(draft.contributionRate) || 0).toFixed(8),
-    );
+    const splitShare = Number.parseFloat(draft.splitShare) || 0;
+    if (splitShare <= 0 || splitShare > 100) {
+      return toast.error("Split share must be between 0 and 100");
+    }
     const seedAmount = Number.parseFloat(draft.seedAmount) || 0;
     const triggerProbability = Number(probability.toFixed(8));
 
+    // Prevent total > 100 before hitting the backend
+    const projected = sharesTotal + splitShare;
+    if (projected > 100.01) {
+      return toast.error(
+        `Adding ${splitShare.toFixed(2)}% would push the total to ${projected.toFixed(2)}%. Max is 100.00%.`,
+      );
+    }
+
     setSubmitting(true);
     try {
-      // 1) Create the standalone jackpot row inline.
+      // 1) Create the inline child jackpot (rate is derived server-side on attach)
       const createRes = await axios.post<JackpotDTO>(
         "/api/v1/jackpots",
         {
           name: tierName,
           enabled: true,
-          contributionRate,
           seedAmount,
           poolBalance: seedAmount,
           triggerThreshold: seedAmount * 2,
@@ -211,14 +271,14 @@ export function MultiJackpotWizard() {
       }
       const newJackpotId = created.id;
 
-      // 2) Attach it to the parent MultiJackpot group.
+      // 2) Attach it to the parent MultiJackpot group with its split share.
       const attachRes = await axios.post(
         `/api/v1/jackpot-groups/${group.id}/children`,
         {
           jackpotId: newJackpotId,
           tierRank,
           triggerProbability,
-          contributionRate,
+          splitShare,
           name: tierName,
         },
         {
@@ -239,7 +299,7 @@ export function MultiJackpotWizard() {
           jackpotName,
           tierName,
           probability,
-          contributionRate,
+          splitShare,
           seedAmount,
         },
       ]);
@@ -254,12 +314,15 @@ export function MultiJackpotWizard() {
     }
   }
 
-
   /* ───────────────── Step 3 ───────────────── */
   async function handleActivate() {
     if (!group) return;
     if (savedChildren.length === 0)
       return toast.error("Attach at least one child tier before activating");
+    if (!sharesValid)
+      return toast.error(
+        `Split shares must total exactly 100.00% (currently ${sharesTotal.toFixed(2)}%)`,
+      );
     setSubmitting(true);
     try {
       await axios.post(
@@ -291,17 +354,18 @@ export function MultiJackpotWizard() {
       {step === 1 && (
         <Card className="p-8 bg-neutral-900/60 border-neutral-800">
           <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-blue-300 mb-2">
-            <Sparkles className="w-3.5 h-3.5" /> Step 1 · Campaign Strategy
+            <Sparkles className="w-3.5 h-3.5" /> Step 1 · Master Strategy
           </div>
           <h2 className="text-2xl font-semibold text-white mb-1">
-            Define the MultiJackpot campaign
+            Define group-level funding
           </h2>
           <p className="text-sm text-neutral-400 mb-8 max-w-2xl">
-            Name your MultiJackpot group and select how overlapping wins
-            interact with operator margin and player perception.
+            All children inherit funding from this MultiJackpot. Set the source,
+            type, and master value once — each tier will declare only its
+            proportional split share in the next step.
           </p>
 
-          <div className="grid gap-8 max-w-3xl">
+          <div className="grid gap-6 max-w-3xl">
             <div className="space-y-2">
               <Label htmlFor="mj-name" className="text-white">
                 MultiJackpot name
@@ -315,23 +379,73 @@ export function MultiJackpotWizard() {
               />
             </div>
 
-            <div className="space-y-3">
-              <Label className="text-white">Overlapping rule</Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <RuleCard
-                  active={overlappingRule === "split"}
-                  title="Split Mode"
-                  caption="Balanced exposure"
-                  body="When multiple tiers trigger on the same spin, contribution is proportionally divided across winners. Predictable RTP, smoother bankroll, tighter operator margin variance."
-                  onClick={() => setOverlappingRule("split")}
-                />
-                <RuleCard
-                  active={overlappingRule === "additive"}
-                  title="Additive Mode"
-                  caption="Maximum showcase"
-                  body="Each tier independently consumes its full contribution share. Bigger combined payouts and louder marketing moments, but margin variance widens during peak traffic."
-                  onClick={() => setOverlappingRule("additive")}
-                />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label className="text-neutral-300">Contribution Source</Label>
+                <select
+                  value={contributionSource}
+                  onChange={(e) =>
+                    setContributionSource(e.target.value as ContributionSource)
+                  }
+                  className="w-full h-11 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-white"
+                >
+                  <option value="player">Player (deducted from wager)</option>
+                  <option value="operator">Operator (house-funded)</option>
+                </select>
+                <div className="text-xs text-neutral-500">
+                  Who finances the pools.
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-neutral-300">Contribution Type</Label>
+                <select
+                  value={contributionType}
+                  onChange={(e) =>
+                    setContributionType(e.target.value as ContributionType)
+                  }
+                  className="w-full h-11 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-white"
+                >
+                  <option value="percentage">Percentage of wager</option>
+                  <option value="fixed">Fixed amount per spin</option>
+                </select>
+                <div className="text-xs text-neutral-500">
+                  How the master value is interpreted.
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-neutral-300">
+                  Master Contribution Value
+                </Label>
+                <div className="relative">
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    value={masterValueInput}
+                    onChange={(e) => setMasterValueInput(e.target.value)}
+                    placeholder={contributionType === "percentage" ? "1.00" : "10.00"}
+                    className="bg-neutral-800 border-neutral-700 text-white h-11 font-mono pr-10"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">
+                    {contributionType === "percentage" ? "%" : "₵"}
+                  </span>
+                </div>
+                <div className="text-xs text-neutral-500">
+                  {contributionType === "percentage"
+                    ? "Total share of every wager funnelled into the MultiJackpot."
+                    : "Total amount drawn per spin and distributed across tiers."}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4 flex gap-3">
+              <Coins className="w-5 h-5 text-blue-300 shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-100">
+                <div className="font-medium mb-0.5">Parent-governed split</div>
+                Children inherit this master value. Their absolute contribution
+                is derived from <span className="font-mono">master × share%</span>
+                {" "}and saved to the transaction engine automatically.
               </div>
             </div>
           </div>
@@ -342,7 +456,8 @@ export function MultiJackpotWizard() {
               disabled={submitting || !name.trim()}
               className="bg-blue-500 hover:bg-blue-600 h-11 px-6"
             >
-              Continue to tier stack <ChevronRight className="ml-1 w-4 h-4" />
+              Continue to tier allocation{" "}
+              <ChevronRight className="ml-1 w-4 h-4" />
             </Button>
           </div>
         </Card>
@@ -352,22 +467,34 @@ export function MultiJackpotWizard() {
         <Step2ErrorBoundary onReset={() => setDraft(null)}>
           <Card className="p-8 bg-neutral-900/60 border-neutral-800">
             <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-blue-300 mb-2">
-              <Layers className="w-3.5 h-3.5" /> Step 2 · The Tier Stack
+              <Layers className="w-3.5 h-3.5" /> Step 2 · Tier Allocation
             </div>
             <h2 className="text-2xl font-semibold text-white mb-1">
-              Build the vertical hierarchy
+              Allocate split shares
             </h2>
-            <p className="text-sm text-neutral-400 mb-8 max-w-2xl">
-              Highest tiers sit at the top of the ladder. Each tier is a fully
-              configured jackpot with its own seed, probability, and
-              contribution rate.
+            <p className="text-sm text-neutral-400 mb-6 max-w-2xl">
+              Each tier declares its share of the master contribution. Shares
+              must total exactly 100.00% before activation.
             </p>
 
-            <TierLadder savedChildren={savedChildren} />
+            <SharesBar
+              total={sharesTotal}
+              valid={sharesValid}
+              hasChildren={savedChildren.length > 0}
+            />
+
+            <MasterRecap group={group} />
+
+            <TierLadder
+              savedChildren={savedChildren}
+              group={group}
+            />
 
             {draft ? (
               <DraftTierCard
                 draft={draft}
+                group={group}
+                remaining={Math.max(0, 100 - sharesTotal)}
                 onChange={patchDraft}
                 onCancel={() => setDraft(null)}
                 onSave={saveDraft}
@@ -393,7 +520,7 @@ export function MultiJackpotWizard() {
               </Button>
               <Button
                 onClick={() => setStep(3)}
-                disabled={savedChildren.length === 0}
+                disabled={savedChildren.length === 0 || !sharesValid}
                 className="bg-blue-500 hover:bg-blue-600 h-11 px-6"
               >
                 Continue to launch gate{" "}
@@ -407,8 +534,9 @@ export function MultiJackpotWizard() {
       {step === 3 && group && (
         <LaunchGate
           group={group}
-          rule={overlappingRule}
           savedChildren={savedChildren}
+          sharesTotal={sharesTotal}
+          sharesValid={sharesValid}
           submitting={submitting}
           onBack={() => setStep(2)}
           onActivate={handleActivate}
@@ -423,8 +551,8 @@ export function MultiJackpotWizard() {
 /* ────────────────────────────────────────────────────────────────── */
 function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
   const items: Array<{ n: 1 | 2 | 3; label: string; sub: string }> = [
-    { n: 1, label: "Campaign Strategy", sub: "Name & rule" },
-    { n: 2, label: "The Tier Stack", sub: "Attach tiers" },
+    { n: 1, label: "Master Strategy", sub: "Funding rules" },
+    { n: 2, label: "Tier Allocation", sub: "Split shares" },
     { n: 3, label: "The Launch Gate", sub: "Review & lock" },
   ];
   return (
@@ -483,48 +611,100 @@ function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
 }
 
 /* ────────────────────────────────────────────────────────────────── */
-/* Rule card                                                          */
+/* Shares bar + master recap                                          */
 /* ────────────────────────────────────────────────────────────────── */
-function RuleCard({
-  active,
-  title,
-  caption,
-  body,
-  onClick,
+function SharesBar({
+  total,
+  valid,
+  hasChildren,
 }: {
-  active: boolean;
-  title: string;
-  caption: string;
-  body: string;
-  onClick: () => void;
+  total: number;
+  valid: boolean;
+  hasChildren: boolean;
 }) {
+  const pct = Math.min(100, total);
+  const tone = !hasChildren
+    ? "neutral"
+    : valid
+      ? "emerald"
+      : total > 100
+        ? "red"
+        : "amber";
+  const colors: Record<string, { bar: string; text: string; border: string }> = {
+    neutral: {
+      bar: "bg-neutral-600",
+      text: "text-neutral-300",
+      border: "border-neutral-800",
+    },
+    emerald: {
+      bar: "bg-emerald-500",
+      text: "text-emerald-300",
+      border: "border-emerald-500/40",
+    },
+    amber: {
+      bar: "bg-amber-500",
+      text: "text-amber-300",
+      border: "border-amber-500/40",
+    },
+    red: { bar: "bg-red-500", text: "text-red-300", border: "border-red-500/40" },
+  };
+  const c = colors[tone];
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`text-left rounded-xl border-2 p-5 transition-all ${
-        active
-          ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/20"
-          : "border-neutral-700 bg-neutral-800/40 hover:border-neutral-500"
-      }`}
-    >
-      <div className="flex items-start justify-between mb-2">
-        <div>
-          <div className="text-white font-semibold text-base">{title}</div>
-          <div className="text-xs text-blue-300 uppercase tracking-wider mt-0.5">
-            {caption}
-          </div>
+    <div className={`rounded-lg border ${c.border} bg-neutral-950/50 p-4 mb-4`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-xs uppercase tracking-wider text-neutral-400">
+          Allocated split shares
         </div>
-        <span
-          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-            active ? "border-blue-500 bg-blue-500" : "border-neutral-600"
-          }`}
-        >
-          {active && <Check className="w-3 h-3 text-white" />}
-        </span>
+        <div className={`font-mono text-sm font-semibold ${c.text}`}>
+          {total.toFixed(2)}% / 100.00%
+        </div>
       </div>
-      <p className="text-sm text-neutral-300 leading-relaxed">{body}</p>
-    </button>
+      <div className="h-2 rounded-full bg-neutral-800 overflow-hidden">
+        <div
+          className={`h-full ${c.bar} transition-all`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      {!valid && hasChildren && (
+        <div className={`mt-2 flex items-center gap-1.5 text-xs ${c.text}`}>
+          <AlertCircle className="w-3.5 h-3.5" />
+          {total > 100
+            ? "Total exceeds 100.00% — remove or reduce a tier."
+            : `Need ${(100 - total).toFixed(2)}% more before activation.`}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MasterRecap({ group }: { group: GroupDTO }) {
+  return (
+    <div className="rounded-lg border border-neutral-800 bg-neutral-900/40 p-4 mb-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+      <div>
+        <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 mb-0.5">
+          Source
+        </div>
+        <div className="text-white capitalize">{group.contributionSource}</div>
+      </div>
+      <div>
+        <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 mb-0.5">
+          Type
+        </div>
+        <div className="text-white capitalize">
+          {group.contributionType === "percentage"
+            ? "Percentage of wager"
+            : "Fixed amount per spin"}
+        </div>
+      </div>
+      <div>
+        <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 mb-0.5">
+          Master value
+        </div>
+        <div className="text-white font-mono">
+          {formatMasterValue(group.contributionType, group.masterContributionValue)}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -533,6 +713,7 @@ function RuleCard({
 /* ────────────────────────────────────────────────────────────────── */
 function TierLadder({
   savedChildren,
+  group,
 }: {
   savedChildren: Array<{
     jackpotId: number;
@@ -540,9 +721,10 @@ function TierLadder({
     jackpotName: string;
     tierName: string;
     probability: number;
-    contributionRate: number;
+    splitShare: number;
     seedAmount: number;
   }>;
+  group: GroupDTO;
 }) {
   if (savedChildren.length === 0) {
     return (
@@ -550,8 +732,7 @@ function TierLadder({
         <Layers className="w-8 h-8 text-neutral-600 mx-auto mb-2" />
         <div className="text-neutral-300 font-medium">No tiers attached yet</div>
         <div className="text-sm text-neutral-500 mt-1">
-          Start building your hierarchy — highest ranks will appear at the top
-          of the ladder.
+          Each tier you add claims a slice of the 100.00% master share.
         </div>
       </div>
     );
@@ -593,7 +774,7 @@ function TierLadder({
                 {c.tierName}
               </div>
               <div className="text-xs text-neutral-500 font-mono mt-0.5">
-                {c.jackpotName} · #{c.jackpotId}
+                #{c.jackpotId}
               </div>
             </div>
             <div className="hidden md:grid grid-cols-3 gap-6 text-right text-xs">
@@ -602,26 +783,30 @@ function TierLadder({
                   Odds
                 </div>
                 <div className="text-white font-mono">
-                  1 in {Math.round(1 / Math.max(c.probability, 1e-12)).toLocaleString()}
+                  1 in{" "}
+                  {Math.round(
+                    1 / Math.max(c.probability, 1e-12),
+                  ).toLocaleString()}
                 </div>
               </div>
               <div>
                 <div className="text-neutral-500 uppercase tracking-wider">
-                  Contrib
+                  Share
                 </div>
                 <div className="text-white font-mono">
-                  {(c.contributionRate * 100).toFixed(3)}%
+                  {c.splitShare.toFixed(2)}%
                 </div>
               </div>
               <div>
                 <div className="text-neutral-500 uppercase tracking-wider">
-                  Seed
+                  Derived
                 </div>
                 <div className="text-white font-mono">
-                  {c.seedAmount.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+                  {formatDerivedRate(
+                    group.contributionType,
+                    group.masterContributionValue,
+                    c.splitShare,
+                  )}
                 </div>
               </div>
             </div>
@@ -637,12 +822,16 @@ function TierLadder({
 /* ────────────────────────────────────────────────────────────────── */
 function DraftTierCard({
   draft,
+  group,
+  remaining,
   onChange,
   onCancel,
   onSave,
   submitting,
 }: {
   draft: ChildDraft;
+  group: GroupDTO;
+  remaining: number;
   onChange: (patch: Partial<ChildDraft>) => void;
   onCancel: () => void;
   onSave: () => void;
@@ -653,6 +842,13 @@ function DraftTierCard({
   const probability = denominatorToProbability(draft.triggerDenominator);
   const dropText = formatDropFrequency(probability, dailyVolume);
   const theme = rankTheme(Number(draft.tierRank) || 1);
+  const splitShare = Number.parseFloat(draft.splitShare) || 0;
+  const derivedText = formatDerivedRate(
+    group.contributionType,
+    group.masterContributionValue,
+    splitShare,
+  );
+  const shareInvalid = splitShare <= 0 || splitShare > remaining + 0.01;
 
   return (
     <div
@@ -666,7 +862,8 @@ function DraftTierCard({
             {theme.label} · New tier
           </span>
           <span className="text-sm text-neutral-400">
-            A fresh child jackpot will be created and attached to this MultiJackpot.
+            Remaining allocation:{" "}
+            <span className="text-white font-mono">{remaining.toFixed(2)}%</span>
           </span>
         </div>
         <Button
@@ -707,7 +904,7 @@ function DraftTierCard({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="md:col-span-2 space-y-2">
+        <div className="space-y-2">
           <Label className="text-neutral-300">Tier rank</Label>
           <Input
             type="number"
@@ -717,13 +914,9 @@ function DraftTierCard({
             className="bg-neutral-800 border-neutral-700 text-white h-10"
           />
           <div className="text-xs text-neutral-500">
-            Higher numbers sit at the top of the ladder (e.g. Grand = 4).
+            Higher numbers sit at the top of the ladder.
           </div>
         </div>
-      </div>
-
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label className="text-neutral-300">Seed Amount</Label>
           <Input
@@ -739,17 +932,22 @@ function DraftTierCard({
           </div>
         </div>
         <div className="space-y-2">
-          <Label className="text-neutral-300">Contribution Rate</Label>
-          <Input
-            type="text"
-            inputMode="decimal"
-            value={draft.contributionRate}
-            onChange={(e) => onChange({ contributionRate: e.target.value })}
-            placeholder="0.01000000"
-            className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
-          />
+          <Label className="text-neutral-300">Group Split Share (%)</Label>
+          <div className="relative">
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={draft.splitShare}
+              onChange={(e) => onChange({ splitShare: e.target.value })}
+              placeholder="25.00"
+              className={`bg-neutral-800 border-neutral-700 text-white font-mono h-10 pr-8 ${shareInvalid && draft.splitShare !== "" ? "border-red-500/60" : ""}`}
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">
+              %
+            </span>
+          </div>
           <div className="text-xs text-neutral-500">
-            Fraction of every wager funnelled into this tier (0–1).
+            Derived rate: <span className="text-neutral-300 font-mono">{derivedText}</span>
           </div>
         </div>
       </div>
@@ -827,7 +1025,9 @@ function DraftTierCard({
           type="button"
           size="sm"
           onClick={onSave}
-          disabled={submitting || !draft.tierName.trim()}
+          disabled={
+            submitting || !draft.tierName.trim() || shareInvalid
+          }
           className="bg-blue-500 hover:bg-blue-600"
         >
           Save tier
@@ -842,37 +1042,34 @@ function DraftTierCard({
 /* ────────────────────────────────────────────────────────────────── */
 function LaunchGate({
   group,
-  rule,
   savedChildren,
+  sharesTotal,
+  sharesValid,
   submitting,
   onBack,
   onActivate,
 }: {
   group: GroupDTO;
-  rule: OverlappingRule;
   savedChildren: Array<{
     jackpotId: number;
     tierRank: number;
     jackpotName: string;
     tierName: string;
     probability: number;
-    contributionRate: number;
+    splitShare: number;
     seedAmount: number;
   }>;
+  sharesTotal: number;
+  sharesValid: boolean;
   submitting: boolean;
   onBack: () => void;
   onActivate: () => void;
 }) {
   const sorted = [...savedChildren].sort((a, b) => b.tierRank - a.tierRank);
-  const totalContribution = savedChildren.reduce(
-    (sum, c) => sum + c.contributionRate,
-    0,
-  );
   const totalSeedExposure = savedChildren.reduce(
     (sum, c) => sum + c.seedAmount,
     0,
   );
-  // Assume operator's typical reference daily volume for the summary forecast
   const REFERENCE_DAILY = 50000;
 
   return (
@@ -884,27 +1081,37 @@ function LaunchGate({
         Executive verification
       </h2>
       <p className="text-sm text-neutral-400 mb-8 max-w-2xl">
-        Review the financial exposure and tier hierarchy below. Activation
-        commits this MultiJackpot to production.
+        Review the master funding rules and tier allocation. Activation commits
+        this MultiJackpot to production and freezes all configuration.
       </p>
 
-      <div className="grid md:grid-cols-3 gap-4 mb-6">
+      <div className="grid md:grid-cols-3 gap-4 mb-4">
         <SummaryStat label="MultiJackpot" value={group.name} />
         <SummaryStat
-          label="Overlapping rule"
-          value={rule === "split" ? "Split Mode" : "Additive Mode"}
+          label="Source"
+          value={group.contributionSource === "player" ? "Player" : "Operator"}
         />
         <SummaryStat
-          label="Total contribution exposure"
-          value={`${(totalContribution * 100).toFixed(3)}%`}
-          accent="emerald"
+          label="Type"
+          value={
+            group.contributionType === "percentage" ? "Percentage" : "Fixed"
+          }
         />
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4 mb-6">
+      <div className="grid md:grid-cols-3 gap-4 mb-6">
         <SummaryStat
-          label="Attached tiers"
-          value={String(savedChildren.length)}
+          label="Master value"
+          value={formatMasterValue(
+            group.contributionType,
+            group.masterContributionValue,
+          )}
+          accent="emerald"
+        />
+        <SummaryStat
+          label="Allocated shares"
+          value={`${sharesTotal.toFixed(2)}% / 100.00%`}
+          accent={sharesValid ? "emerald" : "red"}
         />
         <SummaryStat
           label="Combined seed exposure"
@@ -943,23 +1150,24 @@ function LaunchGate({
                     </div>
                   </div>
                 </div>
-                <div className="col-span-3 text-xs">
-                  <div className="text-neutral-500 uppercase tracking-wider">
-                    Odds
-                  </div>
-                  <div className="text-white font-mono">
-                    1 in{" "}
-                    {Math.round(
-                      1 / Math.max(c.probability, 1e-12),
-                    ).toLocaleString()}
-                  </div>
-                </div>
                 <div className="col-span-2 text-xs">
                   <div className="text-neutral-500 uppercase tracking-wider">
-                    Contrib
+                    Share
                   </div>
                   <div className="text-white font-mono">
-                    {(c.contributionRate * 100).toFixed(3)}%
+                    {c.splitShare.toFixed(2)}%
+                  </div>
+                </div>
+                <div className="col-span-3 text-xs">
+                  <div className="text-neutral-500 uppercase tracking-wider">
+                    Derived
+                  </div>
+                  <div className="text-white font-mono">
+                    {formatDerivedRate(
+                      group.contributionType,
+                      group.masterContributionValue,
+                      c.splitShare,
+                    )}
                   </div>
                 </div>
                 <div className="col-span-3 text-xs">
@@ -980,9 +1188,9 @@ function LaunchGate({
         <Lock className="w-5 h-5 text-amber-300 shrink-0 mt-0.5" />
         <div className="text-sm text-amber-100">
           <div className="font-semibold mb-1">Activation locks configuration</div>
-          Once activated, every tier name, seed amount, contribution rate, and
-          probability becomes read-only across the platform. To edit, the
-          MultiJackpot must first be moved back to Disabled.
+          Once activated, master funding rules, tier names, seed amounts, split
+          shares, and probabilities all become read-only across the platform.
+          Move the MultiJackpot to Disabled to edit again.
         </div>
       </div>
 
@@ -996,7 +1204,7 @@ function LaunchGate({
         </Button>
         <Button
           onClick={onActivate}
-          disabled={submitting || savedChildren.length === 0}
+          disabled={submitting || savedChildren.length === 0 || !sharesValid}
           className="bg-emerald-500 hover:bg-emerald-600 h-11 px-6"
         >
           <Lock className="w-4 h-4 mr-2" />
@@ -1014,7 +1222,7 @@ function SummaryStat({
 }: {
   label: string;
   value: string;
-  accent?: "emerald";
+  accent?: "emerald" | "red";
 }) {
   return (
     <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
@@ -1023,7 +1231,11 @@ function SummaryStat({
       </div>
       <div
         className={`font-semibold ${
-          accent === "emerald" ? "text-emerald-300" : "text-white"
+          accent === "emerald"
+            ? "text-emerald-300"
+            : accent === "red"
+              ? "text-red-300"
+              : "text-white"
         }`}
       >
         {value}
