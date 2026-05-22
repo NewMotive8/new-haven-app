@@ -450,6 +450,15 @@ export function MultiJackpotWizard() {
               </div>
             </div>
 
+            <div className="pt-2 border-t border-neutral-800">
+              <GameAssignmentStep
+                value={assignment}
+                onChange={setAssignment}
+                disabled={submitting}
+              />
+            </div>
+
+
             <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4 flex gap-3">
               <Coins className="w-5 h-5 text-blue-300 shrink-0 mt-0.5" />
               <div className="text-sm text-blue-100">
