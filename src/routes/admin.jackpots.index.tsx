@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import * as React from "react";
 import axios from "axios";
 import { useQuery, useQueryClient } from "react-query";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 import {
   Search,
   Plus,
