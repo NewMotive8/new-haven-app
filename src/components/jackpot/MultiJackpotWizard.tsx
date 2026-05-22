@@ -580,13 +580,14 @@ export function MultiJackpotWizard() {
           name: tierName,
           enabled: true,
           seedAmount,
-          poolBalance: seedAmount,
-          triggerThreshold: seedAmount * 2,
+          poolBalance: initialPoolAmount || seedAmount,
+          triggerThreshold: (initialPoolAmount || seedAmount) * 2,
           assignedCategories: [],
           assignedGameIds: [],
           config: {
             ...buildTriggerCondition(draft),
             tierType: draft.tierType,
+            initialPoolAmount,
             reseedingAmount,
             // Per-tier contribution weights (Pool / Seed / House).
             contributionMode: "split",
@@ -599,6 +600,7 @@ export function MultiJackpotWizard() {
             ...(fixedWin !== undefined ? { fixedWinAmount: fixedWin } : {}),
             ...(maxWins !== undefined ? { maxNumberOfWins: maxWins } : {}),
             ...(maxPayout !== undefined ? { maxTotalPayout: maxPayout } : {}),
+            ...(maxPool !== undefined ? { maxPoolAmount: maxPool } : {}),
           },
         },
         {
