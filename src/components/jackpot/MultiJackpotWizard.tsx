@@ -56,16 +56,6 @@ function newChildDraft(rank: number): ChildDraft {
 /** Default ephemeral daily-volume slider value. NEVER persisted. */
 const DEFAULT_DAILY_VOLUME = 25000;
 
-/**
- * Precision-safe parser: round-trip via parseFloat → toFixed(8) → Number so
- * the value we ship to the backend matches the displayed string exactly to
- * 8 decimal places. NaN/empty becomes 0.
- */
-function toFixed8(raw: string): number {
-  const n = Number.parseFloat(raw);
-  if (!Number.isFinite(n)) return 0;
-  return Number(n.toFixed(8));
-}
 
 export function MultiJackpotWizard() {
   const { brandId } = React.useContext(BrandContext);
