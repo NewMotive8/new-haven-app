@@ -66,8 +66,8 @@ export function buildCreateBody(payload: JackpotSavePayload) {
       "Legacy multi_level jackpots are deprecated. Use POST /api/v1/jackpot-groups to create a MultiJackpot.",
     );
   }
-  validateSplitWeights(payload);
-  validateModeExclusivity(payload);
+  validateJackpotPayload(payload);
+
 
   const seedAmount = 1000;
   const contributionRate = payload.poolPercentageValue / 100;
