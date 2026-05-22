@@ -5077,7 +5077,22 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
           </section>
         )}
 
+        {/* Game Assignment — internal master categories + games catalog. */}
+        <section className="mt-8">
+          <GameAssignmentStep
+            value={{
+              assignedCategories: assignedCategories as MasterCategoryType[],
+              assignedGameIds,
+            }}
+            onChange={(next) => {
+              setAssignedCategories(next.assignedCategories);
+              setAssignedGameIds(next.assignedGameIds);
+            }}
+          />
+        </section>
+
         {/* Continue bar — bottom-right, navigates to /backoffice/simulator */}
+
         <div className="flex items-center justify-between pt-8 pb-16 border-t border-neutral-800 mt-8">
           <Button variant="outline" size="lg" onClick={handleBack}>Back</Button>
           <div className="flex items-center gap-4">
