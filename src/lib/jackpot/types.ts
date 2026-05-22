@@ -21,6 +21,8 @@ export interface JackpotDTO {
   assignedGameIds?: number[];
   /** Set when this jackpot is a tier of a MultiJackpot group. */
   groupId?: number | null;
+  /** Tier rank when attached to a MultiJackpot group (1 = lowest). */
+  tierRank?: number | null;
 }
 
 
