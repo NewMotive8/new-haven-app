@@ -1,4 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
+import { GameAssignmentStep, type GameAssignmentValue } from '@/components/jackpot/GameAssignmentStep';
+import type { MasterCategory } from '@/lib/jackpot/master-categories';
+
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { Clock, LogOut, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
