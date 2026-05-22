@@ -414,7 +414,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
     arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 
   function buildPlayers(): NonNullable<JackpotSavePayload['eligibility']>['players'] {
-    if (audienceMode === 'all') return { audienceMode: 'all', vipTiers: [], crmSegmentsInclude: [], crmSegmentsExclude: [], restrictedCountries: [], blacklistedPlayerIds: [] };
+    if (audienceMode === 'all') return { audienceMode: 'all', vipTiers: [], crmSegmentsInclude: [], crmSegmentsExclude: [], restrictedCountries: [], blacklistedPlayerIds: [], includedPlayerIds: [] };
     return {
       audienceMode: 'custom',
       vipTiers,
@@ -422,11 +422,13 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
       crmSegmentsExclude,
       restrictedCountries,
       blacklistedPlayerIds: blacklistedIdsRaw
-        .split(',')
+        .split(/[,\n]/)
         .map((s) => s.trim())
         .filter(Boolean),
+      includedPlayerIds,
     };
   }
+
 
   function buildEligibility(): JackpotSavePayload['eligibility'] {
     const base = { players: buildPlayers() };
