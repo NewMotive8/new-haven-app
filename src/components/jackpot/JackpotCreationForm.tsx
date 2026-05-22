@@ -2516,7 +2516,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
               {eligibilitySection}
               {communityWinSection}
-              {overlappingSection}
+              {triggerProbabilitySection}
               {playerTargetingSection}
 
               {/* Widget Configuration Section */}
@@ -3547,7 +3547,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
               {eligibilitySection}
               {communityWinSection}
-              {overlappingSection}
+              {triggerProbabilitySection}
               {playerTargetingSection}
 
               {/* Widget Configuration Section */}
@@ -4720,7 +4720,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
               {eligibilitySection}
               {communityWinSection}
-              {overlappingSection}
+              {triggerProbabilitySection}
               {playerTargetingSection}
 
             </>
