@@ -146,7 +146,6 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
     volatility,
     pool: basePool,
     seed: baseSeed,
-    ...(tiers ? { tiers } : {}),
     ...(timed ? { timed } : {}),
     ...(payload.payoutModel === "fixed" ? { fixedWinAmount: num(payload.fixedWinAmount, 0) } : {}),
     ...(payload.payoutModel === "maximum" ? { maximumWinAmount: maxWin } : {}),
