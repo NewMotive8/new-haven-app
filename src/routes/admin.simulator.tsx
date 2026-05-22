@@ -414,7 +414,7 @@ function ResultsSummary({
       ) : (
         <div style={{ display: "grid", gap: 12 }}>
           {tiers.map((t) => {
-            const tierConfig = config?.tiers?.find((x) => x.multiLevelTier === t.tier);
+            const tierConfig = (config as any)?.tiers?.find((x: any) => x.multiLevelTier === t.tier);
             const tierSplit = getTierSplit(tierConfig);
             // Per-tier the contributions are bundled in totalContribution; house lives separately.
             const tierWalletCollected = Math.max(
