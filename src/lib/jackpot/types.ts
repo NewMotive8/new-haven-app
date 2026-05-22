@@ -38,7 +38,7 @@ export type ContributionType = "PERCENTAGE" | "FIXED";
 /** Win math model — orthogonal to structural type. */
 export type JackpotWinType = "AVERAGE" | "MAXIMUM";
 /** Structural pipeline — selects engine branch (mirror of Java JackpotType). */
-export type JackpotStructuralType = "CLASSIC" | "MULTI_LEVEL" | "MUST_DROP" | "FREQUENCY";
+export type JackpotStructuralType = "CLASSIC" | "MUST_DROP" | "FREQUENCY";
 
 export interface PoolDTO {
   currentAmount: number;
