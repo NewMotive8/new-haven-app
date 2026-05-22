@@ -89,6 +89,17 @@ type AuditEntry = {
   win: Record<string, unknown> | null;
 };
 
+type PerJackpotStats = {
+  jackpotId: number;
+  jackpotName: string;
+  poolTotal: number;
+  seedTotal: number;
+  houseTotal: number;
+  totalContribution: number;
+  hits: number;
+  spins: number;
+};
+
 type BatchStats = {
   size: number;
   completed: number;
@@ -106,6 +117,7 @@ type BatchStats = {
   finishedAt: string | null;
   durationMs: number;
   authMode: "authorized" | "rogue" | "omitted";
+  perJackpot: Record<number, PerJackpotStats>;
 };
 
 function emptyBatchStats(size: number, authMode: BatchStats["authMode"]): BatchStats {
@@ -126,8 +138,10 @@ function emptyBatchStats(size: number, authMode: BatchStats["authMode"]): BatchS
     finishedAt: null,
     durationMs: 0,
     authMode,
+    perJackpot: {},
   };
 }
+
 
 function fmt(n: number, currency = "EUR") {
   try {
