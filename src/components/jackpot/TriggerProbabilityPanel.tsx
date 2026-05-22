@@ -177,7 +177,11 @@ function DropPaceInfoDialog() {
             formula to predict your daily drops:
           </p>
           <div className="rounded-md border border-neutral-800 bg-neutral-900/70 px-4 py-3 overflow-x-auto">
-            <BlockMath math={"\\text{Expected Payouts Per Day} = \\frac{\\text{Total Daily Network Spins}}{\\text{Drop Pace (Target Spin Interval)}}"} />
+            <ClientOnly fallback={<code className="text-sm text-neutral-300">Expected Payouts Per Day = Total Daily Network Spins / Drop Pace</code>}>
+              <React.Suspense fallback={<code className="text-sm text-neutral-300">Loading formula…</code>}>
+                <LazyBlockMath math={"\\text{Expected Payouts Per Day} = \\frac{\\text{Total Daily Network Spins}}{\\text{Drop Pace (Target Spin Interval)}}"} />
+              </React.Suspense>
+            </ClientOnly>
           </div>
           <p className="text-sm leading-relaxed">
             <strong>Example:</strong> If your players generate 100,000 total spins a day on your
