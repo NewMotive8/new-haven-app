@@ -210,6 +210,9 @@ export function MultiJackpotWizard() {
           contributionSource,
           contributionType,
           masterContributionValue: masterValue,
+          assignedCategories: assignment.assignedCategories,
+          assignedGameIds: assignment.assignedGameIds,
+
         },
         {
           headers: {
