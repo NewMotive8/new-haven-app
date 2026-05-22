@@ -282,6 +282,13 @@ export type JackpotSavePayload = {
   maxNumberOfWins?: number;
   maxTotalPayout?: number;
 
+  /**
+   * Direct House skim, 0..100. Percentage of every player contribution that
+   * is routed to casino House Revenue before funding pool/seed. The engine
+   * maps this to a 3-way contribution split with houseWeight = operatorShare.
+   */
+  operatorShare?: number;
+
   previewWager?: number;
   /** When true, persist with enabled=false and tag config.isDraft=true. */
   isDraft?: boolean;
