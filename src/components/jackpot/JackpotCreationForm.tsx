@@ -253,6 +253,21 @@ export type JackpotSavePayload = {
   houseWeight?: number;
   triggerOdds?: number;
 
+  // ── Frequency Happy Hour (calendar-gated). Serialised as JSON strings on save.
+  freqInterval?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
+  freqDay?: string;
+  contribStartTime?: string;
+  contribEndTime?: string;
+  winStartTime?: string;
+  winEndTime?: string;
+  cloneContribToWin?: boolean;
+  contributionFrequency?: string;
+  winFrequency?: string;
+
+  // ── Operation Safeguards — global per-jackpot caps (Must-Drop & Frequency).
+  maxNumberOfWins?: number;
+  maxTotalPayout?: number;
+
   previewWager?: number;
   // ── Eligibility & Rules Engine — game/event targeting metadata.
   eligibility?: {
@@ -344,9 +359,20 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   const [reseedingAmount, setReseedingAmount] = useState<number>(initial?.reseedingAmount ?? 0);
   const [maximumSeedAmount, setMaximumSeedAmount] = useState<number>(initial?.maximumSeedAmount ?? 0);
   const [initialPoolAmount, setInitialPoolAmount] = useState<number>(initial?.initialPoolAmount ?? 0);
-  // Operation Safeguards (Must-Drop) — global per-jackpot caps.
-  const [maxNumberOfWins, setMaxNumberOfWins] = useState<number>(0);
-  const [maxTotalPayout, setMaxTotalPayout] = useState<number>(0);
+  // Operation Safeguards — global per-jackpot caps (Must-Drop & Frequency).
+  const [maxNumberOfWins, setMaxNumberOfWins] = useState<number>(initial?.maxNumberOfWins ?? 0);
+  const [maxTotalPayout, setMaxTotalPayout] = useState<number>(initial?.maxTotalPayout ?? 0);
+
+  // --- Frequency Happy Hour scheduling (calendar-gated)
+  const [freqInterval, setFreqInterval] = useState<'DAILY' | 'WEEKLY' | 'MONTHLY'>(
+    initial?.freqInterval ?? 'DAILY',
+  );
+  const [freqDay, setFreqDay] = useState<string>(initial?.freqDay ?? '');
+  const [contribStartTime, setContribStartTime] = useState<string>(initial?.contribStartTime ?? '18:00');
+  const [contribEndTime, setContribEndTime] = useState<string>(initial?.contribEndTime ?? '20:00');
+  const [winStartTime, setWinStartTime] = useState<string>(initial?.winStartTime ?? '18:00');
+  const [winEndTime, setWinEndTime] = useState<string>(initial?.winEndTime ?? '20:00');
+  const [cloneContribToWin, setCloneContribToWin] = useState<boolean>(initial?.cloneContribToWin ?? true);
 
 
   // --- MUST_DROP / FREQUENCY virtual lifespan
