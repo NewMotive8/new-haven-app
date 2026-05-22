@@ -442,6 +442,8 @@ export interface CreateGroupInput {
   contributionSource?: ContributionSource;
   contributionType?: GroupContributionType;
   masterContributionValue?: number;
+  assignedCategories?: string[];
+  assignedGameIds?: number[];
 }
 
 export async function createGroup(
@@ -458,12 +460,15 @@ export async function createGroup(
       contribution_source: input.contributionSource ?? "player",
       contribution_type: input.contributionType ?? "percentage",
       master_contribution_value: Number(input.masterContributionValue ?? 0),
+      assigned_categories: input.assignedCategories ?? [],
+      assigned_game_ids: input.assignedGameIds ?? [],
     })
     .select(GROUP_SELECT)
     .single();
   if (error) throw new Error(error.message);
   return groupRowToDTO(data as unknown as GroupRow);
 }
+
 
 
 export async function listGroups(
