@@ -783,17 +783,33 @@ function SandboxDemoPage() {
 
   // ── Opt-in/out handler with additive compliance interceptor ──────────────
   const handleOptToggle = () => {
-    if (!activePool) return;
-    const id = activePool.id;
+    if (!activeDisplay) return;
+
+    // Group opt-in: toggle all tiers atomically (mirrors how MultiJackpot
+    // groups are surfaced as a single player-facing campaign).
+    if (activeDisplay.kind === "group") {
+      const tiers = activeDisplay.tiers;
+      if (tiers.length === 0) return;
+      const anyIn = tiers.some((t) => !!optIns[t.id]);
+      setOptIns((m) => {
+        const next = { ...m };
+        for (const t of tiers) next[t.id] = !anyIn;
+        return next;
+      });
+      return;
+    }
+
+    const jp = activeDisplay.jackpot;
+    const id = jp.id;
     const currentlyIn = !!optIns[id];
     if (currentlyIn) {
       setOptIns((m) => ({ ...m, [id]: false }));
       return;
     }
-    const rule = readOverlappingRule(activePool);
+    const rule = readOverlappingRule(jp);
     const othersIn = pools.some((p) => p.id !== id && optIns[p.id]);
     if (rule === "additive" && othersIn) {
-      setPendingOptIn(activePool);
+      setPendingOptIn(jp);
       return;
     }
     setOptIns((m) => ({ ...m, [id]: true }));
