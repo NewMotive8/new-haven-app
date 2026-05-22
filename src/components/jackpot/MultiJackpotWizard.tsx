@@ -160,17 +160,22 @@ export function MultiJackpotWizard() {
         body,
         { headers: { brandId: String(brandId), "Content-Type": "application/json" } },
       );
-      const attached = res.data as JackpotDTO;
+      const attached = (res.data ?? {}) as Partial<JackpotDTO>;
+      if (typeof attached.id !== "number") {
+        toast.error("Server returned an unexpected response while attaching the tier");
+        return;
+      }
+      const safeName = attached.name ?? "Attached jackpot";
       setSavedChildren((prev) => [
         ...prev,
-        { jackpotId: attached.id, tierRank, jackpotName: attached.name },
+        { jackpotId: attached.id as number, tierRank, jackpotName: safeName },
       ]);
       // Drop the saved draft row, leave the rest editable.
       setChildren((prev) => {
         const remaining = prev.filter((c) => c.uid !== draft.uid);
         return remaining.length === 0 ? [newChildDraft(tierRank + 1)] : remaining;
       });
-      toast.success(`Attached ${attached.name} at tier ${tierRank}`);
+      toast.success(`Attached ${safeName} at tier ${tierRank}`);
     } catch (err: any) {
       toast.error(err?.response?.data?.error ?? err?.message ?? "Failed to attach child tier");
     } finally {
