@@ -1798,3 +1798,292 @@ class Step2ErrorBoundary extends React.Component<
 // Re-export parseFrequencyJSON helpers so future edit flows can hydrate a
 // saved tier card from a child jackpot's stored trigger_condition.
 export { parseFrequencyJSON, pickFrequencyInterval, pickTime };
+
+/* ────────────────────────────────────────────────────────────────── */
+/* Jackpot Contribution Card — mirrors Single Jackpot pattern         */
+/* (Fixed/Percent · Amount · Pool/Seed/House weights · wager limits)  */
+/* ────────────────────────────────────────────────────────────────── */
+
+const BrightLabel = ({
+  htmlFor,
+  children,
+  className = "",
+}: {
+  htmlFor?: string;
+  children: React.ReactNode;
+  className?: string;
+}) => (
+  <Label htmlFor={htmlFor} className={`text-neutral-100 ${className}`}>
+    {children}
+  </Label>
+);
+
+const CurrencyInput = ({
+  id,
+  ...props
+}: React.ComponentProps<typeof Input> & { id: string }) => (
+  <div className="relative">
+    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">
+      €
+    </span>
+    <Input id={id} {...props} className={`pl-8 ${props.className || ""}`} />
+  </div>
+);
+
+const formatDraft = (value: number) =>
+  Number.isFinite(value) && value !== 0 ? `${value}` : "";
+
+function DraftNumberInput({
+  id,
+  value,
+  onCommit,
+  className = "",
+  placeholder,
+}: {
+  id?: string;
+  value: number;
+  onCommit: (next: number) => void;
+  className?: string;
+  placeholder?: string;
+}) {
+  const [draft, setDraft] = React.useState(formatDraft(value));
+  const [editing, setEditing] = React.useState(false);
+  React.useEffect(() => {
+    if (!editing) setDraft(formatDraft(value));
+  }, [value, editing]);
+  const commit = () => {
+    setEditing(false);
+    const raw = draft.trim().replace(",", ".");
+    if (raw === "" || raw === ".") {
+      onCommit(0);
+      setDraft("");
+      return;
+    }
+    const next = Number(raw);
+    if (!Number.isFinite(next)) {
+      setDraft(formatDraft(value));
+      return;
+    }
+    onCommit(next);
+  };
+  return (
+    <Input
+      id={id}
+      type="text"
+      inputMode="decimal"
+      value={draft}
+      placeholder={placeholder}
+      onFocus={() => setEditing(true)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+      }}
+      onChange={(e) => {
+        const raw = e.target.value.replace(",", ".");
+        if (!/^\d*\.?\d*$/.test(raw)) return;
+        setDraft(raw);
+      }}
+      className={className}
+    />
+  );
+}
+
+function JackpotContributionCard({
+  contributionType,
+  setContributionType,
+  totalContributionAmount,
+  setTotalContributionAmount,
+  poolWeight,
+  seedWeight,
+  houseWeight,
+  setSingleWeight,
+  minWagerAmount,
+  maxWagerAmount,
+  setMinWagerAmount,
+  setMaxWagerAmount,
+}: {
+  contributionType: ContributionType;
+  setContributionType: (t: ContributionType) => void;
+  totalContributionAmount: number;
+  setTotalContributionAmount: (n: number) => void;
+  poolWeight: number;
+  seedWeight: number;
+  houseWeight: number;
+  setSingleWeight: (k: "pool" | "seed" | "house", n: number) => void;
+  minWagerAmount: number;
+  maxWagerAmount: number;
+  setMinWagerAmount: (n: number) => void;
+  setMaxWagerAmount: (n: number) => void;
+}) {
+  const sum = poolWeight + seedWeight + houseWeight;
+  const sumOk = Math.abs(sum - 100) < 0.05;
+  const base = totalContributionAmount; // amount per spin in selected unit
+  const rows: Array<{
+    label: string;
+    k: "pool" | "seed" | "house";
+    value: number;
+  }> = [
+    { label: "Pool", k: "pool", value: poolWeight },
+    { label: "Seed", k: "seed", value: seedWeight },
+    { label: "House", k: "house", value: houseWeight },
+  ];
+  // Largest-remainder allocator @ 3 decimals — same logic as Single.
+  const allocated = React.useMemo(() => {
+    if (!sumOk || base <= 0) return rows.map((r) => base * (r.value / 100));
+    const target = Math.round(base * 1000);
+    const exacts = rows.map((r) => base * (r.value / 100) * 1000);
+    const floors = exacts.map((x) => Math.floor(x));
+    let gap = target - floors.reduce((a, b) => a + b, 0);
+    const order = exacts
+      .map((x, i) => ({ i, rem: x - Math.floor(x) }))
+      .sort((a, b) => b.rem - a.rem)
+      .map((o) => o.i);
+    const units = floors.slice();
+    for (let j = 0; j < order.length && gap > 0; j++, gap--) units[order[j]]++;
+    return units.map((u) => u / 1000);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [base, sumOk, poolWeight, seedWeight, houseWeight]);
+
+  return (
+    <section className="scroll-mt-20">
+      <h2 className="text-xl font-semibold mb-6 text-white">Jackpot Contribution</h2>
+      <Card className="p-6 bg-neutral-900/50 border-neutral-800 mb-2">
+        <div className="inline-flex gap-2 mb-6">
+          <button
+            type="button"
+            onClick={() => setContributionType("fixed")}
+            className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
+              contributionType === "fixed"
+                ? "bg-blue-500 text-white"
+                : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+            }`}
+          >
+            Fixed
+          </button>
+          <button
+            type="button"
+            onClick={() => setContributionType("percentage")}
+            className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
+              contributionType === "percentage"
+                ? "bg-blue-500 text-white"
+                : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+            }`}
+          >
+            Percent
+          </button>
+        </div>
+
+        {contributionType === "percentage" && (
+          <div className="mb-8 p-4 rounded-lg border border-neutral-800 bg-neutral-900/60">
+            <div className="text-sm font-semibold text-neutral-100 mb-1">
+              Wager Eligibility Limits
+            </div>
+            <p className="text-[11px] text-neutral-500 mb-4">
+              Applies globally to all contribution buckets. Bets outside this
+              range do not contribute.
+            </p>
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <BrightLabel htmlFor="mj-min-wager">
+                  Minimum Qualifying Wager
+                </BrightLabel>
+                <CurrencyInput
+                  id="mj-min-wager"
+                  placeholder="0"
+                  value={minWagerAmount || ""}
+                  onChange={(e) =>
+                    setMinWagerAmount(parseFloat(e.target.value) || 0)
+                  }
+                  className="bg-neutral-800 border-neutral-700"
+                />
+              </div>
+              <div className="space-y-2">
+                <BrightLabel htmlFor="mj-max-wager">
+                  Maximum Qualifying Wager
+                </BrightLabel>
+                <CurrencyInput
+                  id="mj-max-wager"
+                  placeholder="0"
+                  value={maxWagerAmount || ""}
+                  onChange={(e) =>
+                    setMaxWagerAmount(parseFloat(e.target.value) || 0)
+                  }
+                  className="bg-neutral-800 border-neutral-700"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2 mb-8" style={{ width: 193 }}>
+          <BrightLabel
+            htmlFor="mj-total"
+            className="text-sm font-semibold text-neutral-100"
+          >
+            {contributionType === "fixed"
+              ? "Fixed Contribution Amount"
+              : "Percent of Wager"}
+          </BrightLabel>
+          <div className="relative">
+            <DraftNumberInput
+              id="mj-total"
+              value={totalContributionAmount}
+              onCommit={setTotalContributionAmount}
+              className="bg-neutral-900 border-neutral-700 pr-8 tabular-nums h-10"
+            />
+            <span className="absolute inset-y-0 right-3 flex items-center text-neutral-400 pointer-events-none text-sm">
+              {contributionType === "fixed" ? "€" : "%"}
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <div className="text-sm font-semibold text-neutral-100 mb-3">
+            Contribution Weight
+          </div>
+          <div className="grid grid-cols-[140px_200px_200px] gap-6 pb-3 border-b border-neutral-800">
+            <span />
+            <span className="text-sm font-semibold text-neutral-100">Weight</span>
+            <span className="text-sm font-semibold text-neutral-100">Amount</span>
+          </div>
+          {rows.map(({ label, k, value }, i) => (
+            <div
+              key={k}
+              className="grid grid-cols-[140px_200px_200px] items-center gap-6 py-3"
+            >
+              <span className="text-sm font-semibold text-neutral-100">
+                {label}
+              </span>
+              <div className="relative">
+                <DraftNumberInput
+                  value={value}
+                  onCommit={(next) => setSingleWeight(k, next)}
+                  className="h-10 bg-neutral-900 border-neutral-700 pr-8 tabular-nums"
+                />
+                <span className="absolute inset-y-0 right-3 flex items-center text-sm text-neutral-400 pointer-events-none">
+                  %
+                </span>
+              </div>
+              <Input
+                readOnly
+                tabIndex={-1}
+                value={allocated[i].toFixed(3)}
+                className="h-10 bg-neutral-900 border-neutral-700 text-neutral-400 tabular-nums cursor-default"
+              />
+            </div>
+          ))}
+          {!sumOk && (
+            <div className="mt-2 text-xs text-amber-400">
+              Sum: {sum.toFixed(2)}% — must equal 100 to save
+            </div>
+          )}
+          <p className="mt-3 text-[11px] text-neutral-500">
+            <span className="text-neutral-300">House</span> covers the
+            operator-funded slice of every contribution — replaces the legacy
+            Player/Operator source selector.
+          </p>
+        </div>
+      </Card>
+    </section>
+  );
+}
