@@ -570,6 +570,15 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
 
   const [continueError, setContinueError] = useState<string | null>(null);
 
+  // ── Game Assignment ────────────────────────────────────────────────
+  const [assignedCategories, setAssignedCategories] = useState<string[]>(
+    (initial?.assignedCategories as string[] | undefined) ?? [],
+  );
+  const [assignedGameIds, setAssignedGameIds] = useState<number[]>(
+    (initial?.assignedGameIds as number[] | undefined) ?? [],
+  );
+
+
   function buildPayload(): JackpotSavePayload {
     return {
       name: name.trim(),
