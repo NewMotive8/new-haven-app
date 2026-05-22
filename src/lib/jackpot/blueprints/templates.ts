@@ -186,6 +186,7 @@ const mustDropSmall: SingleBlueprint = {
     maxWinAmount: 500,
     mustDropPeriod: 1,
     triggerOdds: 0,
+    operatorShare: 0,
   },
 };
 
