@@ -49,12 +49,13 @@ function rowToDTO(row: JackpotRow): JackpotDTO {
       ? row.assigned_game_ids.map((x) => Number(x))
       : [],
     groupId: row.group_id ?? null,
+    tierRank: (row as any).tier_rank ?? null,
   };
 }
 
 const SELECT = `
   id, name, brand_id, enabled, contribution_percentage, volatility,
-  trigger_condition, assigned_categories, assigned_game_ids, group_id, created_at, updated_at,
+  trigger_condition, assigned_categories, assigned_game_ids, group_id, tier_rank, created_at, updated_at,
   jackpot_pools ( id, current_balance ),
   jackpot_seeds ( id, base_seed_amount )
 `;
