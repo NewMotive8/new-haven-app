@@ -316,7 +316,7 @@ function JackpotGroupDetailPage() {
                       size="sm"
                       variant="outline"
                       onClick={focusEditor}
-                      className="border-blue-500/50 text-blue-200 hover:bg-blue-500/10 hover:text-blue-100"
+                      className="border-red-500/50 text-red-300 hover:bg-red-500/10 hover:text-red-200"
                     >
                       <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit
                     </Button>
