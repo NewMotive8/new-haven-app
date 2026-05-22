@@ -425,36 +425,17 @@ export function MultiJackpotWizard() {
     React.useState<ContributionType>("fixed");
   const [totalContributionAmount, setTotalContributionAmount] =
     React.useState<number>(0.1);
-  const [poolWeight, setPoolWeight] = React.useState<number>(60);
-  const [seedWeight, setSeedWeight] = React.useState<number>(30);
-  const [houseWeight, setHouseWeight] = React.useState<number>(10);
   const [minWagerAmount, setMinWagerAmount] = React.useState<number>(0);
   const [maxWagerAmount, setMaxWagerAmount] = React.useState<number>(0);
   const [assignment, setAssignment] = React.useState<GameAssignmentValue>({
     assignedCategories: [],
     assignedGameIds: [],
   });
+  // UI-only master config (Eligibility / Targeting / Community).
+  const [eligibility, setEligibility] = React.useState<EligibilityValue>(defaultEligibility);
+  const [playerTargeting, setPlayerTargeting] = React.useState<PlayerTargetingValue>(defaultPlayerTargeting);
+  const [community, setCommunity] = React.useState<CommunityValue>(defaultCommunity);
   const [group, setGroup] = React.useState<GroupDTO | null>(null);
-
-  // Update only the edited weight; cap so the trio never exceeds 100.
-  function setSingleWeight(
-    changed: "pool" | "seed" | "house",
-    nextRaw: number,
-  ) {
-    const others = (["pool", "seed", "house"] as const).filter(
-      (k) => k !== changed,
-    );
-    const current = { pool: poolWeight, seed: seedWeight, house: houseWeight };
-    const otherSum = current[others[0]] + current[others[1]];
-    const max = Math.max(0, 100 - otherSum);
-    const next = Math.max(0, Math.min(max, Number(nextRaw) || 0));
-    const set = {
-      pool: setPoolWeight,
-      seed: setSeedWeight,
-      house: setHouseWeight,
-    };
-    set[changed](next);
-  }
 
   // Step 2 — Tier Allocation
   const [draft, setDraft] = React.useState<ChildDraft | null>(null);
@@ -493,12 +474,6 @@ export function MultiJackpotWizard() {
     const masterValue = masterValueAsStored();
     if (!(masterValue > 0))
       return toast.error("Contribution amount must be greater than zero");
-    const weightSum = poolWeight + seedWeight + houseWeight;
-    if (Math.abs(weightSum - 100) > 0.05) {
-      return toast.error(
-        `Contribution Weight must sum to 100% (currently ${weightSum.toFixed(2)}%)`,
-      );
-    }
     setSubmitting(true);
     try {
       const res = await axios.post<GroupDTO>(
@@ -506,7 +481,7 @@ export function MultiJackpotWizard() {
         {
           name: name.trim(),
           overlappingRule: "split",
-          // Source is implicit: House weight covers operator-funded share.
+          // Source is implicit: House weight (per tier) covers operator-funded share.
           contributionSource: "player",
           contributionType,
           masterContributionValue: masterValue,
@@ -522,13 +497,13 @@ export function MultiJackpotWizard() {
       );
       setGroup({
         ...res.data,
-        poolWeight,
-        seedWeight,
-        houseWeight,
         minWagerAmount,
         maxWagerAmount,
         assignedCategories: assignment.assignedCategories,
         assignedGameIds: assignment.assignedGameIds,
+        eligibility,
+        playerTargeting,
+        community,
       });
       setStep(2);
     } catch (err: any) {
@@ -541,6 +516,146 @@ export function MultiJackpotWizard() {
       setSubmitting(false);
     }
   }
+
+  /* ───────────────── Step 2 ───────────────── */
+  async function saveDraft() {
+    if (!group || !draft) return;
+    const tierName = draft.tierName.trim();
+    if (!tierName) return toast.error("Tier Name is required");
+    const tierRank = Math.max(0, Math.trunc(Number(draft.tierRank) || 0));
+    if (savedChildren.some((c) => c.tierRank === tierRank)) {
+      return toast.error(`Tier rank ${tierRank} is already in use`);
+    }
+    const splitShare = Number.parseFloat(draft.splitShare) || 0;
+    if (splitShare <= 0 || splitShare > 100) {
+      return toast.error("Split share must be between 0 and 100");
+    }
+    const weightSum = draft.poolWeight + draft.seedWeight + draft.houseWeight;
+    if (Math.abs(weightSum - 100) > 0.05) {
+      return toast.error(
+        `Contribution Weight must sum to 100% (currently ${weightSum.toFixed(2)}%)`,
+      );
+    }
+    const seedAmount = Number.parseFloat(draft.seedAmount) || 0;
+    const reseedingAmount = Number.parseFloat(draft.reseedingAmount) || 0;
+    const probability = probabilityFromDraft(draft);
+    const triggerProbability = Number(probability.toFixed(8));
+
+    const projected = sharesTotal + splitShare;
+    if (Math.round(projected * 100) > 10000) {
+      return toast.error(
+        `Adding ${splitShare.toFixed(2)}% would push the total to ${projected.toFixed(2)}%. Max is 100.00%.`,
+      );
+    }
+
+    const maxWins = draft.maxNumberOfWins.trim()
+      ? Math.max(0, Math.trunc(Number(draft.maxNumberOfWins)))
+      : undefined;
+    const maxPayout = draft.maxTotalPayout.trim()
+      ? Math.max(0, Number(draft.maxTotalPayout))
+      : undefined;
+    const maxWin = draft.maxWinAmount.trim()
+      ? Math.max(0, Number(draft.maxWinAmount))
+      : undefined;
+    const fixedWin = draft.fixedWinAmount.trim()
+      ? Math.max(0, Number(draft.fixedWinAmount))
+      : undefined;
+
+    setSubmitting(true);
+    try {
+      // 1) Create child jackpot. Trigger config + safeguards + reseed + tier
+      //    extras travel via `config` → server merges into `trigger_condition`.
+      const createRes = await axios.post<JackpotDTO>(
+        "/api/v1/jackpots",
+        {
+          name: tierName,
+          enabled: true,
+          seedAmount,
+          poolBalance: seedAmount,
+          triggerThreshold: seedAmount * 2,
+          assignedCategories: [],
+          assignedGameIds: [],
+          config: {
+            ...buildTriggerCondition(draft),
+            tierType: draft.tierType,
+            reseedingAmount,
+            // Per-tier contribution weights (Pool / Seed / House).
+            contributionMode: "split",
+            poolWeight: draft.poolWeight,
+            seedWeight: draft.seedWeight,
+            houseWeight: draft.houseWeight,
+            // Per-tier extras
+            volatility: draft.volatility,
+            ...(maxWin !== undefined ? { maxWinAmount: maxWin } : {}),
+            ...(fixedWin !== undefined ? { fixedWinAmount: fixedWin } : {}),
+            ...(maxWins !== undefined ? { maxNumberOfWins: maxWins } : {}),
+            ...(maxPayout !== undefined ? { maxTotalPayout: maxPayout } : {}),
+          },
+        },
+        {
+          headers: {
+            brandId: String(brandId),
+            "Content-Type": "application/json",
+          },
+        },
+      );
+      const created = (createRes.data ?? {}) as Partial<JackpotDTO>;
+      if (typeof created.id !== "number") {
+        toast.error("Server did not return a jackpot id while creating the tier");
+        return;
+      }
+      const newJackpotId = created.id;
+
+      // 2) Attach to the parent group with split share.
+      const attachRes = await axios.post(
+        `/api/v1/jackpot-groups/${group.id}/children`,
+        {
+          jackpotId: newJackpotId,
+          tierRank,
+          triggerProbability,
+          splitShare,
+          name: tierName,
+        },
+        {
+          headers: {
+            brandId: String(brandId),
+            "Content-Type": "application/json",
+          },
+        },
+      );
+      const attached = (attachRes.data ?? {}) as Partial<JackpotDTO>;
+      const jackpotName = attached.name ?? created.name ?? tierName;
+
+      setSavedChildren((prev) => [
+        ...prev,
+        {
+          jackpotId: newJackpotId,
+          tierRank,
+          jackpotName,
+          tierName,
+          tierType: draft.tierType,
+          splitShare,
+          seedAmount,
+          reseedingAmount,
+          poolWeight: draft.poolWeight,
+          seedWeight: draft.seedWeight,
+          houseWeight: draft.houseWeight,
+          triggerSummary: triggerSummary(draft),
+          probability,
+          volatility: draft.volatility,
+          maxWinAmount: maxWin,
+          fixedWinAmount: fixedWin,
+          maxNumberOfWins: maxWins,
+          maxTotalPayout: maxPayout,
+        },
+      ]);
+      setDraft(null);
+      toast.success(`Created tier "${tierName}" at rank ${tierRank}`);
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.error ?? err?.message ?? "Failed to create child tier",
+      );
+    } finally {
 
   /* ───────────────── Step 2 ───────────────── */
   async function saveDraft() {
