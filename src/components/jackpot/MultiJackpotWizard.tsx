@@ -90,10 +90,10 @@ interface ChildDraft {
   uid: string;
   tierName: string;
   tierRank: string;
-  // Tier type — drives which trigger fields are visible.
   tierType: TierType;
   // Allocation & Fuel
-  seedAmount: string;       // Initial Pool Amount
+  initialPoolAmount: string;   // Starting pool value
+  seedAmount: string;          // Initial Seed Amount (operator floor)
   reseedingAmount: string;
   splitShare: string;
   // Per-tier contribution weight grid (Pool / Seed / House — sum = 100)
@@ -115,12 +115,13 @@ interface ChildDraft {
   winEndTime: string;
   cloneContribToWin: boolean;
   // Per-tier extras
-  volatility: number;        // 1..10
-  maxWinAmount: string;      // hard payout cap
-  fixedWinAmount: string;    // locked prize value
+  volatility: number;
+  maxWinAmount: string;
+  fixedWinAmount: string;
   // Tier Safeguards
   maxNumberOfWins: string;
   maxTotalPayout: string;
+  maxPoolAmount: string;
 }
 
 interface SavedChild {
@@ -152,6 +153,7 @@ function newChildDraft(rank: number): ChildDraft {
     tierName: "",
     tierRank: String(rank),
     tierType: "classic",
+    initialPoolAmount: "100.00",
     seedAmount: "100.00",
     reseedingAmount: "100.00",
     splitShare: "0.00",
@@ -174,6 +176,7 @@ function newChildDraft(rank: number): ChildDraft {
     fixedWinAmount: "",
     maxNumberOfWins: "",
     maxTotalPayout: "",
+    maxPoolAmount: "",
   };
 }
 
@@ -421,6 +424,8 @@ export function MultiJackpotWizard() {
   // Step 1 — Master Strategy
   const [name, setName] = React.useState("");
   // Contribution card (mirrors the Single Jackpot "Jackpot Contribution" block)
+  const [contributionSource, setContributionSource] =
+    React.useState<ContributionSource>("player");
   const [contributionType, setContributionType] =
     React.useState<ContributionType>("fixed");
   const [totalContributionAmount, setTotalContributionAmount] =
@@ -481,8 +486,8 @@ export function MultiJackpotWizard() {
         {
           name: name.trim(),
           overlappingRule: "split",
-          // Source is implicit: House weight (per tier) covers operator-funded share.
-          contributionSource: "player",
+          // Master-level Player vs Operator funding source.
+          contributionSource,
           contributionType,
           masterContributionValue: masterValue,
           assignedCategories: assignment.assignedCategories,
@@ -536,6 +541,7 @@ export function MultiJackpotWizard() {
         `Contribution Weight must sum to 100% (currently ${weightSum.toFixed(2)}%)`,
       );
     }
+    const initialPoolAmount = Number.parseFloat(draft.initialPoolAmount) || 0;
     const seedAmount = Number.parseFloat(draft.seedAmount) || 0;
     const reseedingAmount = Number.parseFloat(draft.reseedingAmount) || 0;
     const probability = probabilityFromDraft(draft);
@@ -554,6 +560,9 @@ export function MultiJackpotWizard() {
     const maxPayout = draft.maxTotalPayout.trim()
       ? Math.max(0, Number(draft.maxTotalPayout))
       : undefined;
+    const maxPool = draft.maxPoolAmount.trim()
+      ? Math.max(0, Number(draft.maxPoolAmount))
+      : undefined;
     const maxWin = draft.maxWinAmount.trim()
       ? Math.max(0, Number(draft.maxWinAmount))
       : undefined;
@@ -571,13 +580,14 @@ export function MultiJackpotWizard() {
           name: tierName,
           enabled: true,
           seedAmount,
-          poolBalance: seedAmount,
-          triggerThreshold: seedAmount * 2,
+          poolBalance: initialPoolAmount || seedAmount,
+          triggerThreshold: (initialPoolAmount || seedAmount) * 2,
           assignedCategories: [],
           assignedGameIds: [],
           config: {
             ...buildTriggerCondition(draft),
             tierType: draft.tierType,
+            initialPoolAmount,
             reseedingAmount,
             // Per-tier contribution weights (Pool / Seed / House).
             contributionMode: "split",
@@ -590,6 +600,7 @@ export function MultiJackpotWizard() {
             ...(fixedWin !== undefined ? { fixedWinAmount: fixedWin } : {}),
             ...(maxWins !== undefined ? { maxNumberOfWins: maxWins } : {}),
             ...(maxPayout !== undefined ? { maxTotalPayout: maxPayout } : {}),
+            ...(maxPool !== undefined ? { maxPoolAmount: maxPool } : {}),
           },
         },
         {
@@ -726,6 +737,8 @@ export function MultiJackpotWizard() {
             </div>
 
             <JackpotContributionCard
+              contributionSource={contributionSource}
+              setContributionSource={setContributionSource}
               contributionType={contributionType}
               setContributionType={setContributionType}
               totalContributionAmount={totalContributionAmount}
@@ -1215,7 +1228,19 @@ function DraftTierCard({
       {/* ── Group B — Allocation & Fuel ────────────────────────────── */}
       <section className="space-y-3">
         <SectionHeading>Allocation & fuel</SectionHeading>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-neutral-300">Initial pool amount</Label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={draft.initialPoolAmount}
+              onChange={(e) => onChange({ initialPoolAmount: e.target.value })}
+              placeholder="100.00"
+              className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
+            />
+            <div className="text-xs text-neutral-500">Starting pool value at launch.</div>
+          </div>
           <div className="space-y-2">
             <Label className="text-neutral-300">Initial seed amount</Label>
             <Input
@@ -1226,7 +1251,7 @@ function DraftTierCard({
               placeholder="100.00"
               className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
             />
-            <div className="text-xs text-neutral-500">Starting pool value.</div>
+            <div className="text-xs text-neutral-500">Operator-funded floor the pool can never fall below.</div>
           </div>
           <div className="space-y-2">
             <Label className="text-neutral-300">Re-seeding amount</Label>
@@ -1306,7 +1331,7 @@ function DraftTierCard({
       {/* ── Group D — Tier Safeguards ──────────────────────────────── */}
       <section className="space-y-3">
         <SectionHeading>Tier safeguards (optional)</SectionHeading>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label className="text-neutral-300">Max number of wins</Label>
             <Input
@@ -1333,6 +1358,20 @@ function DraftTierCard({
             />
             <div className="text-xs text-neutral-500">
               Engine halts once cumulative payout passes this.
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-neutral-300">Max pool amount</Label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={draft.maxPoolAmount}
+              onChange={(e) => onChange({ maxPoolAmount: e.target.value })}
+              placeholder="Unlimited"
+              className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
+            />
+            <div className="text-xs text-neutral-500">
+              Hard cap on the pool — overflow stops accruing.
             </div>
           </div>
         </div>
@@ -1660,8 +1699,8 @@ function LaunchGate({
           value={group.contributionType === "percentage" ? "Percentage" : "Fixed"}
         />
         <SummaryStat
-          label="Weights · Pool / Seed / House"
-          value={`${group.poolWeight.toFixed(0)}% / ${group.seedWeight.toFixed(0)}% / ${group.houseWeight.toFixed(0)}%`}
+          label="Source"
+          value={group.contributionSource === "operator" ? "Operator-funded" : "Player-funded"}
         />
       </div>
 
@@ -1981,65 +2020,68 @@ function DraftNumberInput({
 }
 
 function JackpotContributionCard({
+  contributionSource,
+  setContributionSource,
   contributionType,
   setContributionType,
   totalContributionAmount,
   setTotalContributionAmount,
-  poolWeight,
-  seedWeight,
-  houseWeight,
-  setSingleWeight,
   minWagerAmount,
   maxWagerAmount,
   setMinWagerAmount,
   setMaxWagerAmount,
 }: {
+  contributionSource: ContributionSource;
+  setContributionSource: (s: ContributionSource) => void;
   contributionType: ContributionType;
   setContributionType: (t: ContributionType) => void;
   totalContributionAmount: number;
   setTotalContributionAmount: (n: number) => void;
-  poolWeight: number;
-  seedWeight: number;
-  houseWeight: number;
-  setSingleWeight: (k: "pool" | "seed" | "house", n: number) => void;
   minWagerAmount: number;
   maxWagerAmount: number;
   setMinWagerAmount: (n: number) => void;
   setMaxWagerAmount: (n: number) => void;
 }) {
-  const sum = poolWeight + seedWeight + houseWeight;
-  const sumOk = Math.abs(sum - 100) < 0.05;
-  const base = totalContributionAmount; // amount per spin in selected unit
-  const rows: Array<{
-    label: string;
-    k: "pool" | "seed" | "house";
-    value: number;
-  }> = [
-    { label: "Pool", k: "pool", value: poolWeight },
-    { label: "Seed", k: "seed", value: seedWeight },
-    { label: "House", k: "house", value: houseWeight },
-  ];
-  // Largest-remainder allocator @ 3 decimals — same logic as Single.
-  const allocated = React.useMemo(() => {
-    if (!sumOk || base <= 0) return rows.map((r) => base * (r.value / 100));
-    const target = Math.round(base * 1000);
-    const exacts = rows.map((r) => base * (r.value / 100) * 1000);
-    const floors = exacts.map((x) => Math.floor(x));
-    let gap = target - floors.reduce((a, b) => a + b, 0);
-    const order = exacts
-      .map((x, i) => ({ i, rem: x - Math.floor(x) }))
-      .sort((a, b) => b.rem - a.rem)
-      .map((o) => o.i);
-    const units = floors.slice();
-    for (let j = 0; j < order.length && gap > 0; j++, gap--) units[order[j]]++;
-    return units.map((u) => u / 1000);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [base, sumOk, poolWeight, seedWeight, houseWeight]);
-
   return (
     <section className="scroll-mt-20">
       <h2 className="text-xl font-semibold mb-6 text-white">Jackpot Contribution</h2>
       <Card className="p-6 bg-neutral-900/50 border-neutral-800 mb-2">
+        {/* Player vs Operator funded — master-level decision */}
+        <div className="mb-6">
+          <div className="text-sm font-semibold text-neutral-100 mb-2">
+            Contribution Source
+          </div>
+          <div className="inline-flex gap-2">
+            <button
+              type="button"
+              onClick={() => setContributionSource("player")}
+              className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
+                contributionSource === "player"
+                  ? "bg-blue-500 text-white"
+                  : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+              }`}
+            >
+              Player-funded
+            </button>
+            <button
+              type="button"
+              onClick={() => setContributionSource("operator")}
+              className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
+                contributionSource === "operator"
+                  ? "bg-blue-500 text-white"
+                  : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+              }`}
+            >
+              Operator-funded
+            </button>
+          </div>
+          <p className="text-[11px] text-neutral-500 mt-2">
+            {contributionSource === "player"
+              ? "Contribution is deducted from each qualifying player wager."
+              : "Contribution is funded entirely by the operator on every spin."}
+          </p>
+        </div>
+
         <div className="inline-flex gap-2 mb-6">
           <button
             type="button"
@@ -2071,8 +2113,7 @@ function JackpotContributionCard({
               Wager Eligibility Limits
             </div>
             <p className="text-[11px] text-neutral-500 mb-4">
-              Applies globally to all contribution buckets. Bets outside this
-              range do not contribute.
+              Bets outside this range do not contribute.
             </p>
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
@@ -2107,7 +2148,7 @@ function JackpotContributionCard({
           </div>
         )}
 
-        <div className="space-y-2 mb-8" style={{ width: 193 }}>
+        <div className="space-y-2" style={{ width: 193 }}>
           <BrightLabel
             htmlFor="mj-total"
             className="text-sm font-semibold text-neutral-100"
@@ -2127,52 +2168,8 @@ function JackpotContributionCard({
               {contributionType === "fixed" ? "€" : "%"}
             </span>
           </div>
-        </div>
-
-        <div>
-          <div className="text-sm font-semibold text-neutral-100 mb-3">
-            Contribution Weight
-          </div>
-          <div className="grid grid-cols-[140px_200px_200px] gap-6 pb-3 border-b border-neutral-800">
-            <span />
-            <span className="text-sm font-semibold text-neutral-100">Weight</span>
-            <span className="text-sm font-semibold text-neutral-100">Amount</span>
-          </div>
-          {rows.map(({ label, k, value }, i) => (
-            <div
-              key={k}
-              className="grid grid-cols-[140px_200px_200px] items-center gap-6 py-3"
-            >
-              <span className="text-sm font-semibold text-neutral-100">
-                {label}
-              </span>
-              <div className="relative">
-                <DraftNumberInput
-                  value={value}
-                  onCommit={(next) => setSingleWeight(k, next)}
-                  className="h-10 bg-neutral-900 border-neutral-700 pr-8 tabular-nums"
-                />
-                <span className="absolute inset-y-0 right-3 flex items-center text-sm text-neutral-400 pointer-events-none">
-                  %
-                </span>
-              </div>
-              <Input
-                readOnly
-                tabIndex={-1}
-                value={allocated[i].toFixed(3)}
-                className="h-10 bg-neutral-900 border-neutral-700 text-neutral-400 tabular-nums cursor-default"
-              />
-            </div>
-          ))}
-          {!sumOk && (
-            <div className="mt-2 text-xs text-amber-400">
-              Sum: {sum.toFixed(2)}% — must equal 100 to save
-            </div>
-          )}
-          <p className="mt-3 text-[11px] text-neutral-500">
-            <span className="text-neutral-300">House</span> covers the
-            operator-funded slice of every contribution — replaces the legacy
-            Player/Operator source selector.
+          <p className="text-[11px] text-neutral-500">
+            Per-tier Pool / Seed / House weight split is configured inside each tier card.
           </p>
         </div>
       </Card>
