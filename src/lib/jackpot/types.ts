@@ -19,6 +19,8 @@ export interface JackpotDTO {
   // Game-assignment targeting metadata.
   assignedCategories?: string[];
   assignedGameIds?: number[];
+  /** Set when this jackpot is a tier of a MultiJackpot group. */
+  groupId?: number | null;
 }
 
 
