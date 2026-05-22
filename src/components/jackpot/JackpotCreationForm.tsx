@@ -356,7 +356,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
   const [poolWeight, setPoolWeight] = useState<number>(initial?.poolWeight ?? 60);
   const [seedWeight, setSeedWeight] = useState<number>(initial?.seedWeight ?? 30);
   const [houseWeight, setHouseWeight] = useState<number>(initial?.houseWeight ?? 10);
-  const [overlappingRule, setOverlappingRule] = useState<'split' | 'additive'>(initial?.overlappingRule ?? 'split');
+  // overlappingRule removed — see "Overlapping Jackpot Rule" cleanup
   const [triggerOdds, setTriggerOdds] = useState<number>(initial?.triggerOdds ?? 0);
   const [previewWager, setPreviewWager] = useState<number>(initial?.previewWager ?? 1.0);
 
