@@ -1270,35 +1270,35 @@ function DraftTierCard({
         <SectionHeading>Drop style</SectionHeading>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <ModeCard
-            active={draft.triggerModel === "pure_chance"}
-            onClick={() => onChange({ triggerModel: "pure_chance" })}
+            active={draft.tierType === "classic"}
+            onClick={() => onChange({ tierType: "classic" })}
             Icon={Dice5}
-            title="Pure Chance Roll"
+            title="Classic"
             blurb="Static 1-in-N odds for uniform, predictable drops."
           />
           <ModeCard
-            active={draft.triggerModel === "hype_curve"}
-            onClick={() => onChange({ triggerModel: "hype_curve" })}
+            active={draft.tierType === "must_drop"}
+            onClick={() => onChange({ tierType: "must_drop" })}
             Icon={TrendingUp}
-            title="Hype Curve Engine"
+            title="Must Drop"
             blurb="Dynamic must-drop between win boundaries."
           />
           <ModeCard
-            active={draft.triggerModel === "happy_hour"}
-            onClick={() => onChange({ triggerModel: "happy_hour" })}
+            active={draft.tierType === "happy_hour"}
+            onClick={() => onChange({ tierType: "happy_hour" })}
             Icon={Clock}
             title="Happy Hour"
             blurb="Calendar-gated contribution + win windows."
           />
         </div>
 
-        {draft.triggerModel === "pure_chance" && (
+        {draft.tierType === "classic" && (
           <PureChancePanel draft={draft} onChange={onChange} />
         )}
-        {draft.triggerModel === "hype_curve" && (
+        {draft.tierType === "must_drop" && (
           <HypeCurvePanel draft={draft} onChange={onChange} />
         )}
-        {draft.triggerModel === "happy_hour" && (
+        {draft.tierType === "happy_hour" && (
           <HappyHourPanel draft={draft} onChange={onChange} />
         )}
       </section>
