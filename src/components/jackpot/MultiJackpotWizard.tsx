@@ -3,7 +3,21 @@ import axios from "axios";
 import { useQuery } from "react-query";
 import { toast } from "react-toastify";
 import { useNavigate } from "@tanstack/react-router";
-import { Plus, Trash2, ChevronRight, ChevronLeft, Check } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  ChevronRight,
+  ChevronLeft,
+  Check,
+  Lock,
+  Layers,
+  Sparkles,
+  Crown,
+  Trophy,
+  Medal,
+  Gem,
+  ShieldAlert,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,21 +40,18 @@ interface GroupDTO {
   overlappingRule: string;
 }
 
-/**
- * Step 2 child-tier draft. Numeric fields that carry high precision
- * (triggerProbability, contributionRate) are kept as plain strings until
- * submission to avoid React/JS float truncation. They are converted via
- * `Number.parseFloat(val).toFixed(8)` only at the POST boundary.
- */
 interface ChildDraft {
   uid: string;
   jackpotId: number | null;
   tierName: string;
   tierRank: string;
-  /** "1 in X" denominator as typed by the operator (string for precision/UX). */
+  seedAmount: string;
   triggerDenominator: string;
-  contributionRate: string; // string until submit
+  contributionRate: string;
 }
+
+const TIER_PRESETS = ["Mini", "Minor", "Major", "Grand"] as const;
+const DEFAULT_DAILY_VOLUME = 25000;
 
 function newChildDraft(rank: number): ChildDraft {
   return {
@@ -48,14 +59,53 @@ function newChildDraft(rank: number): ChildDraft {
     jackpotId: null,
     tierName: "",
     tierRank: String(rank),
+    seedAmount: "100.00",
     triggerDenominator: "10000",
     contributionRate: "0.01000000",
   };
 }
 
-/** Default ephemeral daily-volume slider value. NEVER persisted. */
-const DEFAULT_DAILY_VOLUME = 25000;
-
+/** Bronze → Silver → Gold → Platinum theming by tier rank. */
+function rankTheme(rank: number) {
+  if (rank >= 4) {
+    return {
+      label: "Platinum",
+      Icon: Crown,
+      ring: "ring-cyan-300/40",
+      border: "border-cyan-300/50",
+      chip: "bg-cyan-300/15 text-cyan-200 border-cyan-300/40",
+      bar: "from-cyan-200/30 to-cyan-400/10",
+    };
+  }
+  if (rank === 3) {
+    return {
+      label: "Gold",
+      Icon: Trophy,
+      ring: "ring-amber-400/40",
+      border: "border-amber-400/50",
+      chip: "bg-amber-400/15 text-amber-200 border-amber-400/40",
+      bar: "from-amber-300/30 to-amber-500/10",
+    };
+  }
+  if (rank === 2) {
+    return {
+      label: "Silver",
+      Icon: Medal,
+      ring: "ring-slate-300/30",
+      border: "border-slate-300/40",
+      chip: "bg-slate-200/10 text-slate-200 border-slate-300/30",
+      bar: "from-slate-200/25 to-slate-400/10",
+    };
+  }
+  return {
+    label: "Bronze",
+    Icon: Gem,
+    ring: "ring-orange-500/30",
+    border: "border-orange-500/40",
+    chip: "bg-orange-500/10 text-orange-200 border-orange-500/40",
+    bar: "from-orange-400/25 to-orange-600/10",
+  };
+}
 
 export function MultiJackpotWizard() {
   const { brandId } = React.useContext(BrandContext);
@@ -70,11 +120,17 @@ export function MultiJackpotWizard() {
   const [group, setGroup] = React.useState<GroupDTO | null>(null);
 
   // Step 2
-  const [children, setChildren] = React.useState<ChildDraft[]>([
-    newChildDraft(1),
-  ]);
+  const [draft, setDraft] = React.useState<ChildDraft | null>(null);
   const [savedChildren, setSavedChildren] = React.useState<
-    Array<{ jackpotId: number; tierRank: number; jackpotName: string }>
+    Array<{
+      jackpotId: number;
+      tierRank: number;
+      jackpotName: string;
+      tierName: string;
+      probability: number;
+      contributionRate: number;
+      seedAmount: number;
+    }>
   >([]);
 
   const jackpotsQuery = useQuery<JackpotDTO[]>({
@@ -89,68 +145,68 @@ export function MultiJackpotWizard() {
   });
 
   const attachableJackpots = React.useMemo(() => {
-    return (jackpotsQuery.data ?? []).filter((j) => {
-      // Exclude jackpots already attached (in DB sense; simple check by id)
-      return !savedChildren.some((c) => c.jackpotId === j.id);
-    });
+    return (jackpotsQuery.data ?? []).filter(
+      (j) => !savedChildren.some((c) => c.jackpotId === j.id),
+    );
   }, [jackpotsQuery.data, savedChildren]);
 
-  /* ──────────────────────────  Step 1: create group  ─────────────────────── */
+  function nextRank() {
+    return Math.max(0, ...savedChildren.map((c) => c.tierRank)) + 1;
+  }
+
+  function openDraft() {
+    setDraft(newChildDraft(nextRank()));
+  }
+
+  function patchDraft(patch: Partial<ChildDraft>) {
+    setDraft((prev) => (prev ? { ...prev, ...patch } : prev));
+  }
+
+  /* ───────────────── Step 1 ───────────────── */
   async function handleCreateGroup() {
-    if (!name.trim()) {
-      toast.error("MultiJackpot name is required");
-      return;
-    }
-    if (brandId == null) {
-      toast.error("No brand selected");
-      return;
-    }
+    if (!name.trim()) return toast.error("MultiJackpot name is required");
+    if (brandId == null) return toast.error("No brand selected");
     setSubmitting(true);
     try {
       const res = await axios.post<GroupDTO>(
         "/api/v1/jackpot-groups",
         { name: name.trim(), overlappingRule },
-        { headers: { brandId: String(brandId), "Content-Type": "application/json" } },
+        {
+          headers: {
+            brandId: String(brandId),
+            "Content-Type": "application/json",
+          },
+        },
       );
       setGroup(res.data);
       setStep(2);
     } catch (err: any) {
-      toast.error(err?.response?.data?.error ?? err?.message ?? "Failed to create MultiJackpot");
+      toast.error(
+        err?.response?.data?.error ??
+          err?.message ??
+          "Failed to create MultiJackpot",
+      );
     } finally {
       setSubmitting(false);
     }
   }
 
-  /* ──────────────────────────  Step 2: attach tier  ──────────────────────── */
-  function updateChild(uid: string, patch: Partial<ChildDraft>) {
-    setChildren((prev) =>
-      prev.map((c) => (c.uid === uid ? { ...c, ...patch } : c)),
-    );
-  }
-
-  function addChildRow() {
-    const nextRank =
-      Math.max(0, ...savedChildren.map((c) => c.tierRank), ...children.map((c) => Number(c.tierRank) || 0)) + 1;
-    setChildren((prev) => [...prev, newChildDraft(nextRank)]);
-  }
-
-  function removeChildRow(uid: string) {
-    setChildren((prev) => (prev.length <= 1 ? prev : prev.filter((c) => c.uid !== uid)));
-  }
-
-  async function saveChild(draft: ChildDraft) {
-    if (!group) return;
-    if (draft.jackpotId == null) {
-      toast.error("Select a jackpot to attach");
-      return;
-    }
+  /* ───────────────── Step 2 ───────────────── */
+  async function saveDraft() {
+    if (!group || !draft) return;
+    if (draft.jackpotId == null) return toast.error("Select a jackpot to attach");
     const tierRank = Math.max(0, Math.trunc(Number(draft.tierRank) || 0));
     const probability = denominatorToProbability(draft.triggerDenominator);
+    const contributionRate = Number(
+      (Number.parseFloat(draft.contributionRate) || 0).toFixed(8),
+    );
+    const seedAmount = Number.parseFloat(draft.seedAmount) || 0;
     const body: Record<string, unknown> = {
       jackpotId: draft.jackpotId,
       tierRank,
       triggerProbability: Number(probability.toFixed(8)),
-      contributionRate: Number((Number.parseFloat(draft.contributionRate) || 0).toFixed(8)),
+      contributionRate,
+      seedAmount,
     };
     if (draft.tierName.trim()) body.name = draft.tierName.trim();
     setSubmitting(true);
@@ -158,290 +214,262 @@ export function MultiJackpotWizard() {
       const res = await axios.post(
         `/api/v1/jackpot-groups/${group.id}/children`,
         body,
-        { headers: { brandId: String(brandId), "Content-Type": "application/json" } },
+        {
+          headers: {
+            brandId: String(brandId),
+            "Content-Type": "application/json",
+          },
+        },
       );
       const attached = (res.data ?? {}) as Partial<JackpotDTO>;
       if (typeof attached.id !== "number") {
         toast.error("Server returned an unexpected response while attaching the tier");
         return;
       }
-      const safeName = attached.name ?? "Attached jackpot";
+      const jackpotName = attached.name ?? "Attached jackpot";
       setSavedChildren((prev) => [
         ...prev,
-        { jackpotId: attached.id as number, tierRank, jackpotName: safeName },
+        {
+          jackpotId: attached.id as number,
+          tierRank,
+          jackpotName,
+          tierName: draft.tierName.trim() || jackpotName,
+          probability,
+          contributionRate,
+          seedAmount,
+        },
       ]);
-      // Drop the saved draft row, leave the rest editable.
-      setChildren((prev) => {
-        const remaining = prev.filter((c) => c.uid !== draft.uid);
-        return remaining.length === 0 ? [newChildDraft(tierRank + 1)] : remaining;
-      });
-      toast.success(`Attached ${safeName} at tier ${tierRank}`);
+      setDraft(null);
+      toast.success(`Attached ${jackpotName} at tier ${tierRank}`);
     } catch (err: any) {
-      toast.error(err?.response?.data?.error ?? err?.message ?? "Failed to attach child tier");
+      toast.error(
+        err?.response?.data?.error ?? err?.message ?? "Failed to attach child tier",
+      );
     } finally {
       setSubmitting(false);
     }
   }
 
-  /* ──────────────────────────  Step 3: activate  ─────────────────────────── */
+  /* ───────────────── Step 3 ───────────────── */
   async function handleActivate() {
     if (!group) return;
-    if (savedChildren.length === 0) {
-      toast.error("Attach at least one child tier before activating");
-      return;
-    }
+    if (savedChildren.length === 0)
+      return toast.error("Attach at least one child tier before activating");
     setSubmitting(true);
     try {
       await axios.post(
         `/api/v1/jackpot-groups/${group.id}/status`,
         { status: "active" },
-        { headers: { brandId: String(brandId), "Content-Type": "application/json" } },
+        {
+          headers: {
+            brandId: String(brandId),
+            "Content-Type": "application/json",
+          },
+        },
       );
       toast.success(`MultiJackpot "${group.name}" is now active`);
       navigate({ to: "/admin/jackpot-groups" });
     } catch (err: any) {
-      toast.error(err?.response?.data?.error ?? err?.message ?? "Failed to activate");
+      toast.error(
+        err?.response?.data?.error ?? err?.message ?? "Failed to activate",
+      );
     } finally {
       setSubmitting(false);
     }
   }
 
-  /* ───────────────────────────────  render  ──────────────────────────────── */
+  /* ───────────────── render ───────────────── */
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <StepIndicator step={step} />
 
       {step === 1 && (
-        <Card className="p-6 bg-neutral-900/50 border-neutral-800">
-          <h2 className="text-lg font-semibold text-white mb-1">
-            Step 1 · MultiJackpot details
+        <Card className="p-8 bg-neutral-900/60 border-neutral-800">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-blue-300 mb-2">
+            <Sparkles className="w-3.5 h-3.5" /> Step 1 · Campaign Strategy
+          </div>
+          <h2 className="text-2xl font-semibold text-white mb-1">
+            Define the MultiJackpot campaign
           </h2>
-          <p className="text-sm text-neutral-400 mb-6">
-            Name the MultiJackpot group and choose how overlapping wins are split across child tiers.
+          <p className="text-sm text-neutral-400 mb-8 max-w-2xl">
+            Name your MultiJackpot group and select how overlapping wins
+            interact with operator margin and player perception.
           </p>
-          <div className="grid gap-6 max-w-2xl">
+
+          <div className="grid gap-8 max-w-3xl">
             <div className="space-y-2">
-              <Label htmlFor="mj-name" className="text-white">MultiJackpot name</Label>
+              <Label htmlFor="mj-name" className="text-white">
+                MultiJackpot name
+              </Label>
               <Input
                 id="mj-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Mega Drop Suite Q2"
-                className="bg-neutral-800 border-neutral-700 text-white"
+                className="bg-neutral-800 border-neutral-700 text-white h-11"
               />
             </div>
-            <div className="space-y-2">
+
+            <div className="space-y-3">
               <Label className="text-white">Overlapping rule</Label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <RuleCard
                   active={overlappingRule === "split"}
-                  title="Split"
-                  description="When more than one tier wins on the same spin, the contribution is split proportionally."
+                  title="Split Mode"
+                  caption="Balanced exposure"
+                  body="When multiple tiers trigger on the same spin, contribution is proportionally divided across winners. Predictable RTP, smoother bankroll, tighter operator margin variance."
                   onClick={() => setOverlappingRule("split")}
                 />
                 <RuleCard
                   active={overlappingRule === "additive"}
-                  title="Additive"
-                  description="Each tier independently consumes its share; bet contribution stacks across winners."
+                  title="Additive Mode"
+                  caption="Maximum showcase"
+                  body="Each tier independently consumes its full contribution share. Bigger combined payouts and louder marketing moments, but margin variance widens during peak traffic."
                   onClick={() => setOverlappingRule("additive")}
                 />
               </div>
             </div>
           </div>
-          <div className="mt-8 flex justify-end">
+
+          <div className="mt-10 flex justify-end">
             <Button
               onClick={handleCreateGroup}
               disabled={submitting || !name.trim()}
-              className="bg-blue-500 hover:bg-blue-600"
+              className="bg-blue-500 hover:bg-blue-600 h-11 px-6"
             >
-              Continue <ChevronRight className="ml-1 w-4 h-4" />
+              Continue to tier stack <ChevronRight className="ml-1 w-4 h-4" />
             </Button>
           </div>
         </Card>
       )}
 
       {step === 2 && group && (
-        <Step2ErrorBoundary onReset={() => setChildren([newChildDraft((savedChildren.at(-1)?.tierRank ?? 0) + 1)])}>
-        <Card className="p-6 bg-neutral-900/50 border-neutral-800">
-          <h2 className="text-lg font-semibold text-white mb-1">
-            Step 2 · Attach child tiers
-          </h2>
-          <p className="text-sm text-neutral-400 mb-6">
-            Pick existing jackpots, assign a tier rank, and define each tier's trigger probability and contribution rate.
-          </p>
-
-          {savedChildren.length > 0 && (
-            <div className="mb-6 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4">
-              <div className="text-xs uppercase tracking-wider text-emerald-400 mb-2">
-                Attached ({savedChildren.length})
-              </div>
-              <ul className="space-y-1 text-sm text-white">
-                {savedChildren
-                  .slice()
-                  .sort((a, b) => a.tierRank - b.tierRank)
-                  .map((c) => (
-                    <li key={c.jackpotId} className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-emerald-400" />
-                      <span className="font-mono text-xs text-neutral-400">tier {c.tierRank}</span>
-                      <span>{c.jackpotName}</span>
-                      <span className="text-xs text-neutral-500">#{c.jackpotId}</span>
-                    </li>
-                  ))}
-              </ul>
+        <Step2ErrorBoundary onReset={() => setDraft(null)}>
+          <Card className="p-8 bg-neutral-900/60 border-neutral-800">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-blue-300 mb-2">
+              <Layers className="w-3.5 h-3.5" /> Step 2 · The Tier Stack
             </div>
-          )}
+            <h2 className="text-2xl font-semibold text-white mb-1">
+              Build the vertical hierarchy
+            </h2>
+            <p className="text-sm text-neutral-400 mb-8 max-w-2xl">
+              Highest tiers sit at the top of the ladder. Each tier is a fully
+              configured jackpot with its own seed, probability, and
+              contribution rate.
+            </p>
 
-          <div className="space-y-4">
-            {children.map((draft) => (
-              <ChildTierRow
-                key={draft.uid}
+            <TierLadder savedChildren={savedChildren} />
+
+            {draft ? (
+              <DraftTierCard
                 draft={draft}
                 jackpots={attachableJackpots}
-                onChange={(patch) => updateChild(draft.uid, patch)}
-                onRemove={() => removeChildRow(draft.uid)}
-                onSave={() => saveChild(draft)}
-                disableRemove={children.length <= 1}
+                onChange={patchDraft}
+                onCancel={() => setDraft(null)}
+                onSave={saveDraft}
                 submitting={submitting}
               />
-            ))}
-          </div>
+            ) : (
+              <button
+                type="button"
+                onClick={openDraft}
+                className="mt-4 w-full rounded-xl border-2 border-dashed border-neutral-700 hover:border-blue-500/60 hover:bg-blue-500/5 transition-colors py-6 flex items-center justify-center gap-2 text-neutral-300 hover:text-white"
+              >
+                <Plus className="w-5 h-5" /> Add New Tier
+              </button>
+            )}
 
-          <div className="mt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={addChildRow}
-              className="border-neutral-700 text-neutral-200"
-            >
-              <Plus className="w-4 h-4 mr-1" /> Add another tier
-            </Button>
-          </div>
-
-          <div className="mt-8 flex items-center justify-between">
-            <Button
-              variant="outline"
-              onClick={() => setStep(1)}
-              className="border-neutral-700 text-neutral-200"
-            >
-              <ChevronLeft className="w-4 h-4 mr-1" /> Back
-            </Button>
-            <Button
-              onClick={() => setStep(3)}
-              disabled={savedChildren.length === 0}
-              className="bg-blue-500 hover:bg-blue-600"
-            >
-              Review &amp; activate <ChevronRight className="ml-1 w-4 h-4" />
-            </Button>
-          </div>
-        </Card>
+            <div className="mt-10 flex items-center justify-between">
+              <Button
+                variant="outline"
+                onClick={() => setStep(1)}
+                className="border-neutral-700 text-neutral-200"
+              >
+                <ChevronLeft className="w-4 h-4 mr-1" /> Back
+              </Button>
+              <Button
+                onClick={() => setStep(3)}
+                disabled={savedChildren.length === 0}
+                className="bg-blue-500 hover:bg-blue-600 h-11 px-6"
+              >
+                Continue to launch gate{" "}
+                <ChevronRight className="ml-1 w-4 h-4" />
+              </Button>
+            </div>
+          </Card>
         </Step2ErrorBoundary>
       )}
 
       {step === 3 && group && (
-        <Card className="p-6 bg-neutral-900/50 border-neutral-800">
-          <h2 className="text-lg font-semibold text-white mb-1">
-            Step 3 · Review &amp; activate
-          </h2>
-          <p className="text-sm text-neutral-400 mb-6">
-            Activating locks the MultiJackpot. To change any child configuration later you must first move it back to Disabled.
-          </p>
-
-          <div className="grid md:grid-cols-2 gap-4 mb-6">
-            <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
-              <div className="text-xs uppercase text-neutral-500 mb-1">Name</div>
-              <div className="text-white font-medium">{group.name}</div>
-            </div>
-            <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
-              <div className="text-xs uppercase text-neutral-500 mb-1">Overlapping rule</div>
-              <div className="text-white font-medium capitalize">{group.overlappingRule}</div>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-neutral-800 overflow-hidden mb-6">
-            <table className="w-full text-sm">
-              <thead className="bg-neutral-900 text-neutral-400 text-xs uppercase">
-                <tr>
-                  <th className="text-left px-4 py-2">Tier</th>
-                  <th className="text-left px-4 py-2">Jackpot</th>
-                  <th className="text-left px-4 py-2">ID</th>
-                </tr>
-              </thead>
-              <tbody>
-                {savedChildren
-                  .slice()
-                  .sort((a, b) => a.tierRank - b.tierRank)
-                  .map((c) => (
-                    <tr key={c.jackpotId} className="border-t border-neutral-800">
-                      <td className="px-4 py-2 text-white">{c.tierRank}</td>
-                      <td className="px-4 py-2 text-white">{c.jackpotName}</td>
-                      <td className="px-4 py-2 font-mono text-xs text-neutral-400">#{c.jackpotId}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 mb-6 text-amber-200 text-sm">
-            Activation is a hard lock: child jackpot configuration becomes read-only across the platform until the MultiJackpot is moved back to Disabled.
-          </div>
-
-          <div className="flex items-center justify-between">
-            <Button
-              variant="outline"
-              onClick={() => setStep(2)}
-              className="border-neutral-700 text-neutral-200"
-            >
-              <ChevronLeft className="w-4 h-4 mr-1" /> Back
-            </Button>
-            <Button
-              onClick={handleActivate}
-              disabled={submitting || savedChildren.length === 0}
-              className="bg-emerald-500 hover:bg-emerald-600"
-            >
-              Activate MultiJackpot
-            </Button>
-          </div>
-        </Card>
+        <LaunchGate
+          group={group}
+          rule={overlappingRule}
+          savedChildren={savedChildren}
+          submitting={submitting}
+          onBack={() => setStep(2)}
+          onActivate={handleActivate}
+        />
       )}
     </div>
   );
 }
 
+/* ────────────────────────────────────────────────────────────────── */
+/* Step indicator                                                     */
+/* ────────────────────────────────────────────────────────────────── */
 function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
-  const items: Array<{ n: 1 | 2 | 3; label: string }> = [
-    { n: 1, label: "Details" },
-    { n: 2, label: "Child tiers" },
-    { n: 3, label: "Activate" },
+  const items: Array<{ n: 1 | 2 | 3; label: string; sub: string }> = [
+    { n: 1, label: "Campaign Strategy", sub: "Name & rule" },
+    { n: 2, label: "The Tier Stack", sub: "Attach tiers" },
+    { n: 3, label: "The Launch Gate", sub: "Review & lock" },
   ];
   return (
-    <ol className="flex items-center gap-3">
+    <ol className="flex items-stretch gap-2">
       {items.map((it, i) => {
         const active = it.n === step;
         const done = it.n < step;
         return (
           <React.Fragment key={it.n}>
-            <li className="flex items-center gap-2">
+            <li
+              className={`flex-1 rounded-lg border px-4 py-3 flex items-center gap-3 ${
+                active
+                  ? "border-blue-500/60 bg-blue-500/10"
+                  : done
+                    ? "border-emerald-500/40 bg-emerald-500/5"
+                    : "border-neutral-800 bg-neutral-900/40"
+              }`}
+            >
               <span
-                className={`w-7 h-7 inline-flex items-center justify-center rounded-full text-xs font-semibold border ${
+                className={`w-8 h-8 inline-flex items-center justify-center rounded-full text-xs font-semibold border ${
                   done
                     ? "bg-emerald-500/20 border-emerald-500 text-emerald-300"
                     : active
-                    ? "bg-blue-500/20 border-blue-500 text-blue-300"
-                    : "bg-neutral-900 border-neutral-700 text-neutral-500"
+                      ? "bg-blue-500/20 border-blue-500 text-blue-300"
+                      : "bg-neutral-900 border-neutral-700 text-neutral-500"
                 }`}
               >
                 {done ? <Check className="w-4 h-4" /> : it.n}
               </span>
-              <span
-                className={`text-sm ${
-                  active ? "text-white font-medium" : done ? "text-emerald-300" : "text-neutral-500"
-                }`}
-              >
-                {it.label}
-              </span>
+              <div className="min-w-0">
+                <div
+                  className={`text-sm font-medium ${
+                    active
+                      ? "text-white"
+                      : done
+                        ? "text-emerald-200"
+                        : "text-neutral-400"
+                  }`}
+                >
+                  {it.label}
+                </div>
+                <div className="text-xs text-neutral-500">{it.sub}</div>
+              </div>
             </li>
             {i < items.length - 1 && (
-              <span className="h-px w-8 bg-neutral-700" aria-hidden />
+              <span
+                className="w-4 self-center h-px bg-neutral-700"
+                aria-hidden
+              />
             )}
           </React.Fragment>
         );
@@ -450,59 +478,182 @@ function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
   );
 }
 
+/* ────────────────────────────────────────────────────────────────── */
+/* Rule card                                                          */
+/* ────────────────────────────────────────────────────────────────── */
 function RuleCard({
   active,
   title,
-  description,
+  caption,
+  body,
   onClick,
 }: {
   active: boolean;
   title: string;
-  description: string;
+  caption: string;
+  body: string;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`text-left rounded-lg border-2 p-4 transition-colors ${
+      className={`text-left rounded-xl border-2 p-5 transition-all ${
         active
-          ? "border-blue-500 bg-blue-500/10"
-          : "border-neutral-700 bg-neutral-800/40 hover:border-neutral-600"
+          ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/20"
+          : "border-neutral-700 bg-neutral-800/40 hover:border-neutral-500"
       }`}
     >
-      <div className="text-white font-medium mb-1">{title}</div>
-      <div className="text-xs text-neutral-400">{description}</div>
+      <div className="flex items-start justify-between mb-2">
+        <div>
+          <div className="text-white font-semibold text-base">{title}</div>
+          <div className="text-xs text-blue-300 uppercase tracking-wider mt-0.5">
+            {caption}
+          </div>
+        </div>
+        <span
+          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+            active ? "border-blue-500 bg-blue-500" : "border-neutral-600"
+          }`}
+        >
+          {active && <Check className="w-3 h-3 text-white" />}
+        </span>
+      </div>
+      <p className="text-sm text-neutral-300 leading-relaxed">{body}</p>
     </button>
   );
 }
 
-function ChildTierRow({
+/* ────────────────────────────────────────────────────────────────── */
+/* Tier ladder (saved tiers, sorted highest → lowest)                 */
+/* ────────────────────────────────────────────────────────────────── */
+function TierLadder({
+  savedChildren,
+}: {
+  savedChildren: Array<{
+    jackpotId: number;
+    tierRank: number;
+    jackpotName: string;
+    tierName: string;
+    probability: number;
+    contributionRate: number;
+    seedAmount: number;
+  }>;
+}) {
+  if (savedChildren.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-neutral-800 bg-neutral-950/40 p-10 text-center mb-4">
+        <Layers className="w-8 h-8 text-neutral-600 mx-auto mb-2" />
+        <div className="text-neutral-300 font-medium">No tiers attached yet</div>
+        <div className="text-sm text-neutral-500 mt-1">
+          Start building your hierarchy — highest ranks will appear at the top
+          of the ladder.
+        </div>
+      </div>
+    );
+  }
+  const sorted = [...savedChildren].sort((a, b) => b.tierRank - a.tierRank);
+  return (
+    <div className="space-y-2 mb-4">
+      {sorted.map((c, idx) => {
+        const theme = rankTheme(c.tierRank);
+        const { Icon } = theme;
+        return (
+          <div
+            key={c.jackpotId}
+            className={`relative rounded-xl border bg-neutral-900/60 p-4 flex items-center gap-4 ${theme.border}`}
+          >
+            <div
+              className={`absolute inset-y-0 left-0 w-1 rounded-l-xl bg-gradient-to-b ${theme.bar}`}
+              aria-hidden
+            />
+            <div
+              className={`w-12 h-12 rounded-lg border flex items-center justify-center ${theme.chip}`}
+            >
+              <Icon className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border ${theme.chip}`}
+                >
+                  {theme.label} · Rank {c.tierRank}
+                </span>
+                {idx === 0 && (
+                  <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border border-blue-400/40 bg-blue-400/10 text-blue-200">
+                    Top tier
+                  </span>
+                )}
+              </div>
+              <div className="text-white font-medium mt-1 truncate">
+                {c.tierName}
+              </div>
+              <div className="text-xs text-neutral-500 font-mono mt-0.5">
+                {c.jackpotName} · #{c.jackpotId}
+              </div>
+            </div>
+            <div className="hidden md:grid grid-cols-3 gap-6 text-right text-xs">
+              <div>
+                <div className="text-neutral-500 uppercase tracking-wider">
+                  Odds
+                </div>
+                <div className="text-white font-mono">
+                  1 in {Math.round(1 / Math.max(c.probability, 1e-12)).toLocaleString()}
+                </div>
+              </div>
+              <div>
+                <div className="text-neutral-500 uppercase tracking-wider">
+                  Contrib
+                </div>
+                <div className="text-white font-mono">
+                  {(c.contributionRate * 100).toFixed(3)}%
+                </div>
+              </div>
+              <div>
+                <div className="text-neutral-500 uppercase tracking-wider">
+                  Seed
+                </div>
+                <div className="text-white font-mono">
+                  {c.seedAmount.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────── */
+/* Inline draft tier card                                             */
+/* ────────────────────────────────────────────────────────────────── */
+function DraftTierCard({
   draft,
   jackpots,
   onChange,
-  onRemove,
+  onCancel,
   onSave,
-  disableRemove,
   submitting,
 }: {
   draft: ChildDraft;
   jackpots: JackpotDTO[];
   onChange: (patch: Partial<ChildDraft>) => void;
-  onRemove: () => void;
+  onCancel: () => void;
   onSave: () => void;
-  disableRemove: boolean;
   submitting: boolean;
 }) {
-  // Simulated daily volume is ephemeral UI-only state — never sent to the API.
-  const [dailyVolume, setDailyVolume] = React.useState<number>(DEFAULT_DAILY_VOLUME);
+  const [dailyVolume, setDailyVolume] =
+    React.useState<number>(DEFAULT_DAILY_VOLUME);
   const probability = denominatorToProbability(draft.triggerDenominator);
   const dropText = formatDropFrequency(probability, dailyVolume);
+  const theme = rankTheme(Number(draft.tierRank) || 1);
 
-  function handleJackpotChange(nextId: number | null) {
+  function pickJackpot(nextId: number | null) {
     const patch: Partial<ChildDraft> = { jackpotId: nextId };
-    // Autofill tier name from jackpot profile when picking, but never
-    // overwrite a name the operator has already customized.
     if (nextId != null && !draft.tierName.trim()) {
       const picked = jackpots.find((j) => j.id === nextId);
       if (picked?.name) patch.tierName = picked.name;
@@ -511,30 +662,66 @@ function ChildTierRow({
   }
 
   return (
-    <div className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-4 space-y-4">
-      {/* Custom Tier Name — prominent, top of card */}
-      <div className="space-y-2">
-        <Label className="text-neutral-300">
-          Tier Name <span className="text-neutral-500 font-normal">(operator-facing label)</span>
-        </Label>
-        <Input
-          type="text"
-          value={draft.tierName}
-          onChange={(e) => onChange({ tierName: e.target.value })}
-          placeholder="e.g. Mini, Super Drop, Friday Booster"
-          className="bg-neutral-800 border-neutral-700 text-white"
-        />
+    <div
+      className={`mt-4 rounded-xl border-2 ${theme.border} bg-neutral-900/80 p-6 space-y-6`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span
+            className={`px-2 py-0.5 text-[10px] uppercase tracking-wider rounded border ${theme.chip}`}
+          >
+            {theme.label} · New tier
+          </span>
+          <span className="text-sm text-neutral-400">
+            Configure and save to attach this level to the stack.
+          </span>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onCancel}
+          className="text-neutral-400 hover:text-white"
+        >
+          Cancel
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+      {/* Tier Name + quick chips */}
+      <div className="space-y-2">
+        <Label className="text-neutral-300">Tier Name</Label>
+        <Input
+          value={draft.tierName}
+          onChange={(e) => onChange({ tierName: e.target.value })}
+          placeholder="e.g. Friday Booster"
+          className="bg-neutral-800 border-neutral-700 text-white h-10"
+        />
+        <div className="flex flex-wrap gap-2 pt-1">
+          {TIER_PRESETS.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              onClick={() => onChange({ tierName: preset })}
+              className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                draft.tierName === preset
+                  ? "border-blue-500 bg-blue-500/15 text-blue-200"
+                  : "border-neutral-700 bg-neutral-800 text-neutral-300 hover:border-neutral-500"
+              }`}
+            >
+              {preset}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2 space-y-2">
           <Label className="text-neutral-300">Jackpot</Label>
           <select
             value={draft.jackpotId ?? ""}
             onChange={(e) =>
-              handleJackpotChange(e.target.value ? Number(e.target.value) : null)
+              pickJackpot(e.target.value ? Number(e.target.value) : null)
             }
-            className="w-full h-10 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-white disabled:opacity-60"
+            className="w-full h-10 rounded-md bg-neutral-800 border border-neutral-700 px-3 text-sm text-white"
           >
             <option value="">Select existing jackpot…</option>
             {jackpots.map((j) => (
@@ -548,80 +735,99 @@ function ChildTierRow({
           <Label className="text-neutral-300">Tier rank</Label>
           <Input
             type="number"
-            min={0}
+            min={1}
             value={draft.tierRank}
             onChange={(e) => onChange({ tierRank: e.target.value })}
-            className="bg-neutral-800 border-neutral-700 text-white"
+            className="bg-neutral-800 border-neutral-700 text-white h-10"
           />
         </div>
       </div>
 
-      {/* Trigger Probability — dual-input parsing view */}
-      <div className="rounded-md border border-neutral-800 bg-neutral-950/40 p-4 space-y-3">
-        <div className="text-sm font-medium text-white">Trigger Probability</div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label className="text-neutral-300">Seed Amount</Label>
+          <Input
+            type="text"
+            inputMode="decimal"
+            value={draft.seedAmount}
+            onChange={(e) => onChange({ seedAmount: e.target.value })}
+            placeholder="100.00"
+            className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
+          />
+          <div className="text-xs text-neutral-500">
+            Starting pool value after each reset.
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-neutral-300">Contribution Rate</Label>
+          <Input
+            type="text"
+            inputMode="decimal"
+            value={draft.contributionRate}
+            onChange={(e) => onChange({ contributionRate: e.target.value })}
+            placeholder="0.01000000"
+            className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
+          />
+          <div className="text-xs text-neutral-500">
+            Fraction of every wager funnelled into this tier (0–1).
+          </div>
+        </div>
+      </div>
+
+      {/* Probability + ephemeral volume + forecast */}
+      <div className="rounded-lg border border-neutral-800 bg-neutral-950/50 p-5 space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1">
             <Label className="text-neutral-400 text-xs uppercase tracking-wider">
-              Odds
+              Trigger probability
             </Label>
             <div className="flex items-center gap-2">
-              <span className="text-neutral-300 text-sm whitespace-nowrap">1 in</span>
+              <span className="text-neutral-300 text-sm">1 in</span>
               <Input
                 type="number"
                 inputMode="numeric"
                 min={1}
                 step={1}
                 value={draft.triggerDenominator}
-                onChange={(e) => onChange({ triggerDenominator: e.target.value })}
+                onChange={(e) =>
+                  onChange({ triggerDenominator: e.target.value })
+                }
                 placeholder="50000"
-                className="bg-neutral-800 border-neutral-700 text-white font-mono"
+                className="bg-neutral-800 border-neutral-700 text-white font-mono h-10"
               />
-              <span className="text-neutral-300 text-sm whitespace-nowrap">spins</span>
+              <span className="text-neutral-300 text-sm">spins</span>
             </div>
             <div className="text-xs text-neutral-500 font-mono pt-1">
-              Raw probability: {probabilityFixed8(probability)}
+              Raw p = {probabilityFixed8(probability)}
             </div>
           </div>
-          <div className="space-y-1">
-            <Label className="text-neutral-400 text-xs uppercase tracking-wider">
-              Contribution rate
-            </Label>
-            <Input
-              type="text"
-              inputMode="decimal"
-              value={draft.contributionRate}
-              onChange={(e) => onChange({ contributionRate: e.target.value })}
-              placeholder="0.01000000"
-              className="bg-neutral-800 border-neutral-700 text-white font-mono"
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-neutral-400 text-xs uppercase tracking-wider">
+                Simulated daily volume
+              </Label>
+              <span className="font-mono text-xs text-white">
+                {dailyVolume.toLocaleString()} spins/day
+              </span>
+            </div>
+            <Slider
+              value={[dailyVolume]}
+              min={1000}
+              max={500000}
+              step={1000}
+              onValueChange={(v) =>
+                setDailyVolume(v[0] ?? DEFAULT_DAILY_VOLUME)
+              }
             />
-            <div className="text-xs text-neutral-500 pt-1">
-              Fraction of wager contributed (0–1).
+            <div className="text-[11px] text-neutral-500">
+              Preview only — never saved.
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Simulated Daily Volume — local UI only */}
-      <div className="rounded-md border border-neutral-800 bg-neutral-950/40 p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <Label className="text-neutral-300">
-            Simulated Daily Volume{" "}
-            <span className="text-neutral-500 font-normal text-xs">(preview only — not saved)</span>
-          </Label>
-          <span className="font-mono text-sm text-white">
-            {dailyVolume.toLocaleString()} spins/day
-          </span>
-        </div>
-        <Slider
-          value={[dailyVolume]}
-          min={1000}
-          max={500000}
-          step={1000}
-          onValueChange={(v) => setDailyVolume(v[0] ?? DEFAULT_DAILY_VOLUME)}
-        />
-        <div className="rounded border border-blue-500/30 bg-blue-500/5 p-3">
-          <div className="text-xs uppercase tracking-wider text-blue-300 mb-1">
-            Estimated Drop Frequency
+        <div className="rounded-md border border-blue-500/30 bg-blue-500/5 p-4">
+          <div className="text-[10px] uppercase tracking-[0.2em] text-blue-300 mb-1">
+            Tier Forecast
           </div>
           <div className="text-sm text-white">{dropText}</div>
         </div>
@@ -632,11 +838,10 @@ function ChildTierRow({
           type="button"
           variant="ghost"
           size="sm"
-          onClick={onRemove}
-          disabled={disableRemove}
+          onClick={onCancel}
           className="text-red-400 hover:text-red-300"
         >
-          <Trash2 className="w-4 h-4 mr-1" /> Remove row
+          <Trash2 className="w-4 h-4 mr-1" /> Discard
         </Button>
         <Button
           type="button"
@@ -652,12 +857,204 @@ function ChildTierRow({
   );
 }
 
-/**
- * Local error boundary scoped to Step 2 of the wizard. Prevents a render
- * crash inside ChildTierRow (e.g. a transient bundler/HMR state where a
- * primitive resolves to undefined) from collapsing the whole route to the
- * global "This page didn't load" boundary.
- */
+/* ────────────────────────────────────────────────────────────────── */
+/* Step 3 — Launch Gate                                               */
+/* ────────────────────────────────────────────────────────────────── */
+function LaunchGate({
+  group,
+  rule,
+  savedChildren,
+  submitting,
+  onBack,
+  onActivate,
+}: {
+  group: GroupDTO;
+  rule: OverlappingRule;
+  savedChildren: Array<{
+    jackpotId: number;
+    tierRank: number;
+    jackpotName: string;
+    tierName: string;
+    probability: number;
+    contributionRate: number;
+    seedAmount: number;
+  }>;
+  submitting: boolean;
+  onBack: () => void;
+  onActivate: () => void;
+}) {
+  const sorted = [...savedChildren].sort((a, b) => b.tierRank - a.tierRank);
+  const totalContribution = savedChildren.reduce(
+    (sum, c) => sum + c.contributionRate,
+    0,
+  );
+  const totalSeedExposure = savedChildren.reduce(
+    (sum, c) => sum + c.seedAmount,
+    0,
+  );
+  // Assume operator's typical reference daily volume for the summary forecast
+  const REFERENCE_DAILY = 50000;
+
+  return (
+    <Card className="p-8 bg-neutral-900/60 border-neutral-800">
+      <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-blue-300 mb-2">
+        <ShieldAlert className="w-3.5 h-3.5" /> Step 3 · The Launch Gate
+      </div>
+      <h2 className="text-2xl font-semibold text-white mb-1">
+        Executive verification
+      </h2>
+      <p className="text-sm text-neutral-400 mb-8 max-w-2xl">
+        Review the financial exposure and tier hierarchy below. Activation
+        commits this MultiJackpot to production.
+      </p>
+
+      <div className="grid md:grid-cols-3 gap-4 mb-6">
+        <SummaryStat label="MultiJackpot" value={group.name} />
+        <SummaryStat
+          label="Overlapping rule"
+          value={rule === "split" ? "Split Mode" : "Additive Mode"}
+        />
+        <SummaryStat
+          label="Total contribution exposure"
+          value={`${(totalContribution * 100).toFixed(3)}%`}
+          accent="emerald"
+        />
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4 mb-6">
+        <SummaryStat
+          label="Attached tiers"
+          value={String(savedChildren.length)}
+        />
+        <SummaryStat
+          label="Combined seed exposure"
+          value={totalSeedExposure.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        />
+      </div>
+
+      <div className="rounded-xl border border-neutral-800 overflow-hidden mb-6">
+        <div className="bg-neutral-900/80 px-5 py-3 text-xs uppercase tracking-[0.2em] text-neutral-400 border-b border-neutral-800">
+          Par-sheet · Tier hierarchy
+        </div>
+        <div className="divide-y divide-neutral-800">
+          {sorted.map((c) => {
+            const theme = rankTheme(c.tierRank);
+            const { Icon } = theme;
+            return (
+              <div
+                key={c.jackpotId}
+                className="grid grid-cols-12 gap-3 items-center px-5 py-3"
+              >
+                <div className="col-span-4 flex items-center gap-3 min-w-0">
+                  <div
+                    className={`w-9 h-9 rounded-md border flex items-center justify-center ${theme.chip}`}
+                  >
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-white text-sm font-medium truncate">
+                      {c.tierName}
+                    </div>
+                    <div className="text-[11px] text-neutral-500 font-mono">
+                      {theme.label} · rank {c.tierRank} · #{c.jackpotId}
+                    </div>
+                  </div>
+                </div>
+                <div className="col-span-3 text-xs">
+                  <div className="text-neutral-500 uppercase tracking-wider">
+                    Odds
+                  </div>
+                  <div className="text-white font-mono">
+                    1 in{" "}
+                    {Math.round(
+                      1 / Math.max(c.probability, 1e-12),
+                    ).toLocaleString()}
+                  </div>
+                </div>
+                <div className="col-span-2 text-xs">
+                  <div className="text-neutral-500 uppercase tracking-wider">
+                    Contrib
+                  </div>
+                  <div className="text-white font-mono">
+                    {(c.contributionRate * 100).toFixed(3)}%
+                  </div>
+                </div>
+                <div className="col-span-3 text-xs">
+                  <div className="text-neutral-500 uppercase tracking-wider">
+                    Expected drop
+                  </div>
+                  <div className="text-white">
+                    {formatDropFrequency(c.probability, REFERENCE_DAILY)}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-5 mb-8 flex gap-3">
+        <Lock className="w-5 h-5 text-amber-300 shrink-0 mt-0.5" />
+        <div className="text-sm text-amber-100">
+          <div className="font-semibold mb-1">Activation locks configuration</div>
+          Once activated, every tier name, seed amount, contribution rate, and
+          probability becomes read-only across the platform. To edit, the
+          MultiJackpot must first be moved back to Disabled.
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <Button
+          variant="outline"
+          onClick={onBack}
+          className="border-neutral-700 text-neutral-200"
+        >
+          <ChevronLeft className="w-4 h-4 mr-1" /> Back
+        </Button>
+        <Button
+          onClick={onActivate}
+          disabled={submitting || savedChildren.length === 0}
+          className="bg-emerald-500 hover:bg-emerald-600 h-11 px-6"
+        >
+          <Lock className="w-4 h-4 mr-2" />
+          Activate MultiJackpot
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function SummaryStat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: "emerald";
+}) {
+  return (
+    <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
+      <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 mb-1">
+        {label}
+      </div>
+      <div
+        className={`font-semibold ${
+          accent === "emerald" ? "text-emerald-300" : "text-white"
+        }`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────── */
+/* Local error boundary (Step 2)                                      */
+/* ────────────────────────────────────────────────────────────────── */
 class Step2ErrorBoundary extends React.Component<
   { children: React.ReactNode; onReset: () => void },
   { error: Error | null }
@@ -697,5 +1094,3 @@ class Step2ErrorBoundary extends React.Component<
     return this.props.children;
   }
 }
-
-
