@@ -1050,48 +1050,249 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
     </section>
   ) : null;
 
-  // Trigger Probability — top-level fixed-odds trigger for Single Jackpots
-  // (Classic / Must-Drop / Frequency). Mirrors the per-tier UI used inside
-  // the legacy multi-level block. Writes `triggerOdds` (denominator N) into
-  // the payload; engine interprets it as p = 1/N per spin.
+  // Trigger Probability — visual dual-card picker for Single Jackpots.
+  // Classic ("Pure Chance Roll") writes triggerOdds = N (1..10,000,000).
+  // Curve  ("Hype Curve Engine") forces triggerOdds = 0 so the backend's
+  // time-decay / must-drop calculus owns the trigger.
+  //
+  // Slider scaling uses a log10 map (slider 0..1000 → spins 1..10,000,000)
+  // so the lower half of the operational range (under 500k) gets ~80% of
+  // the physical track — making 5k / 10k / 50k easy to land on precisely.
+  const TRIGGER_SLIDER_STEPS = 1000;
+  const TRIGGER_MIN = 1;
+  const TRIGGER_MAX = 10_000_000;
+  const sliderToSpins = (s: number): number => {
+    const t = Math.max(0, Math.min(TRIGGER_SLIDER_STEPS, s)) / TRIGGER_SLIDER_STEPS;
+    const exp = Math.log10(TRIGGER_MIN) + t * (Math.log10(TRIGGER_MAX) - Math.log10(TRIGGER_MIN));
+    return Math.max(TRIGGER_MIN, Math.min(TRIGGER_MAX, Math.round(Math.pow(10, exp))));
+  };
+  const spinsToSlider = (n: number): number => {
+    const clamped = Math.max(TRIGGER_MIN, Math.min(TRIGGER_MAX, n || TRIGGER_MIN));
+    const t =
+      (Math.log10(clamped) - Math.log10(TRIGGER_MIN)) /
+      (Math.log10(TRIGGER_MAX) - Math.log10(TRIGGER_MIN));
+    return Math.round(t * TRIGGER_SLIDER_STEPS);
+  };
+
+  const pickVibe = (n: number) => {
+    if (n < 10_000)
+      return {
+        Icon: Zap,
+        label: '⚡ Rapid-Fire Mode',
+        copy: `This jackpot drops constantly! Expect a hit roughly every ${n.toLocaleString()} spins network-wide. Ideal for ultra-high engagement or promotional happy hours.`,
+        ring: 'border-emerald-500/40 bg-emerald-500/10',
+        badge: 'bg-emerald-500/20 text-emerald-200 border-emerald-500/40',
+        accent: 'text-emerald-300',
+      };
+    if (n < 100_000)
+      return {
+        Icon: Flame,
+        label: '🔥 Action-Packed',
+        copy: `Expect a hit roughly every ${n.toLocaleString()} spins. Perfect for keeping players glued during peak weekend traffic windows.`,
+        ring: 'border-orange-500/40 bg-orange-500/10',
+        badge: 'bg-orange-500/20 text-orange-200 border-orange-500/40',
+        accent: 'text-orange-300',
+      };
+    if (n < 500_000)
+      return {
+        Icon: TrendingUp,
+        label: '📈 Daily Driver',
+        copy: `Expect a hit roughly every ${n.toLocaleString()} spins. This provides a classic, steady promotional heartbeat across your games.`,
+        ring: 'border-sky-500/40 bg-sky-500/10',
+        badge: 'bg-sky-500/20 text-sky-200 border-sky-500/40',
+        accent: 'text-sky-300',
+      };
+    if (n < 2_500_000)
+      return {
+        Icon: Trophy,
+        label: '🏆 Major Milestone',
+        copy: `Expect a rare, high-anticipation drop roughly every ${n.toLocaleString()} spins. Builds significant community buzz and high-value tracking.`,
+        ring: 'border-amber-400/40 bg-amber-400/10',
+        badge: 'bg-amber-400/20 text-amber-100 border-amber-400/40',
+        accent: 'text-amber-300',
+      };
+    return {
+      Icon: Gem,
+      label: '💎 The Mega Event',
+      copy: `An ultra-rare, legendary network event. Expect a drop roughly once every ${n.toLocaleString()} spins. This is your headline-grabbing marketing campaign.`,
+      ring: 'border-purple-500/40 bg-purple-500/10',
+      badge: 'bg-purple-500/20 text-purple-200 border-purple-500/40',
+      accent: 'text-purple-300',
+    };
+  };
+
+  const setClassicMode = () => {
+    setTriggerMode('classic');
+    if (!(triggerOdds > 0)) setTriggerOdds(100_000);
+  };
+  const setCurveMode = () => {
+    setTriggerMode('curve');
+    setTriggerOdds(0);
+  };
+
   const triggerProbabilitySection = selectedType !== 'multi_level' ? (
     <section className="scroll-mt-20">
-      <h2 className="text-xl font-semibold mb-6">Trigger Probability</h2>
-      <Card className="p-6 bg-neutral-900/50 border-neutral-800">
-        <div className="space-y-2 max-w-xl">
-          <BrightLabel htmlFor="single-trigger-odds" className="text-sm font-semibold text-neutral-100">
-            Trigger Probability Denominator (N)
-          </BrightLabel>
-          <div className="flex items-stretch gap-2">
-            <Input
-              id="single-trigger-odds"
-              type="number"
-              min={0}
-              max={10_000_000}
-              step={1}
-              value={triggerOdds}
-              onChange={(e) => {
-                const raw = parseInt(e.target.value.slice(0, 8)) || 0;
-                setTriggerOdds(Math.max(0, Math.min(10_000_000, raw)));
-              }}
-              placeholder="0 = disabled"
-              aria-invalid={triggerOdds > 10_000_000}
-              className={`flex-1 bg-neutral-900 border-neutral-700 tabular-nums ${triggerOdds > 10_000_000 ? 'border-red-500 ring-1 ring-red-500' : ''}`}
+      <h2 className="text-xl font-semibold mb-2">Trigger Probability</h2>
+      <p className="text-sm text-neutral-400 mb-6">
+        Choose how this jackpot decides when to drop.
+      </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Card 1 — Pure Chance Roll */}
+        <button
+          type="button"
+          onClick={setClassicMode}
+          aria-pressed={triggerMode === 'classic'}
+          className={`group text-left rounded-xl border p-5 transition-all ${
+            triggerMode === 'classic'
+              ? 'border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/40 shadow-lg shadow-blue-500/10'
+              : 'border-neutral-800 bg-neutral-900/50 hover:border-neutral-700 hover:bg-neutral-900'
+          }`}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className={`p-2 rounded-lg ${triggerMode === 'classic' ? 'bg-blue-500/20 text-blue-300' : 'bg-neutral-800 text-neutral-400'}`}>
+              <Dice5 className="w-5 h-5" />
+            </div>
+            <div className="font-semibold text-white">Pure Chance Roll</div>
+            <span className="ml-auto text-[11px] tabular-nums text-neutral-500">Classic 1/N</span>
+          </div>
+          <p className="text-sm text-neutral-400 mb-4 leading-relaxed">
+            Every single spin across your network has the exact same static odds of winning. Like rolling a massive digital dice.
+          </p>
+          {/* Flat odds micro-sparkline */}
+          <svg viewBox="0 0 120 24" className={`w-full h-6 ${triggerMode === 'classic' ? 'text-blue-400' : 'text-neutral-600'}`}>
+            <line x1="2" y1="12" x2="118" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray="3 3" />
+            {[10, 30, 50, 70, 90, 110].map((x) => (
+              <circle key={x} cx={x} cy={12} r="2" fill="currentColor" />
+            ))}
+          </svg>
+        </button>
+
+        {/* Card 2 — Hype Curve Engine */}
+        <button
+          type="button"
+          onClick={setCurveMode}
+          aria-pressed={triggerMode === 'curve'}
+          className={`group text-left rounded-xl border p-5 transition-all ${
+            triggerMode === 'curve'
+              ? 'border-purple-500 bg-purple-500/10 ring-2 ring-purple-500/40 shadow-lg shadow-purple-500/10'
+              : 'border-neutral-800 bg-neutral-900/50 hover:border-neutral-700 hover:bg-neutral-900'
+          }`}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className={`p-2 rounded-lg ${triggerMode === 'curve' ? 'bg-purple-500/20 text-purple-300' : 'bg-neutral-800 text-neutral-400'}`}>
+              <Activity className="w-5 h-5" />
+            </div>
+            <div className="font-semibold text-white">The Hype Curve Engine</div>
+            <span className="ml-auto text-[11px] tabular-nums text-neutral-500">Dynamic / Must-Drop</span>
+          </div>
+          <p className="text-sm text-neutral-400 mb-4 leading-relaxed">
+            Winning odds dynamically scale up over time or accumulation. Guarantees an explosive climax as your deadline or cap approaches.
+          </p>
+          {/* Exponential curve micro-icon */}
+          <svg viewBox="0 0 120 24" className={`w-full h-6 ${triggerMode === 'curve' ? 'text-purple-400' : 'text-neutral-600'}`}>
+            <path
+              d="M2 22 C 40 22, 70 20, 90 14 S 115 4, 118 2"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
             />
-            <div className="flex items-center px-3 rounded-md bg-neutral-800/60 border border-neutral-800 text-xs text-emerald-400 tabular-nums whitespace-nowrap min-w-[160px] justify-center">
-              {triggerOdds > 0 ? `1 in ${triggerOdds.toLocaleString()} spins` : 'disabled'}
+            <circle cx="118" cy="2" r="2.5" fill="currentColor" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Pure Chance controls (hidden when Hype Curve is active) */}
+      {triggerMode === 'classic' && (() => {
+        const vibe = pickVibe(triggerOdds || TRIGGER_MIN);
+        const VibeIcon = vibe.Icon;
+        return (
+          <Card className="mt-5 p-6 bg-neutral-900/50 border-neutral-800">
+            <div className="space-y-5 max-w-2xl">
+              <div>
+                <BrightLabel htmlFor="single-trigger-odds" className="text-sm font-semibold text-neutral-100">
+                  Target Spin Interval
+                </BrightLabel>
+                <p className="text-[11px] text-neutral-500 mt-1">
+                  Average number of network spins between hits. Slider uses logarithmic spacing — lower values have higher precision.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <Slider
+                  min={0}
+                  max={TRIGGER_SLIDER_STEPS}
+                  step={1}
+                  value={[spinsToSlider(triggerOdds || TRIGGER_MIN)]}
+                  onValueChange={(v) => setTriggerOdds(sliderToSpins(v[0] ?? 0))}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-[10px] text-neutral-500 tabular-nums">
+                  <span>1</span>
+                  <span>1k</span>
+                  <span>10k</span>
+                  <span>100k</span>
+                  <span>1M</span>
+                  <span>10M</span>
+                </div>
+              </div>
+
+              <div className="flex items-stretch gap-2">
+                <Input
+                  id="single-trigger-odds"
+                  type="number"
+                  min={TRIGGER_MIN}
+                  max={TRIGGER_MAX}
+                  step={1}
+                  value={triggerOdds || ''}
+                  onChange={(e) => {
+                    const raw = parseInt(e.target.value.slice(0, 8)) || 0;
+                    setTriggerOdds(Math.max(0, Math.min(TRIGGER_MAX, raw)));
+                  }}
+                  placeholder="Enter spin interval"
+                  className="flex-1 bg-neutral-900 border-neutral-700 tabular-nums"
+                />
+                <div className="flex items-center px-3 rounded-md bg-neutral-800/60 border border-neutral-800 text-xs text-emerald-400 tabular-nums whitespace-nowrap min-w-[160px] justify-center">
+                  {triggerOdds > 0 ? `1 in ${triggerOdds.toLocaleString()} spins` : 'set a value'}
+                </div>
+              </div>
+
+              {/* Live Vibe & Pacing translation */}
+              <div className={`rounded-xl border p-4 transition-colors ${vibe.ring}`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-semibold ${vibe.badge}`}>
+                    <VibeIcon className="w-3.5 h-3.5" />
+                    {vibe.label}
+                  </span>
+                  <span className={`text-[11px] tabular-nums ${vibe.accent}`}>
+                    p = {(1 / Math.max(1, triggerOdds || TRIGGER_MIN)).toExponential(3)} / spin
+                  </span>
+                </div>
+                <p className="text-sm text-neutral-200 leading-relaxed">{vibe.copy}</p>
+              </div>
+
+              <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300">
+                <span className="font-semibold">RNG Boundary Limit:</span> Max 10,000,000
+              </div>
+            </div>
+          </Card>
+        );
+      })()}
+
+      {triggerMode === 'curve' && (
+        <Card className="mt-5 p-6 bg-neutral-900/30 border-dashed border-neutral-800">
+          <div className="flex items-start gap-3 text-sm text-neutral-300">
+            <Activity className="w-5 h-5 text-purple-300 mt-0.5 shrink-0" />
+            <div>
+              <div className="font-semibold text-white mb-1">Hype Curve engaged</div>
+              <p className="text-neutral-400 leading-relaxed">
+                No manual odds required — the backend's time-decay calculus controls when this jackpot drops based on your Must-Drop window or Frequency schedule.
+              </p>
             </div>
           </div>
-          <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300">
-            <span className="font-semibold">RNG Boundary Limit:</span> Max 10,000,000
-          </div>
-          <p className="text-[11px] text-neutral-500">
-            {triggerOdds > 0
-              ? `p = ${(1 / triggerOdds).toExponential(3)} per spin`
-              : 'Empty / 0 → uses curve-based hit chance.'}
-          </p>
-        </div>
-      </Card>
+        </Card>
+      )}
     </section>
   ) : null;
 
