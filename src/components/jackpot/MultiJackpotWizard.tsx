@@ -15,7 +15,6 @@ import {
   denominatorToProbability,
   formatDropFrequency,
   probabilityFixed8,
-  probabilityToDenominator,
 } from "@/lib/jackpot/tier-forecast";
 
 type OverlappingRule = "split" | "additive";
