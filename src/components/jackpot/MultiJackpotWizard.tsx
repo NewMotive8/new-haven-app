@@ -2204,3 +2204,546 @@ function JackpotContributionCard({
     </section>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Master-level Eligibility & Rules Engine — ported from Single Jackpot form.
+// Drives EligibilityValue, vertical-aware (casino vs sportsbook).
+// ─────────────────────────────────────────────────────────────────────────────
+const CASINO_CATEGORIES = ["Slots", "Live Casino", "Table Games", "Crash Games"];
+const CASINO_PROVIDERS = [
+  "Pragmatic Play",
+  "Evolution",
+  "Hacksaw",
+  "NetEnt",
+  "Play'n GO",
+  "Relax Gaming",
+];
+const SPORT_TYPES = ["Football", "Basketball", "Tennis", "Hockey", "Baseball", "eSports", "MMA"];
+
+function toggleArr<T>(arr: T[], v: T): T[] {
+  return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
+}
+
+function EligibilityRulesSection({
+  value,
+  onChange,
+}: {
+  value: EligibilityValue;
+  onChange: (v: EligibilityValue) => void;
+}) {
+  const [gameIdDraft, setGameIdDraft] = React.useState("");
+  const [leagueDraft, setLeagueDraft] = React.useState("");
+  const v = value;
+  const patchCasino = (patch: Partial<EligibilityValue["casino"]>) =>
+    onChange({ ...v, casino: { ...v.casino, ...patch } });
+  const patchSports = (patch: Partial<EligibilityValue["sportsbook"]>) =>
+    onChange({ ...v, sportsbook: { ...v.sportsbook, ...patch } });
+
+  return (
+    <section className="scroll-mt-20">
+      <h2 className="text-xl font-semibold mb-6 text-white">Eligibility &amp; Rules Engine</h2>
+      <Card className="p-6 bg-neutral-900/50 border-neutral-800 mb-2">
+        <div className="inline-flex gap-2 mb-6">
+          <button
+            type="button"
+            onClick={() => onChange({ ...v, vertical: "casino" })}
+            className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
+              v.vertical === "casino"
+                ? "bg-blue-500 text-white"
+                : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+            }`}
+          >
+            Casino Games
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange({ ...v, vertical: "sportsbook" })}
+            className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
+              v.vertical === "sportsbook"
+                ? "bg-blue-500 text-white"
+                : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+            }`}
+          >
+            Sportsbook
+          </button>
+        </div>
+
+        {v.vertical === "casino" ? (
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <BrightLabel className="text-sm font-semibold text-neutral-100">
+                Game Categories
+              </BrightLabel>
+              <div className="flex flex-wrap gap-2">
+                {CASINO_CATEGORIES.map((cat) => {
+                  const active = v.casino.categories.includes(cat);
+                  return (
+                    <button
+                      type="button"
+                      key={cat}
+                      onClick={() => patchCasino({ categories: toggleArr(v.casino.categories, cat) })}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                        active
+                          ? "bg-blue-500/15 border-blue-500/50 text-blue-300"
+                          : "bg-neutral-900 border-neutral-700 text-neutral-300 hover:border-neutral-500"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-neutral-400">Empty selection targets all categories.</p>
+            </div>
+
+            <div className="space-y-2">
+              <BrightLabel className="text-sm font-semibold text-neutral-100">
+                Providers / Game Studios
+              </BrightLabel>
+              <div className="flex flex-wrap gap-2">
+                {CASINO_PROVIDERS.map((p) => {
+                  const active = v.casino.providers.includes(p);
+                  return (
+                    <button
+                      type="button"
+                      key={p}
+                      onClick={() => patchCasino({ providers: toggleArr(v.casino.providers, p) })}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                        active
+                          ? "bg-blue-500/15 border-blue-500/50 text-blue-300"
+                          : "bg-neutral-900 border-neutral-700 text-neutral-300 hover:border-neutral-500"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <BrightLabel htmlFor="mj-elig-gameid" className="text-sm font-semibold text-neutral-100">
+                Specific Game IDs
+              </BrightLabel>
+              <div className="flex flex-wrap items-center gap-2 min-h-[40px] p-2 rounded-md bg-neutral-900 border border-neutral-700 focus-within:ring-2 focus-within:ring-blue-500">
+                {v.casino.gameIds.map((id) => (
+                  <span
+                    key={id}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-neutral-800 text-xs text-neutral-100"
+                  >
+                    {id}
+                    <button
+                      type="button"
+                      onClick={() => patchCasino({ gameIds: v.casino.gameIds.filter((x) => x !== id) })}
+                      className="text-neutral-400 hover:text-neutral-100"
+                      aria-label={`Remove ${id}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                <input
+                  id="mj-elig-gameid"
+                  value={gameIdDraft}
+                  onChange={(e) => setGameIdDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === ",") {
+                      e.preventDefault();
+                      const t = gameIdDraft.trim();
+                      if (t && !v.casino.gameIds.includes(t))
+                        patchCasino({ gameIds: [...v.casino.gameIds, t] });
+                      setGameIdDraft("");
+                    } else if (e.key === "Backspace" && !gameIdDraft && v.casino.gameIds.length > 0) {
+                      patchCasino({ gameIds: v.casino.gameIds.slice(0, -1) });
+                    }
+                  }}
+                  placeholder={v.casino.gameIds.length ? "" : "Type a game ID and press Enter…"}
+                  className="flex-1 min-w-[160px] bg-transparent text-sm text-neutral-100 outline-none"
+                />
+              </div>
+              <p className="text-xs text-neutral-400">
+                Leave empty to include all games in the selected categories.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <BrightLabel className="text-sm font-semibold text-neutral-100">Bet Type</BrightLabel>
+              <div className="inline-flex rounded-lg border border-neutral-700 overflow-hidden">
+                {(
+                  [
+                    { v: "live", label: "Live / In-Play Only" },
+                    { v: "prematch", label: "Prematch Only" },
+                    { v: "all", label: "All Bets" },
+                  ] as const
+                ).map((opt) => (
+                  <button
+                    key={opt.v}
+                    type="button"
+                    onClick={() => patchSports({ betType: opt.v })}
+                    className={`px-4 py-2 text-xs font-medium transition-colors ${
+                      v.sportsbook.betType === opt.v
+                        ? "bg-blue-500 text-white"
+                        : "bg-neutral-900 text-neutral-300 hover:bg-neutral-800"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2 max-w-sm">
+              <BrightLabel htmlFor="mj-elig-sport" className="text-sm font-semibold text-neutral-100">
+                Sport Type
+              </BrightLabel>
+              <select
+                id="mj-elig-sport"
+                value={v.sportsbook.sportType}
+                onChange={(e) => patchSports({ sportType: e.target.value })}
+                className="w-full h-10 rounded-md bg-neutral-900 border border-neutral-700 px-3 text-sm text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Sports</option>
+                {SPORT_TYPES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <BrightLabel htmlFor="mj-elig-league" className="text-sm font-semibold text-neutral-100">
+                League / Tournament Tags
+              </BrightLabel>
+              <div className="flex flex-wrap items-center gap-2 min-h-[40px] p-2 rounded-md bg-neutral-900 border border-neutral-700 focus-within:ring-2 focus-within:ring-blue-500">
+                {v.sportsbook.leagues.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-neutral-800 text-xs text-neutral-100 tracking-wider"
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        patchSports({ leagues: v.sportsbook.leagues.filter((x) => x !== tag) })
+                      }
+                      className="text-neutral-400 hover:text-neutral-100"
+                      aria-label={`Remove ${tag}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                <input
+                  id="mj-elig-league"
+                  value={leagueDraft}
+                  onChange={(e) => setLeagueDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === ",") {
+                      e.preventDefault();
+                      const t = leagueDraft.trim().toUpperCase().replace(/\s+/g, "_");
+                      if (t && !v.sportsbook.leagues.includes(t))
+                        patchSports({ leagues: [...v.sportsbook.leagues, t] });
+                      setLeagueDraft("");
+                    } else if (e.key === "Backspace" && !leagueDraft && v.sportsbook.leagues.length > 0) {
+                      patchSports({ leagues: v.sportsbook.leagues.slice(0, -1) });
+                    }
+                  }}
+                  placeholder={v.sportsbook.leagues.length ? "" : "e.g. UEFA_CHAMPIONS_LEAGUE"}
+                  className="flex-1 min-w-[200px] bg-transparent text-sm text-neutral-100 outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <BrightLabel htmlFor="mj-elig-matchids" className="text-sm font-semibold text-neutral-100">
+                Specific Match IDs
+              </BrightLabel>
+              <textarea
+                id="mj-elig-matchids"
+                value={v.sportsbook.matchIdsRaw}
+                onChange={(e) => patchSports({ matchIdsRaw: e.target.value })}
+                rows={3}
+                placeholder="Comma-separated fixture IDs (optional). Leave empty to include all matches."
+                className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        )}
+      </Card>
+    </section>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Master-level Player Targeting & Restrictions — ported from Single Jackpot.
+// ─────────────────────────────────────────────────────────────────────────────
+const VIP_TIERS = ["Bronze", "Silver", "Gold", "Platinum"];
+const CRM_EXCLUDE_PRESETS = ["Bonus Abusers", "High-Risk Flags", "Self-Excluded", "Chargeback History"];
+const COUNTRY_LIST: Array<{ code: string; name: string }> = [
+  { code: "US", name: "United States" }, { code: "GB", name: "United Kingdom" },
+  { code: "DE", name: "Germany" }, { code: "NL", name: "Netherlands" },
+  { code: "FR", name: "France" }, { code: "ES", name: "Spain" },
+  { code: "IT", name: "Italy" }, { code: "BE", name: "Belgium" },
+  { code: "SE", name: "Sweden" }, { code: "NO", name: "Norway" },
+  { code: "DK", name: "Denmark" }, { code: "FI", name: "Finland" },
+  { code: "PL", name: "Poland" }, { code: "PT", name: "Portugal" },
+  { code: "IE", name: "Ireland" }, { code: "AT", name: "Austria" },
+  { code: "CH", name: "Switzerland" }, { code: "CA", name: "Canada" },
+  { code: "AU", name: "Australia" }, { code: "NZ", name: "New Zealand" },
+  { code: "BR", name: "Brazil" }, { code: "MX", name: "Mexico" },
+  { code: "AR", name: "Argentina" }, { code: "JP", name: "Japan" },
+  { code: "SG", name: "Singapore" }, { code: "HK", name: "Hong Kong" },
+  { code: "ZA", name: "South Africa" }, { code: "TR", name: "Turkey" },
+  { code: "IN", name: "India" }, { code: "AE", name: "United Arab Emirates" },
+];
+
+function PlayerTargetingSection({
+  value,
+  onChange,
+}: {
+  value: PlayerTargetingValue;
+  onChange: (v: PlayerTargetingValue) => void;
+}) {
+  const [crmIncludeDraft, setCrmIncludeDraft] = React.useState("");
+  const [countrySearch, setCountrySearch] = React.useState("");
+  const v = value;
+  const patch = (p: Partial<PlayerTargetingValue>) => onChange({ ...v, ...p });
+  const filteredCountries = COUNTRY_LIST.filter((c) => {
+    const q = countrySearch.trim().toLowerCase();
+    if (!q) return true;
+    return c.code.toLowerCase().includes(q) || c.name.toLowerCase().includes(q);
+  });
+
+  return (
+    <section className="scroll-mt-20">
+      <h2 className="text-xl font-semibold mb-6 text-white">Player Targeting &amp; Restrictions</h2>
+      <Card className="p-6 bg-neutral-900/50 border-neutral-800 mb-2">
+        <div className="space-y-2 mb-6">
+          <BrightLabel className="text-sm font-semibold text-neutral-100">Target Audience</BrightLabel>
+          <div className="inline-flex gap-2">
+            <button
+              type="button"
+              onClick={() => patch({ audienceMode: "all" })}
+              className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
+                v.audienceMode === "all"
+                  ? "bg-blue-500 text-white"
+                  : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+              }`}
+            >
+              All Public Players
+            </button>
+            <button
+              type="button"
+              onClick={() => patch({ audienceMode: "custom" })}
+              className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
+                v.audienceMode === "custom"
+                  ? "bg-blue-500 text-white"
+                  : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+              }`}
+            >
+              Custom Target Segments &amp; Restrictions
+            </button>
+          </div>
+          {v.audienceMode === "all" && (
+            <p className="text-xs text-neutral-400">
+              All eligible players will see and contribute to this jackpot.
+            </p>
+          )}
+        </div>
+
+        {v.audienceMode === "custom" && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4 border-t border-neutral-800">
+            {/* Inclusions */}
+            <div className="space-y-6">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald-400">
+                Inclusions / White-list
+              </h3>
+
+              <div className="space-y-2">
+                <BrightLabel className="text-sm font-semibold text-neutral-100">Target VIP Tiers</BrightLabel>
+                <div className="flex flex-wrap gap-2">
+                  {VIP_TIERS.map((tier) => {
+                    const active = v.vipTiers.includes(tier);
+                    return (
+                      <button
+                        type="button"
+                        key={tier}
+                        onClick={() => patch({ vipTiers: toggleArr(v.vipTiers, tier) })}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                          active
+                            ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-300"
+                            : "bg-neutral-900 border-neutral-700 text-neutral-300 hover:border-neutral-500"
+                        }`}
+                      >
+                        {tier}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-neutral-400">Empty = all tiers eligible.</p>
+              </div>
+
+              <div className="space-y-2">
+                <BrightLabel htmlFor="mj-crm-include" className="text-sm font-semibold text-neutral-100">
+                  Target CRM Segments
+                </BrightLabel>
+                <div className="flex flex-wrap items-center gap-2 min-h-[40px] p-2 rounded-md bg-neutral-900 border border-neutral-700 focus-within:ring-2 focus-within:ring-emerald-500">
+                  {v.crmSegmentsInclude.map((seg) => (
+                    <span
+                      key={seg}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-900/40 text-xs text-emerald-100"
+                    >
+                      {seg}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          patch({ crmSegmentsInclude: v.crmSegmentsInclude.filter((x) => x !== seg) })
+                        }
+                        className="text-emerald-300 hover:text-white"
+                        aria-label={`Remove ${seg}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    id="mj-crm-include"
+                    value={crmIncludeDraft}
+                    onChange={(e) => setCrmIncludeDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === ",") {
+                        e.preventDefault();
+                        const t = crmIncludeDraft.trim();
+                        if (t && !v.crmSegmentsInclude.includes(t))
+                          patch({ crmSegmentsInclude: [...v.crmSegmentsInclude, t] });
+                        setCrmIncludeDraft("");
+                      } else if (
+                        e.key === "Backspace" &&
+                        !crmIncludeDraft &&
+                        v.crmSegmentsInclude.length > 0
+                      ) {
+                        patch({ crmSegmentsInclude: v.crmSegmentsInclude.slice(0, -1) });
+                      }
+                    }}
+                    placeholder={
+                      v.crmSegmentsInclude.length ? "" : "e.g. Re-engaged Users, March Madness Depositors"
+                    }
+                    className="flex-1 min-w-[200px] bg-transparent text-sm text-neutral-100 outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Exclusions */}
+            <div className="space-y-6">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-rose-400">
+                Exclusions &amp; Restrictions / Black-list
+              </h3>
+
+              <div className="space-y-2">
+                <BrightLabel className="text-sm font-semibold text-neutral-100">
+                  Exclude CRM Segments
+                </BrightLabel>
+                <div className="flex flex-wrap gap-2">
+                  {CRM_EXCLUDE_PRESETS.map((seg) => {
+                    const active = v.crmSegmentsExclude.includes(seg);
+                    return (
+                      <button
+                        type="button"
+                        key={seg}
+                        onClick={() => patch({ crmSegmentsExclude: toggleArr(v.crmSegmentsExclude, seg) })}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                          active
+                            ? "bg-rose-500/15 border-rose-500/50 text-rose-300"
+                            : "bg-neutral-900 border-neutral-700 text-neutral-300 hover:border-neutral-500"
+                        }`}
+                      >
+                        {seg}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <BrightLabel htmlFor="mj-geo-search" className="text-sm font-semibold text-neutral-100">
+                  Restricted Countries (GEO)
+                </BrightLabel>
+                <input
+                  id="mj-geo-search"
+                  type="text"
+                  value={countrySearch}
+                  onChange={(e) => setCountrySearch(e.target.value)}
+                  placeholder="Search ISO code or country name…"
+                  className="w-full h-10 rounded-md bg-neutral-900 border border-neutral-700 px-3 text-sm text-neutral-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                />
+                <div className="max-h-40 overflow-y-auto rounded-md border border-neutral-800 bg-neutral-950/60 p-2 space-y-1">
+                  {filteredCountries.map((c) => {
+                    const active = v.restrictedCountries.includes(c.code);
+                    return (
+                      <label
+                        key={c.code}
+                        className="flex items-center gap-2 px-2 py-1 rounded hover:bg-neutral-800/50 cursor-pointer text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={active}
+                          onChange={() => patch({ restrictedCountries: toggleArr(v.restrictedCountries, c.code) })}
+                          className="accent-rose-500"
+                        />
+                        <span className="font-mono text-xs text-rose-300 w-6">{c.code}</span>
+                        <span className="text-neutral-200">{c.name}</span>
+                      </label>
+                    );
+                  })}
+                  {filteredCountries.length === 0 && (
+                    <p className="text-xs text-neutral-500 px-2 py-1">No matches.</p>
+                  )}
+                </div>
+                {v.restrictedCountries.length > 0 && (
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {v.restrictedCountries.map((code) => (
+                      <span
+                        key={code}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-900/40 text-xs text-rose-100 font-mono"
+                      >
+                        {code}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            patch({ restrictedCountries: v.restrictedCountries.filter((x) => x !== code) })
+                          }
+                          className="text-rose-300 hover:text-white"
+                          aria-label={`Remove ${code}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <BrightLabel htmlFor="mj-blacklist-ids" className="text-sm font-semibold text-neutral-100">
+                  Blacklisted Player IDs
+                </BrightLabel>
+                <textarea
+                  id="mj-blacklist-ids"
+                  value={v.blacklistedIdsRaw}
+                  onChange={(e) => patch({ blacklistedIdsRaw: e.target.value })}
+                  rows={3}
+                  placeholder="Comma-separated player account tokens (e.g. p_8821, p_9904)"
+                  className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </Card>
+    </section>
+  );
+}
