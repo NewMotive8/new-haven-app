@@ -909,7 +909,7 @@ function SandboxDemoPage() {
         {/* ── Player widget host ───────────────────────────────── */}
         <section className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 relative overflow-hidden min-h-[420px]">
           <div className="text-xs uppercase tracking-wider text-slate-400 mb-3">
-            Player widget host · {pools.length} pool{pools.length === 1 ? "" : "s"}
+            Player widget host · {displayPools.length} pool{displayPools.length === 1 ? "" : "s"}
           </div>
 
           <div id="jooba-container-root" ref={widgetHostRef} className="flex justify-center">
