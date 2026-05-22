@@ -102,7 +102,18 @@ export interface TimedConfigDTO {
   startDate?: string;
   /** ISO-8601 UTC. Required when mustDropPeriod === 1 (SINGLE). */
   endDate?: string;
+  // ── Frequency Happy Hour window (calendar-gated) ──
+  freqInterval?: "DAILY" | "WEEKLY" | "MONTHLY";
+  /** "" for DAILY; "0".."6" for WEEKLY (Sun=0); "1".."31" for MONTHLY. */
+  freqDay?: string;
+  /** Contribution window — "HH:MM" UTC. Spins outside accrue zero. */
+  contribStartTime?: string;
+  contribEndTime?: string;
+  /** Win window — "HH:MM" UTC. Spins outside trigger zero wins. */
+  winStartTime?: string;
+  winEndTime?: string;
 }
+
 
 export interface JackpotConfigDTO {
   id: number;
@@ -124,7 +135,12 @@ export interface JackpotConfigDTO {
   contribution?: ContributionSplitDTO;
   /** Fixed-odds trigger override. N where p = 1/N per spin. */
   triggerOdds?: number;
+  /** Operation safeguard — engine halts once this many wins have fired. */
+  maxNumberOfWins?: number;
+  /** Operation safeguard — engine halts once cumulative payout passes this. */
+  maxTotalPayout?: number;
 }
+
 
 export interface WinEventDTO {
   iteration: number;

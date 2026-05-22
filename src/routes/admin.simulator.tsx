@@ -65,13 +65,23 @@ function SimulatorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const originalPayloadRef = React.useRef<JackpotSavePayload | undefined>(hydratedPayload);
+  const [initError, setInitError] = React.useState<string | null>(null);
   const initialConfig = React.useMemo<JackpotConfigDTO>(
-    () => (hydratedPayload ? mapPayloadToConfig(hydratedPayload) : DEFAULT_CONFIG),
+    () => {
+      if (!hydratedPayload) return DEFAULT_CONFIG;
+      try {
+        return mapPayloadToConfig(hydratedPayload);
+      } catch (e) {
+        setInitError(e instanceof Error ? e.message : String(e));
+        return DEFAULT_CONFIG;
+      }
+    },
     // Intentionally empty: only read incoming state on first mount so user
     // edits in the textarea are never overwritten on re-render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
+
   const cameFromCreationFlow = Boolean(originalPayloadRef.current);
   const [wager, setWager] = React.useState(1);
   const [iterations, setIterations] = React.useState(1000000);
@@ -275,7 +285,13 @@ function SimulatorPage() {
                 </button>
               </div>
             )}
+            {initError && (
+              <div style={{ color: "#fbbf24", fontSize: 13 }}>
+                Config rejected by validation: {initError}
+              </div>
+            )}
             {error && <div style={{ color: "#f87171", fontSize: 13 }}>{error}</div>}
+
           </div>
         </div>
 

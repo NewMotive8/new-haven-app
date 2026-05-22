@@ -2,8 +2,10 @@ import type {
   JackpotConfigDTO,
   JackpotStructuralType,
   JackpotWinType,
+  TimedConfigDTO,
 } from "./types";
 import type { JackpotSavePayload } from "@/components/jackpot/JackpotCreationForm";
+import { validateJackpotPayload } from "./validate-payload";
 
 function num(value: unknown, fallback = 0): number {
   if (value == null) return fallback;
@@ -31,24 +33,46 @@ function splitAllocation(total: number, weights: number[], decimals = 4): number
   return out.map((u) => u / scale);
 }
 
-
-
 function mapStructural(formType: unknown): JackpotStructuralType {
   const t = String(formType ?? "").toLowerCase();
-  if (t === "must_drop" || t === "mustdrop" || t === "must-drop") return "MUST_DROP";
   if (t === "must_drop" || t === "mustdrop" || t === "must-drop") return "MUST_DROP";
   if (t === "frequency") return "FREQUENCY";
   return "CLASSIC";
 }
 
+function freqIntervalToPeriod(interval?: string): 1 | 2 | 3 | 4 {
+  switch (interval) {
+    case "WEEKLY":
+      return 3;
+    case "MONTHLY":
+      return 4;
+    case "DAILY":
+    default:
+      return 2;
+  }
+}
+
 /**
  * Map the rich form payload coming out of the creation flow into the lean
  * JackpotConfigDTO shape the simulator engine expects.
+ *
+ * Throws if the payload violates Option A mutual-exclusivity gates — the
+ * sandbox simulator must refuse to run contaminated configs, mirroring the
+ * creation form's validation.
  */
 export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDTO {
-  const winType: JackpotWinType =
-    payload.payoutModel === "maximum" ? "MAXIMUM" : "AVERAGE";
+  // Symmetrical validation gate — same checks the creation form uses.
+  validateJackpotPayload(payload);
+
   const structuralType = mapStructural(payload.type);
+
+  // Must-Drop is strictly a Maximum Win mechanic — ignore legacy payoutModel.
+  const winType: JackpotWinType =
+    structuralType === "MUST_DROP"
+      ? "MAXIMUM"
+      : payload.payoutModel === "maximum"
+        ? "MAXIMUM"
+        : "AVERAGE";
 
   // ── v2 jackpot-level split overrides legacy per-bucket amounts/types ──
   const jSplit = payload.contributionMode === "split";
@@ -87,12 +111,16 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
   const poolOperatorShare = Math.min(100, Math.max(0, num(payload.operatorContribution, 0)));
   const seedOperatorShare = Math.min(100, Math.max(0, num(payload.seedOperatorContribution, 0)));
 
+  // Must-Drop: clamp Min/Max win to the configured ceiling and ignore Fixed/Avg.
+  const effectiveMinWin = structuralType === "MUST_DROP" ? 0 : minWin;
+  const effectiveMaxWin = structuralType === "MUST_DROP" ? maxWin : maxWin;
+
   const basePool = {
     currentAmount: initialPool,
     minimumAmount: reseed,
     maximumAmount: 0,
-    minimumWinAmount: minWin,
-    maximumWinAmount: maxWin,
+    minimumWinAmount: effectiveMinWin,
+    maximumWinAmount: effectiveMaxWin,
     contributionAmount: poolContributionAmount,
     contributionType: poolContributionType,
     operatorShare: poolOperatorShare,
@@ -106,16 +134,26 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
     operatorShare: seedOperatorShare,
   } as const;
 
-
-
-
-  // ── Timed lifespan for MUST_DROP / FREQUENCY.
-  let timed: JackpotConfigDTO["timed"];
+  // ── Timed lifespan + Happy Hour windows for MUST_DROP / FREQUENCY.
+  let timed: TimedConfigDTO | undefined;
   if (structuralType === "MUST_DROP" || structuralType === "FREQUENCY") {
-    timed = {
+    const base: TimedConfigDTO = {
       lifespanMinutes: num(payload.lifespanMinutes, 1440), // default Daily
-      mustDropPeriod: payload.mustDropPeriod,
+      mustDropPeriod:
+        structuralType === "FREQUENCY"
+          ? freqIntervalToPeriod(payload.freqInterval)
+          : payload.mustDropPeriod,
     };
+    if (structuralType === "FREQUENCY") {
+      base.freqInterval = payload.freqInterval;
+      base.freqDay = payload.freqDay;
+      base.contribStartTime = payload.contribStartTime;
+      base.contribEndTime = payload.contribEndTime;
+      const cloneWin = payload.cloneContribToWin !== false;
+      base.winStartTime = cloneWin ? payload.contribStartTime : payload.winStartTime;
+      base.winEndTime = cloneWin ? payload.contribEndTime : payload.winEndTime;
+    }
+    timed = base;
   }
 
   // ── v2: jackpot-level contribution split + trigger odds.
@@ -133,10 +171,13 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
           seedWeight: num(payload.seedWeight, 30),
           houseWeight: num(payload.houseWeight, 10),
         }
-
       : undefined;
-  const triggerOdds = num(payload.triggerOdds, 0);
 
+  // Must-Drop / Frequency cannot carry trigger odds (validation already enforced).
+  const triggerOdds = structuralType === "CLASSIC" ? num(payload.triggerOdds, 0) : 0;
+
+  const maxNumberOfWins = num(payload.maxNumberOfWins, 0);
+  const maxTotalPayout = num(payload.maxTotalPayout, 0);
 
   return {
     id: 0,
@@ -147,9 +188,16 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
     pool: basePool,
     seed: baseSeed,
     ...(timed ? { timed } : {}),
-    ...(payload.payoutModel === "fixed" ? { fixedWinAmount: num(payload.fixedWinAmount, 0) } : {}),
-    ...(payload.payoutModel === "maximum" ? { maximumWinAmount: maxWin } : {}),
+    // Must-Drop ignores Fixed/Average win amounts — only emit for non-MD modes.
+    ...(structuralType !== "MUST_DROP" && payload.payoutModel === "fixed"
+      ? { fixedWinAmount: num(payload.fixedWinAmount, 0) }
+      : {}),
+    ...(structuralType === "MUST_DROP" || payload.payoutModel === "maximum"
+      ? { maximumWinAmount: maxWin }
+      : {}),
     ...(contribution ? { contribution } : {}),
     ...(triggerOdds > 0 ? { triggerOdds } : {}),
+    ...(maxNumberOfWins > 0 ? { maxNumberOfWins } : {}),
+    ...(maxTotalPayout > 0 ? { maxTotalPayout } : {}),
   };
 }
