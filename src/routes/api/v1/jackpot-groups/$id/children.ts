@@ -65,6 +65,7 @@ export const Route = createFileRoute("/api/v1/jackpot-groups/$id/children")({
             {
               triggerProbability: parsed.data.triggerProbability,
               contributionRate: parsed.data.contributionRate,
+              name: parsed.data.name,
             },
           );
           return json(dto, { status: 201 });
