@@ -87,21 +87,6 @@ export interface ContributionSplitDTO {
   overlappingRule?: "split" | "additive";
 }
 
-/** One tier in a MULTI_LEVEL jackpot (mirrors Java Pool+Seed with multiLevelTier/Weight). */
-export interface TierDTO {
-  /** Tier rank — 1 (Mini) … 4 (Mega). Higher rank evaluated FIRST per Java sort. */
-  multiLevelTier: number;
-  /** 0–1. Fraction of the global per-bet contribution routed to this tier. */
-  multiLevelWeight: number;
-  /** Human-readable label (Mini / Minor / Major / Mega). */
-  label?: string;
-  pool: PoolDTO;
-  seed: SeedDTO;
-  /** Per-tier 3-way contribution split. */
-  contribution?: ContributionSplitDTO;
-  /** Per-tier fixed-odds trigger override. N where p = 1/N per spin. */
-  triggerOdds?: number;
-}
 
 /** MUST_DROP / FREQUENCY timed config (virtual-clock mapping). */
 export interface TimedConfigDTO {
