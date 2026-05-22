@@ -886,16 +886,10 @@ function SharesBar({
 }
 
 function MasterRecap({ group }: { group: GroupDTO }) {
-  const gameCount = (group.assignedGameIds?.length ?? 0);
-  const catCount = (group.assignedCategories?.length ?? 0);
+  const gameCount = group.assignedGameIds?.length ?? 0;
+  const catCount = group.assignedCategories?.length ?? 0;
   return (
     <div className="rounded-lg border border-neutral-800 bg-neutral-900/40 p-4 mb-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-      <div>
-        <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 mb-0.5">
-          Source
-        </div>
-        <div className="text-white capitalize">{group.contributionSource}</div>
-      </div>
       <div>
         <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 mb-0.5">
           Type
@@ -906,10 +900,19 @@ function MasterRecap({ group }: { group: GroupDTO }) {
       </div>
       <div>
         <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 mb-0.5">
-          Master value
+          Amount
         </div>
         <div className="text-white font-mono">
           {formatMasterValue(group.contributionType, group.masterContributionValue)}
+        </div>
+      </div>
+      <div>
+        <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 mb-0.5">
+          Weights (Pool / Seed / House)
+        </div>
+        <div className="text-white font-mono">
+          {group.poolWeight.toFixed(0)}% · {group.seedWeight.toFixed(0)}% ·{" "}
+          {group.houseWeight.toFixed(0)}%
         </div>
       </div>
       <div>
