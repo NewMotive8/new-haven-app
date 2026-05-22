@@ -5084,14 +5084,15 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel }: Ja
         <section className="mt-8">
           <GameAssignmentStep
             value={{
-              assignedCategories: assignedCategories as MasterCategoryType[],
+              assignedCategories: assignedCategories as MasterCategory[],
               assignedGameIds,
             }}
-            onChange={(next) => {
+            onChange={(next: GameAssignmentValue) => {
               setAssignedCategories(next.assignedCategories);
               setAssignedGameIds(next.assignedGameIds);
             }}
           />
+
         </section>
 
         {/* Continue bar — bottom-right, navigates to /backoffice/simulator */}
