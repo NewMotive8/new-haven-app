@@ -19,6 +19,7 @@ export function dtoToPayload(dto: JackpotDTO): JackpotSavePayload {
     return {
       ...draft,
       name: dto.name ?? draft.name ?? "",
+      isDraft: cfg.isDraft === true || draft.isDraft === true,
     };
   }
 

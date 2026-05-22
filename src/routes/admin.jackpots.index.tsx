@@ -154,12 +154,13 @@ function JackpotsPage() {
     const out: UnifiedRow[] = [];
     for (const j of data?.content ?? []) {
       if (j.groupId != null) continue; // hide tier children (shown under their MultiJackpot)
+      const cfgIsDraft = (j.config as { isDraft?: boolean } | undefined)?.isDraft === true;
       out.push({
         key: `j-${j.id}`,
         id: j.id,
         name: j.name ?? "(unnamed)",
         typeLabel: (j.jackpotType && KIND_LABEL[j.jackpotType]) || "Classic",
-        status: j.enabled ? "active" : "disabled",
+        status: cfgIsDraft ? "draft" : (j.enabled ? "active" : "disabled"),
         poolBalance: j.poolBalance ?? 0,
         createdAt: j.createdAt,
         kind: "single",
