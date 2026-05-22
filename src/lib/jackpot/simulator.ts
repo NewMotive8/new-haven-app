@@ -53,9 +53,6 @@ export function simulateEngine(
   const safeWager = Number(wager) || 0;
   const structuralType = jackpot.structuralType ?? "CLASSIC";
 
-  if (structuralType === "MULTI_LEVEL" && jackpot.tiers && jackpot.tiers.length > 0) {
-    return simulateMultiLevel(jackpot, safeWager, safeIterations, rng);
-  }
   if (structuralType === "MUST_DROP" || structuralType === "FREQUENCY") {
     return simulateTimed(jackpot, safeWager, safeIterations, structuralType, rng);
   }
