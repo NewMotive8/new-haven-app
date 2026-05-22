@@ -39,6 +39,33 @@ type ContributionType = "percentage" | "fixed";
 type TriggerModel = "pure_chance" | "hype_curve" | "happy_hour";
 type FreqInterval = "DAILY" | "WEEKLY" | "MONTHLY";
 
+type TierType = "classic" | "must_drop" | "happy_hour";
+
+// ── UI-only blocks ported from Single Jackpot form ──────────────────
+export interface EligibilityValue {
+  vertical: "casino" | "sportsbook";
+  casino: { categories: string[]; providers: string[]; gameIds: string[] };
+  sportsbook: { betType: "live" | "prematch" | "all"; sportType: string; leagues: string[]; matchIdsRaw: string };
+}
+
+export interface PlayerTargetingValue {
+  audienceMode: "all" | "custom";
+  vipTiers: string[];
+  crmSegmentsInclude: string[];
+  crmSegmentsExclude: string[];
+  restrictedCountries: string[];
+  blacklistedIdsRaw: string;
+}
+
+export interface CommunityValue {
+  enabled: boolean;
+  split: number; // 0..100
+  payoutInterval: "logged_in" | "contributed_once" | "contributed_within_time";
+  payoutIntervalSeconds: number;
+  maxWinAmount: number;
+  maxPlayers: number;
+}
+
 interface GroupDTO {
   id: number;
   name: string;
@@ -49,28 +76,33 @@ interface GroupDTO {
   masterContributionValue: number;
   // UI-only mirror of the Single-Jackpot Contribution card.
   // Persisted via masterContributionValue; these extras live in wizard memory.
-  poolWeight: number;
-  seedWeight: number;
-  houseWeight: number;
   minWagerAmount: number;
   maxWagerAmount: number;
   assignedCategories?: string[];
   assignedGameIds?: number[];
+  // UI-only master config — not yet persisted on jackpot_groups columns.
+  eligibility?: EligibilityValue;
+  playerTargeting?: PlayerTargetingValue;
+  community?: CommunityValue;
 }
 
 interface ChildDraft {
   uid: string;
   tierName: string;
   tierRank: string;
+  // Tier type — drives which trigger fields are visible.
+  tierType: TierType;
   // Allocation & Fuel
-  seedAmount: string;
+  seedAmount: string;       // Initial Pool Amount
   reseedingAmount: string;
   splitShare: string;
-  // Drop style
-  triggerModel: TriggerModel;
-  // Pure Chance Roll — interval in spins; we store the integer N where p = 1/N
+  // Per-tier contribution weight grid (Pool / Seed / House — sum = 100)
+  poolWeight: number;
+  seedWeight: number;
+  houseWeight: number;
+  // Classic — 1 in N spins
   spinsInterval: string;
-  // Hype Curve Engine — must-drop boundaries (currency)
+  // Must Drop (Hype Curve) — boundaries
   minBoundary: string;
   maxBoundary: string;
   dropPacing: "fast" | "balanced" | "slow";
@@ -82,6 +114,10 @@ interface ChildDraft {
   winStartTime: string;
   winEndTime: string;
   cloneContribToWin: boolean;
+  // Per-tier extras
+  volatility: number;        // 1..10
+  maxWinAmount: string;      // hard payout cap
+  fixedWinAmount: string;    // locked prize value
   // Tier Safeguards
   maxNumberOfWins: string;
   maxTotalPayout: string;
@@ -92,12 +128,18 @@ interface SavedChild {
   tierRank: number;
   jackpotName: string;
   tierName: string;
+  tierType: TierType;
   splitShare: number;
   seedAmount: number;
   reseedingAmount: number;
-  triggerModel: TriggerModel;
+  poolWeight: number;
+  seedWeight: number;
+  houseWeight: number;
   triggerSummary: string;
   probability: number;
+  volatility: number;
+  maxWinAmount?: number;
+  fixedWinAmount?: number;
   maxNumberOfWins?: number;
   maxTotalPayout?: number;
 }
@@ -109,10 +151,13 @@ function newChildDraft(rank: number): ChildDraft {
     uid: crypto.randomUUID(),
     tierName: "",
     tierRank: String(rank),
+    tierType: "classic",
     seedAmount: "100.00",
     reseedingAmount: "100.00",
     splitShare: "0.00",
-    triggerModel: "pure_chance",
+    poolWeight: 60,
+    seedWeight: 30,
+    houseWeight: 10,
     spinsInterval: "50000",
     minBoundary: "500.00",
     maxBoundary: "5000.00",
@@ -124,8 +169,40 @@ function newChildDraft(rank: number): ChildDraft {
     winStartTime: "18:00",
     winEndTime: "22:00",
     cloneContribToWin: true,
+    volatility: 5,
+    maxWinAmount: "",
+    fixedWinAmount: "",
     maxNumberOfWins: "",
     maxTotalPayout: "",
+  };
+}
+
+// Default UI-only blocks for the master.
+function defaultEligibility(): EligibilityValue {
+  return {
+    vertical: "casino",
+    casino: { categories: [], providers: [], gameIds: [] },
+    sportsbook: { betType: "all", sportType: "", leagues: [], matchIdsRaw: "" },
+  };
+}
+function defaultPlayerTargeting(): PlayerTargetingValue {
+  return {
+    audienceMode: "all",
+    vipTiers: [],
+    crmSegmentsInclude: [],
+    crmSegmentsExclude: [],
+    restrictedCountries: [],
+    blacklistedIdsRaw: "",
+  };
+}
+function defaultCommunity(): CommunityValue {
+  return {
+    enabled: false,
+    split: 50,
+    payoutInterval: "logged_in",
+    payoutIntervalSeconds: 0,
+    maxWinAmount: 0,
+    maxPlayers: 0,
   };
 }
 
