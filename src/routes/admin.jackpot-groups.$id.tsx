@@ -271,7 +271,7 @@ function JackpotGroupDetailPage() {
               <div className="flex flex-col items-end gap-2">
                 <StatusPill status={group.status} />
                 {!isActive && (
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap justify-end">
                     {group.status === "draft" && (
                       <Button
                         size="sm"
@@ -302,6 +302,24 @@ function JackpotGroupDetailPage() {
                         </Button>
                       </>
                     )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleClone}
+                      disabled={busy}
+                      className="border-neutral-700"
+                    >
+                      <Copy className="w-3.5 h-3.5 mr-1.5" /> Clone
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setConfirmDelete(true)}
+                      disabled={busy}
+                      className="border-red-500/50 text-red-300 hover:bg-red-500/10 hover:text-red-200"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
+                    </Button>
                   </div>
                 )}
               </div>
