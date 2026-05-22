@@ -546,22 +546,27 @@ export async function setGroupStatus(
 }
 
 /**
- * Attach an existing standalone jackpot to a parent group. Rejects with a
- * GroupConflictError when the parent group is `active`; the DB trigger
- * provides a backstop guarantee.
+ * Attach an existing standalone jackpot to a parent group. Derives the
+ * child's `contribution_percentage` from the parent's master funding value
+ * × the supplied `splitShare` (%). Rejects with a GroupConflictError when
+ * the parent group is `active`; the DB trigger provides a backstop guarantee.
  */
 export async function addChildJackpot(
   groupId: string | number,
   jackpotId: string | number,
   tierRank: number,
-  opts: { triggerProbability?: number; contributionRate?: number; name?: string } = {},
-): Promise<JackpotDTO> {
+  opts: {
+    triggerProbability?: number;
+    splitShare?: number;
+    name?: string;
+  } = {},
+): Promise<JackpotDTO & { splitShare: number; tierRank: number; triggerProbability: number }> {
   const gid = Number(groupId);
   const jid = Number(jackpotId);
 
   const { data: parent, error: pErr } = await supabaseAdmin
     .from("jackpot_groups" as any)
-    .select("status, brand_id")
+    .select("status, brand_id, master_contribution_value")
     .eq("id", gid)
     .maybeSingle();
   if (pErr) throw new Error(pErr.message);
@@ -570,15 +575,18 @@ export async function addChildJackpot(
     throw new GroupConflictError();
   }
 
+  const masterValue = Number((parent as any).master_contribution_value ?? 0);
+  const splitShare =
+    opts.splitShare !== undefined ? Number(opts.splitShare) : 0;
+
   const updates: Record<string, unknown> = {
     group_id: gid,
     tier_rank: tierRank,
+    split_share: splitShare,
+    contribution_percentage: deriveContributionRate(masterValue, splitShare),
   };
   if (opts.triggerProbability !== undefined) {
     updates.trigger_probability = opts.triggerProbability;
-  }
-  if (opts.contributionRate !== undefined) {
-    updates.contribution_percentage = opts.contributionRate;
   }
   if (opts.name !== undefined && opts.name.trim() !== "") {
     updates.name = opts.name.trim();
@@ -598,8 +606,44 @@ export async function addChildJackpot(
   const brandId = String((parent as any).brand_id);
   const dto = await getJackpot(brandId, jid);
   if (!dto) throw new Error(`Jackpot ${jid} not found after attach`);
-  return dto;
+  return {
+    ...dto,
+    tierRank,
+    triggerProbability: Number(opts.triggerProbability ?? 0),
+    splitShare,
+  };
 }
+
+/**
+ * Update a single child's split share and re-derive its absolute contribution
+ * rate from the parent group's master value. Rejects when the parent is active.
+ */
+export async function updateChildSplitShare(
+  groupId: string | number,
+  jackpotId: string | number,
+  splitShare: number,
+): Promise<void> {
+  const gid = Number(groupId);
+  const jid = Number(jackpotId);
+  const { data: parent, error: pErr } = await supabaseAdmin
+    .from("jackpot_groups" as any)
+    .select("status, master_contribution_value")
+    .eq("id", gid)
+    .maybeSingle();
+  if (pErr) throw new Error(pErr.message);
+  if (!parent) throw new GroupConflictError(`Group ${gid} not found`);
+  if ((parent as any).status === "active") throw new GroupConflictError();
+  const masterValue = Number((parent as any).master_contribution_value ?? 0);
+  const { error } = await supabaseAdmin
+    .from("jackpots")
+    .update({
+      split_share: splitShare,
+      contribution_percentage: deriveContributionRate(masterValue, splitShare),
+    } as any)
+    .eq("id", jid);
+  if (error) throw new Error(error.message);
+}
+
 
 /**
  * Compliance guard: throws GroupConflictError when a jackpot belongs to a
