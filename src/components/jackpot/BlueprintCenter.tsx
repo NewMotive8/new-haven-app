@@ -45,6 +45,13 @@ const FUNDING_BADGE: Record<FundingType, { label: string; cls: string }> = {
   },
 };
 
+const TYPE_BADGE: Record<string, { label: string; cls: string }> = {
+  classic: { label: "Classic", cls: "bg-blue-500/15 text-blue-300 border-blue-500/50" },
+  must_drop: { label: "Must Drop", cls: "bg-purple-500/15 text-purple-300 border-purple-500/50" },
+  frequency: { label: "Happy Hour", cls: "bg-pink-500/15 text-pink-300 border-pink-500/50" },
+  multi: { label: "Multi Level", cls: "bg-teal-500/15 text-teal-300 border-teal-500/50" },
+};
+
 /**
  * For MARKETING_FUNDED templates, zero out the player skim & operator share
  * so the wizard opens with a pure promotional pool funded by the seed only.
