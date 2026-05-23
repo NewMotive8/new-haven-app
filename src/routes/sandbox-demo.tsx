@@ -520,18 +520,8 @@ function SandboxDemoPage() {
     setActiveIndex((i) => (displayPools.length === 0 ? 0 : Math.min(i, displayPools.length - 1)));
   }, [displayPools.length]);
 
-  // When auto-fallback fires, snap the carousel to the tile that actually
-  // received the contribution so the user sees the number move.
-  useEffect(() => {
-    if (!fallbackUsed) return;
-    const wantedId =
-      fallbackUsed.targetKind === "group"
-        ? `g${fallbackUsed.targetId}`
-        : `j${fallbackUsed.targetId}`;
-    const idx = displayPools.findIndex((dp) => dp.id === wantedId);
-    if (idx >= 0) setActiveIndex(idx);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fallbackUsed]);
+  // (snap-to-routed-tile effect lives below, after fallbackUsed is declared)
+
 
 
   const activeDisplay: DisplayPool | null = displayPools[activeIndex] ?? null;
