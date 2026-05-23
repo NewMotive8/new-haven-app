@@ -1,18 +1,36 @@
-## Fix Visual Fallback Math in Sandbox Demo
+## Goal
 
-### Context
-The `hasNoEnabledPools` branch in `src/routes/sandbox-demo.tsx` (lines 662–664) contains visual-only fallback multipliers that are 100× too small. A €10 wager currently yields only €0.005 to the pool, causing imperceptible tile updates.
+After a spin, the sandbox should give immediate, unambiguous visual feedback: the Pool/Seed/House chip animates with the real contribution, newly discovered jackpots are opted in by default, and the carousel snaps to the tile that just received the bump.
 
-### Change
-Replace the three constants in the fallback block so they correctly model a 10% total wager contribution split 50/35/15:
+## Changes (all in `src/routes/sandbox-demo.tsx`)
 
-```ts
-const poolAdd  = Math.trunc(w * 0.05  * 1_000_000) / 1_000_000; // 50% of 10%
-const seedAdd  = Math.trunc(w * 0.035 * 1_000_000) / 1_000_000; // 35% of 10%
-const houseAdd = Math.trunc(w * 0.015 * 1_000_000) / 1_000_000; // 15% of 10%
-```
+### 1. Default new jackpots to opted-in
+- In the polling effect (~line 426–435) flip the default so any jackpot discovered for the first time has `optIns[jp.id] = true`.
+- Existing entries are untouched, so users can still toggle a pool off and the choice persists across polls.
 
-This keeps the change strictly inside the `hasNoEnabledPools` branch and does not touch any active jackpot/pool configuration paths.
+### 2. Always-show contribution chip
+- In the multi-pool branch of `handleSpin` (~line 858–871), drop the `if (!optIns[e.jackpotId]) continue` guard for the `lastSplit` aggregation. Sum `aggPool/aggSeed/aggHouse` across **every** `perJackpot` entry the server returned.
+- Keep the opt-in filter only for the **Allocation Tracker** (`bumpTracker` call) so the cumulative tracker still respects opt-in semantics.
+- Mirror the same change in the aggregate-only fallback (~line 877–899): write the full aggregate into `lastSplit` regardless of opt-in.
 
-### Impact
-After this fix, a €10 wager in the fallback mode will contribute €0.50 pool, €0.35 seed, €0.15 house (total €1.00 = 10% of wager), making tile animations clearly visible and mathematically aligned with the intended brand split.
+### 3. Auto-focus carousel on the routed pool
+- After computing `poolDeltas` in `handleSpin`, pick the jackpot with the largest non-zero delta (tie-break: first one in `perJackpot`).
+- Find the matching index in `displayPools`:
+  - `kind: "single"` → match by `jackpot.id`.
+  - `kind: "group"` → match if any `tiers[i].id` equals the bumped jackpot id.
+- If found and different from current `activeIndex`, call `setActiveIndex(found)` so the carousel slides to that tile.
+
+### 4. (Small) Fallback branch
+- The `hasNoEnabledPools` visual fallback already writes a non-zero `lastSplit`, so no change needed there.
+
+## Out of scope
+
+- No backend / migration changes.
+- No styling or animation tweaks beyond what's already wired to `lastSplit` / `poolDisplays` / `activeIndex`.
+- No changes to force-win flow (single-pool path already works against the visible tile).
+
+## Verification
+
+1. Spin €50 on `gameId="sandbox-game"` (brand 1).
+2. Expect: chip shows `Pool €2.50 / Seed €1.75 / House €0.75` (total €5.00), carousel snaps to Sandbox Pool tile, tile balance bumps +€2.50.
+3. Toggle one jackpot's opt-in off → chip still shows full contribution, but Allocation Tracker stops accumulating that pool.
