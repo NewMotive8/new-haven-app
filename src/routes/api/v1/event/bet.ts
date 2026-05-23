@@ -741,8 +741,10 @@ export const Route = createFileRoute("/api/v1/event/bet")({
               house: ledger.totals.house,
             },
             totalContribution: ledger.totalContribution,
+            attributes,
             perJackpot: null,
             win,
+
           });
           rememberTransaction(body.transactionId, response);
           return json(response);
