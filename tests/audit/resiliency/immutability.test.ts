@@ -74,7 +74,7 @@ describe("Phase 3 / Pillar 2 — admin_audit_log immutability triggers", () => {
   });
 
   it("the trigger function source raises check_violation on UPDATE/DELETE", () => {
-    const def = psqlOne(
+    const def = psql(
       `SELECT pg_get_functiondef('public.admin_audit_log_immutable()'::regprocedure)`,
     );
     expect(def).toMatch(/append-only/i);
