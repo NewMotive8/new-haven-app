@@ -39,6 +39,109 @@ import type { JackpotConfigDTO, JackpotDTO } from "@/lib/jackpot/types";
 // Request schema
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Open-ended `attributes` metadata bag — verticals-agnostic (sportsbook,
+// casino, channel/device context). Persisted as JSONB into
+// public.jackpot_transactions.attributes; never influences math.
+// ---------------------------------------------------------------------------
+const ATTRIBUTES_MAX_BYTES = 8 * 1024;
+const ATTRIBUTES_MAX_DEPTH = 6;
+const ATTRIBUTES_MAX_KEYS = 200;
+const ATTRIBUTES_MAX_ARRAY = 100;
+const ATTRIBUTES_MAX_STRING = 1024;
+const ATTRIBUTES_KEY_RE = /^[A-Za-z0-9_.:-]{1,64}$/;
+
+type AttrIssue = { path: (string | number)[]; message: string };
+
+function walkAttributes(
+  node: unknown,
+  path: (string | number)[],
+  depth: number,
+  counters: { keys: number },
+  issues: AttrIssue[],
+): void {
+  if (depth > ATTRIBUTES_MAX_DEPTH) {
+    issues.push({ path, message: `exceeds max depth ${ATTRIBUTES_MAX_DEPTH}` });
+    return;
+  }
+  if (node === null) return;
+  if (Array.isArray(node)) {
+    if (node.length > ATTRIBUTES_MAX_ARRAY) {
+      issues.push({
+        path,
+        message: `array length ${node.length} exceeds max ${ATTRIBUTES_MAX_ARRAY}`,
+      });
+      return;
+    }
+    node.forEach((v, i) => walkAttributes(v, [...path, i], depth + 1, counters, issues));
+    return;
+  }
+  const t = typeof node;
+  if (t === "string") {
+    if ((node as string).length > ATTRIBUTES_MAX_STRING) {
+      issues.push({ path, message: `string exceeds ${ATTRIBUTES_MAX_STRING} chars` });
+    }
+    return;
+  }
+  if (t === "number") {
+    if (!Number.isFinite(node)) issues.push({ path, message: "non-finite number" });
+    return;
+  }
+  if (t === "boolean") return;
+  if (t === "object") {
+    for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+      counters.keys += 1;
+      if (counters.keys > ATTRIBUTES_MAX_KEYS) {
+        issues.push({ path, message: `exceeds max ${ATTRIBUTES_MAX_KEYS} keys` });
+        return;
+      }
+      if (!ATTRIBUTES_KEY_RE.test(k)) {
+        issues.push({ path: [...path, k], message: "invalid key (must match [A-Za-z0-9_.:-]{1,64})" });
+        continue;
+      }
+      walkAttributes(v, [...path, k], depth + 1, counters, issues);
+    }
+    return;
+  }
+  issues.push({ path, message: `unsupported value type: ${t}` });
+}
+
+const zJsonAttributes = z
+  .unknown()
+  .superRefine((val, ctx) => {
+    if (val === null || typeof val !== "object" || Array.isArray(val)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "attributes must be a plain JSON object",
+      });
+      return;
+    }
+    let serialized: string;
+    try {
+      serialized = JSON.stringify(val);
+    } catch {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "attributes not JSON-serializable" });
+      return;
+    }
+    if (serialized.length > ATTRIBUTES_MAX_BYTES) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `attributes serialized size ${serialized.length}B exceeds ${ATTRIBUTES_MAX_BYTES}B`,
+      });
+      return;
+    }
+    const issues: AttrIssue[] = [];
+    walkAttributes(val, [], 0, { keys: 0 }, issues);
+    for (const i of issues) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: i.path,
+        message: i.message,
+      });
+    }
+  })
+  .transform((v) => v as Record<string, unknown>);
+
 const BetEventSchema = z
   .object({
     transactionId: z.string().min(1).max(128),
@@ -53,6 +156,9 @@ const BetEventSchema = z
     wager: z.number().positive().finite().optional(),
     gameId: z.string().min(1).max(128),
     playerSegments: z.array(z.string().min(1).max(64)).max(64).default([]),
+    // Open-ended vertical/channel metadata (sportsbook, casino, device, etc.).
+    // Persisted verbatim; never affects jackpot math or routing.
+    attributes: zJsonAttributes.optional(),
     // systemRngValue removed (GLI-12): server-side crypto RNG is the
     // single source of truth for win-trigger evaluation. Client overrides
     // are no longer accepted.
@@ -86,6 +192,7 @@ const BetEventSchema = z
       });
     }
   });
+
 
 
 type BetEventBody = z.infer<typeof BetEventSchema>;
@@ -129,6 +236,7 @@ export type AuditEntry = {
   rngSource: "external" | "local";
   contribution: AuditSlice;
   totalContribution: number;
+  attributes: Record<string, unknown> | null;
   perJackpot:
     | Array<{
         jackpotId: number;
@@ -140,6 +248,7 @@ export type AuditEntry = {
     | null;
   win: Record<string, unknown> | null;
 };
+
 
 export const jackpot_ledger_logs: AuditEntry[] = [];
 
@@ -270,6 +379,10 @@ export const Route = createFileRoute("/api/v1/event/bet")({
         const body: BetEventBody = parsed.data;
         // Normalize wager (B2B prefers `wagerAmount`, legacy callers use `wager`).
         const wager: number = (body.wagerAmount ?? body.wager) as number;
+        // Open-ended metadata bag (sportsbook/casino/device/etc.). Echoed in
+        // every response envelope and persisted into jackpot_transactions.
+        const attributes: Record<string, unknown> | null = body.attributes ?? null;
+
 
         // -----------------------------------------------------------------
         // Idempotency filter — fast in-memory cache + authoritative DB check
@@ -379,7 +492,9 @@ export const Route = createFileRoute("/api/v1/event/bet")({
               house: 0,
               totalContribution: 0,
               perJackpot: [],
+              attributes,
               win: null as Record<string, unknown> | null,
+
             };
             rememberTransaction(body.transactionId, empty);
             return json(empty);
@@ -471,8 +586,10 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             house: totals.house,
             totalContribution,
             perJackpot,
+            attributes,
             win,
           };
+
 
           // Atomic DB write — pool deltas + win settlement + transaction row
           // committed together inside `apply_group_bet` (SELECT ... FOR UPDATE
@@ -497,6 +614,8 @@ export const Route = createFileRoute("/api/v1/event/bet")({
               winJackpotId,
               winAmount: winAmountRequested,
               playerId: body.playerId ?? null,
+              attributes,
+
             });
             isReplay = rec.isReplay;
             if (isReplay && rec.row?.response) {
@@ -534,6 +653,7 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             rngSource,
             contribution: totals,
             totalContribution,
+            attributes,
             perJackpot: perJackpot.map((e) => ({
               jackpotId: e.jackpotId,
               jackpotName: e.jackpotName,
@@ -543,6 +663,7 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             })),
             win,
           });
+
           rememberTransaction(body.transactionId, response);
           return json(response);
         }
@@ -609,8 +730,10 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             house: ledger.totals.house,
             totalContribution: ledger.totalContribution,
             tierBreakdown: ledger.entries,
+            attributes,
             win,
           };
+
           appendAudit({
             loggedAt: new Date().toISOString(),
             transactionId: body.transactionId,
@@ -626,8 +749,10 @@ export const Route = createFileRoute("/api/v1/event/bet")({
               house: ledger.totals.house,
             },
             totalContribution: ledger.totalContribution,
+            attributes,
             perJackpot: null,
             win,
+
           });
           rememberTransaction(body.transactionId, response);
           return json(response);
@@ -667,8 +792,10 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             house: 0,
             totalContribution: 0,
             perJackpot: [],
+            attributes,
             win: null as Record<string, unknown> | null,
           };
+
           rememberTransaction(body.transactionId, empty);
           return json(empty);
         }
@@ -732,8 +859,10 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             totalContribution: e.ledger.totalContribution,
             tierBreakdown: e.ledger.entries,
           })),
+          attributes,
           win,
         };
+
         appendAudit({
           loggedAt: new Date().toISOString(),
           transactionId: body.transactionId,
@@ -749,6 +878,8 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             house: multi.totals.house,
           },
           totalContribution: multi.totalContribution,
+          attributes,
+
           perJackpot: multi.perCampaign.map((e) => ({
             jackpotId: e.jackpotId,
             jackpotName: e.jackpotName,
