@@ -31,6 +31,8 @@ import { Route as ApiV1JackpotGroupsIdRouteImport } from './routes/api/v1/jackpo
 import { Route as ApiV1EventSimulateBetRouteImport } from './routes/api/v1/event/simulate-bet'
 import { Route as ApiV1EventSimulateRouteImport } from './routes/api/v1/event/simulate'
 import { Route as ApiV1EventBetRouteImport } from './routes/api/v1/event/bet'
+import { Route as ApiPublicAuditTeardownRouteImport } from './routes/api/public/_audit/teardown'
+import { Route as ApiPublicAuditSeedRouteImport } from './routes/api/public/_audit/seed'
 import { Route as ApiV1JackpotsEnableIdRouteImport } from './routes/api/v1/jackpots/enable.$id'
 import { Route as ApiV1JackpotsDisableIdRouteImport } from './routes/api/v1/jackpots/disable.$id'
 import { Route as ApiV1JackpotsCloneIdRouteImport } from './routes/api/v1/jackpots/clone.$id'
@@ -149,6 +151,16 @@ const ApiV1EventBetRoute = ApiV1EventBetRouteImport.update({
   path: '/api/v1/event/bet',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicAuditTeardownRoute = ApiPublicAuditTeardownRouteImport.update({
+  id: '/api/public/_audit/teardown',
+  path: '/api/public/teardown',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicAuditSeedRoute = ApiPublicAuditSeedRouteImport.update({
+  id: '/api/public/_audit/seed',
+  path: '/api/public/seed',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiV1JackpotsEnableIdRoute = ApiV1JackpotsEnableIdRouteImport.update({
   id: '/api/v1/jackpots/enable/$id',
   path: '/api/v1/jackpots/enable/$id',
@@ -202,6 +214,8 @@ export interface FileRoutesByFullPath {
   '/admin/jackpots/new': typeof AdminJackpotsNewRoute
   '/admin/jackpot-groups/': typeof AdminJackpotGroupsIndexRoute
   '/admin/jackpots/': typeof AdminJackpotsIndexRoute
+  '/api/public/seed': typeof ApiPublicAuditSeedRoute
+  '/api/public/teardown': typeof ApiPublicAuditTeardownRoute
   '/api/v1/event/bet': typeof ApiV1EventBetRouteWithChildren
   '/api/v1/event/simulate': typeof ApiV1EventSimulateRoute
   '/api/v1/event/simulate-bet': typeof ApiV1EventSimulateBetRoute
@@ -231,6 +245,8 @@ export interface FileRoutesByTo {
   '/admin/jackpots/new': typeof AdminJackpotsNewRoute
   '/admin/jackpot-groups': typeof AdminJackpotGroupsIndexRoute
   '/admin/jackpots': typeof AdminJackpotsIndexRoute
+  '/api/public/seed': typeof ApiPublicAuditSeedRoute
+  '/api/public/teardown': typeof ApiPublicAuditTeardownRoute
   '/api/v1/event/bet': typeof ApiV1EventBetRouteWithChildren
   '/api/v1/event/simulate': typeof ApiV1EventSimulateRoute
   '/api/v1/event/simulate-bet': typeof ApiV1EventSimulateBetRoute
@@ -263,6 +279,8 @@ export interface FileRoutesById {
   '/admin/jackpots/new': typeof AdminJackpotsNewRoute
   '/admin/jackpot-groups/': typeof AdminJackpotGroupsIndexRoute
   '/admin/jackpots/': typeof AdminJackpotsIndexRoute
+  '/api/public/_audit/seed': typeof ApiPublicAuditSeedRoute
+  '/api/public/_audit/teardown': typeof ApiPublicAuditTeardownRoute
   '/api/v1/event/bet': typeof ApiV1EventBetRouteWithChildren
   '/api/v1/event/simulate': typeof ApiV1EventSimulateRoute
   '/api/v1/event/simulate-bet': typeof ApiV1EventSimulateBetRoute
@@ -296,6 +314,8 @@ export interface FileRouteTypes {
     | '/admin/jackpots/new'
     | '/admin/jackpot-groups/'
     | '/admin/jackpots/'
+    | '/api/public/seed'
+    | '/api/public/teardown'
     | '/api/v1/event/bet'
     | '/api/v1/event/simulate'
     | '/api/v1/event/simulate-bet'
@@ -325,6 +345,8 @@ export interface FileRouteTypes {
     | '/admin/jackpots/new'
     | '/admin/jackpot-groups'
     | '/admin/jackpots'
+    | '/api/public/seed'
+    | '/api/public/teardown'
     | '/api/v1/event/bet'
     | '/api/v1/event/simulate'
     | '/api/v1/event/simulate-bet'
@@ -356,6 +378,8 @@ export interface FileRouteTypes {
     | '/admin/jackpots/new'
     | '/admin/jackpot-groups/'
     | '/admin/jackpots/'
+    | '/api/public/_audit/seed'
+    | '/api/public/_audit/teardown'
     | '/api/v1/event/bet'
     | '/api/v1/event/simulate'
     | '/api/v1/event/simulate-bet'
@@ -380,6 +404,8 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SandboxDemoRoute: typeof SandboxDemoRoute
+  ApiPublicAuditSeedRoute: typeof ApiPublicAuditSeedRoute
+  ApiPublicAuditTeardownRoute: typeof ApiPublicAuditTeardownRoute
   ApiV1EventBetRoute: typeof ApiV1EventBetRouteWithChildren
   ApiV1EventSimulateRoute: typeof ApiV1EventSimulateRoute
   ApiV1EventSimulateBetRoute: typeof ApiV1EventSimulateBetRoute
@@ -550,6 +576,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1EventBetRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/_audit/teardown': {
+      id: '/api/public/_audit/teardown'
+      path: '/api/public/teardown'
+      fullPath: '/api/public/teardown'
+      preLoaderRoute: typeof ApiPublicAuditTeardownRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/_audit/seed': {
+      id: '/api/public/_audit/seed'
+      path: '/api/public/seed'
+      fullPath: '/api/public/seed'
+      preLoaderRoute: typeof ApiPublicAuditSeedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/v1/jackpots/enable/$id': {
       id: '/api/v1/jackpots/enable/$id'
       path: '/api/v1/jackpots/enable/$id'
@@ -669,6 +709,8 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SandboxDemoRoute: SandboxDemoRoute,
+  ApiPublicAuditSeedRoute: ApiPublicAuditSeedRoute,
+  ApiPublicAuditTeardownRoute: ApiPublicAuditTeardownRoute,
   ApiV1EventBetRoute: ApiV1EventBetRouteWithChildren,
   ApiV1EventSimulateRoute: ApiV1EventSimulateRoute,
   ApiV1EventSimulateBetRoute: ApiV1EventSimulateBetRoute,
@@ -685,3 +727,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
