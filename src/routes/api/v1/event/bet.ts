@@ -866,6 +866,8 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             house: multi.totals.house,
           },
           totalContribution: multi.totalContribution,
+          attributes,
+
           perJackpot: multi.perCampaign.map((e) => ({
             jackpotId: e.jackpotId,
             jackpotName: e.jackpotName,
