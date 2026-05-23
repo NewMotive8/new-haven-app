@@ -542,6 +542,59 @@ function SandboxDemoPage() {
     [optedInPools, wager],
   );
 
+  // ── Route-state diagnostics + auto-fallback target ───────────────────────
+  // The live bet API resolves a target through the most-recently-activated
+  // jackpot_group whose assigned_game_ids includes the gameId. In sandbox
+  // brands we frequently have NO active group routed to `sandbox-game`,
+  // which used to 404 every spin with NO_ACTIVE_GROUP_FOR_GAME. The
+  // diagnostic below + an explicit fallback target keep spins resolving
+  // against the visible pool so QA can keep working.
+  const [fallbackUsed, setFallbackUsed] = useState<null | {
+    reason: string;
+    targetKind: "group" | "jackpot";
+    targetId: number;
+    targetName: string;
+    at: string;
+  }>(null);
+
+  const activeGroupsList = useMemo(
+    () => groups.filter((g) => g.status === "active"),
+    [groups],
+  );
+
+  const fallbackTarget = useMemo<
+    | { kind: "group"; id: number; name: string }
+    | { kind: "jackpot"; id: number; name: string }
+    | null
+  >(() => {
+    const visible = displayPools[activeIndex] ?? displayPools[0];
+    if (visible?.kind === "group") {
+      return { kind: "group", id: visible.group.id, name: visible.name };
+    }
+    if (visible?.kind === "single") {
+      return { kind: "jackpot", id: visible.jackpot.id, name: visible.jackpot.name };
+    }
+    if (activeGroupsList[0]) {
+      return { kind: "group", id: activeGroupsList[0].id, name: activeGroupsList[0].name };
+    }
+    if (pools[0]) {
+      return { kind: "jackpot", id: pools[0].id, name: pools[0].name };
+    }
+    return null;
+  }, [displayPools, activeIndex, activeGroupsList, pools]);
+
+  const routeState = useMemo(() => {
+    const hasActiveGroup = activeGroupsList.length > 0;
+    const game = (gameId || "").trim() || "sandbox-game";
+    return {
+      gameId: game,
+      hasActiveGroup,
+      activeGroupCount: activeGroupsList.length,
+      willFallback: !hasActiveGroup,
+      fallbackTarget,
+    };
+  }, [activeGroupsList, gameId, fallbackTarget]);
+
   // ── Persist pool growth so polling reflects each spin ─────────────────────
   const persistPoolGrowth = async (jackpotId: number, amount: number) => {
     if (amount <= 0) return;
@@ -654,6 +707,13 @@ function SandboxDemoPage() {
         if (typeof sysRng === "number" && Number.isFinite(sysRng)) {
           payload.systemRngValue = Math.min(1, Math.max(0, sysRng));
         }
+        // Pre-attach the fallback target when we know dynamic routing
+        // cannot resolve (no active group on this brand). This avoids the
+        // 404 round-trip entirely.
+        if (routeState.willFallback && fallbackTarget) {
+          if (fallbackTarget.kind === "group") payload.groupId = fallbackTarget.id;
+          else payload.jackpotId = fallbackTarget.id;
+        }
 
         const authHeaders: Record<string, string> = {};
         if (authMode === "authorized") {
@@ -666,13 +726,13 @@ function SandboxDemoPage() {
           authHeaders["Authorization"] = `Bearer rogue-${rogue}`;
         }
 
-        const res = await fetch("/api/v1/event/bet", {
+        let res = await fetch("/api/v1/event/bet", {
           method: "POST",
           headers: { ...headers(), ...authHeaders },
           body: JSON.stringify(payload),
         });
 
-        const json = (await res.json().catch(() => ({}))) as {
+        let json = (await res.json().catch(() => ({}))) as {
           contribution?: { pool: number; seed: number; house: number };
           totalContribution?: number;
           perJackpot?: PerJackpotEntry[];
@@ -692,6 +752,54 @@ function SandboxDemoPage() {
             cappedDelta?: number;
           } | null;
         };
+
+        // Server-side auto-fallback: if the dynamic gameId → group resolver
+        // can't find an active routed group, retry once with the explicit
+        // fallback target so the spin always visually resolves.
+        const noActiveGroup =
+          res.status === 404 &&
+          typeof (json.error || json.message) === "string" &&
+          /NO_ACTIVE_GROUP_FOR_GAME/.test((json.error || json.message)!);
+        if (noActiveGroup && fallbackTarget && payload.groupId == null && payload.jackpotId == null) {
+          if (fallbackTarget.kind === "group") payload.groupId = fallbackTarget.id;
+          else payload.jackpotId = fallbackTarget.id;
+          // Use a fresh transactionId so the server doesn't replay-cache the 404.
+          payload.transactionId =
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `txn-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+          setTxnId(String(payload.transactionId));
+          res = await fetch("/api/v1/event/bet", {
+            method: "POST",
+            headers: { ...headers(), ...authHeaders },
+            body: JSON.stringify(payload),
+          });
+          json = (await res.json().catch(() => ({}))) as typeof json;
+          if (res.ok) {
+            setFallbackUsed({
+              reason: `NO_ACTIVE_GROUP_FOR_GAME · gameId="${payload.gameId}"`,
+              targetKind: fallbackTarget.kind,
+              targetId: fallbackTarget.id,
+              targetName: fallbackTarget.name,
+              at: new Date().toISOString(),
+            });
+            toast.warning("Fallback routing engaged", {
+              description: `No active group mapped to "${payload.gameId}". Spin resolved against ${fallbackTarget.kind} "${fallbackTarget.name}" instead.`,
+            });
+          }
+        } else if (res.ok && payload.groupId == null && payload.jackpotId == null) {
+          // Server-side routing accepted the gameId — clear any stale warning.
+          setFallbackUsed(null);
+        } else if (res.ok && (payload.groupId != null || payload.jackpotId != null) && routeState.willFallback) {
+          // We sent the explicit target up-front; record the diagnostic.
+          setFallbackUsed({
+            reason: `no active jackpot_group on brand ${brandId} · gameId="${payload.gameId}"`,
+            targetKind: fallbackTarget!.kind,
+            targetId: fallbackTarget!.id,
+            targetName: fallbackTarget!.name,
+            at: new Date().toISOString(),
+          });
+        }
 
         if (!res.ok) {
           setLastHandshake({
@@ -833,6 +941,12 @@ function SandboxDemoPage() {
         };
         if (typeof sysRng === "number" && Number.isFinite(sysRng)) {
           payload.systemRngValue = Math.min(1, Math.max(0, sysRng));
+        }
+        // Same auto-fallback as the single-spin path so batches never
+        // 404 when no active jackpot_group routes the gameId.
+        if (routeState.willFallback && fallbackTarget) {
+          if (fallbackTarget.kind === "group") payload.groupId = fallbackTarget.id;
+          else payload.jackpotId = fallbackTarget.id;
         }
         const authHeaders: Record<string, string> = {};
         if (currentAuthMode === "authorized") {
@@ -1084,7 +1198,76 @@ function SandboxDemoPage() {
         </button>
       </header>
 
+      {/* ── Route-State Diagnostics Banner ────────────────────────────────
+          Surface exactly how /api/v1/event/bet will resolve the next spin.
+          When no active jackpot_group routes the configured gameId, the
+          sandbox auto-attaches an explicit groupId / jackpotId so spins
+          still resolve — and this banner explains the substitution. */}
+      <div className="max-w-6xl mx-auto mb-4">
+        {(() => {
+          const ok = !routeState.willFallback;
+          const hasTarget = !!routeState.fallbackTarget;
+          const tone = ok
+            ? "border-emerald-500/40 bg-emerald-500/5 text-emerald-100"
+            : hasTarget
+              ? "border-amber-500/50 bg-amber-500/10 text-amber-100"
+              : "border-red-500/50 bg-red-500/10 text-red-100";
+          const dot = ok ? "bg-emerald-400" : hasTarget ? "bg-amber-400" : "bg-red-400";
+          return (
+            <div className={`rounded-xl border ${tone} px-4 py-3 flex flex-wrap items-start gap-x-6 gap-y-2`}>
+              <div className="flex items-center gap-2 min-w-[180px]">
+                <span className={`inline-block w-2.5 h-2.5 rounded-full ${dot} ${ok ? "" : "animate-pulse"}`} />
+                <span className="text-xs uppercase tracking-widest font-semibold">
+                  Route State
+                </span>
+              </div>
+              <div className="text-xs leading-snug font-mono space-y-1 flex-1 min-w-[260px]">
+                <div>
+                  <span className="opacity-60">gameId:</span>{" "}
+                  <span className="font-semibold">{routeState.gameId}</span>
+                  <span className="opacity-60"> · active jackpot_groups on brand {brandId}:</span>{" "}
+                  <span className="font-semibold">{routeState.activeGroupCount}</span>
+                </div>
+                {ok ? (
+                  <div>
+                    Dynamic resolver will map <code>gameId → jackpot_group</code> at the API.
+                  </div>
+                ) : hasTarget ? (
+                  <div>
+                    <strong className="font-semibold">⚠ Fallback armed:</strong> no active group
+                    routes this gameId, so spins will be sent with explicit{" "}
+                    <code>{routeState.fallbackTarget!.kind === "group" ? "groupId" : "jackpotId"}={routeState.fallbackTarget!.id}</code>{" "}
+                    (<span className="font-semibold">{routeState.fallbackTarget!.name}</span>).
+                  </div>
+                ) : (
+                  <div>
+                    <strong className="font-semibold">⛔ No fallback target available.</strong>{" "}
+                    Create an enabled jackpot or activate a group for brand {brandId}.
+                  </div>
+                )}
+                {fallbackUsed ? (
+                  <div className="text-amber-200">
+                    Last spin used fallback → {fallbackUsed.targetKind}{" "}
+                    <span className="font-semibold">"{fallbackUsed.targetName}"</span>{" "}
+                    <span className="opacity-60">({fallbackUsed.reason})</span>
+                  </div>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                <a
+                  href="/admin/jackpot-groups"
+                  className="px-2.5 py-1 rounded border border-current/40 hover:bg-white/5 transition"
+                >
+                  Manage jackpot groups →
+                </a>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
+
         {/* ── Player widget host ───────────────────────────────── */}
         <section className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 relative overflow-hidden min-h-[420px]">
           <div className="text-xs uppercase tracking-wider text-slate-400 mb-3">
