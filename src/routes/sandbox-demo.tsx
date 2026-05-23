@@ -1198,7 +1198,76 @@ function SandboxDemoPage() {
         </button>
       </header>
 
+      {/* ── Route-State Diagnostics Banner ────────────────────────────────
+          Surface exactly how /api/v1/event/bet will resolve the next spin.
+          When no active jackpot_group routes the configured gameId, the
+          sandbox auto-attaches an explicit groupId / jackpotId so spins
+          still resolve — and this banner explains the substitution. */}
+      <div className="max-w-6xl mx-auto mb-4">
+        {(() => {
+          const ok = !routeState.willFallback;
+          const hasTarget = !!routeState.fallbackTarget;
+          const tone = ok
+            ? "border-emerald-500/40 bg-emerald-500/5 text-emerald-100"
+            : hasTarget
+              ? "border-amber-500/50 bg-amber-500/10 text-amber-100"
+              : "border-red-500/50 bg-red-500/10 text-red-100";
+          const dot = ok ? "bg-emerald-400" : hasTarget ? "bg-amber-400" : "bg-red-400";
+          return (
+            <div className={`rounded-xl border ${tone} px-4 py-3 flex flex-wrap items-start gap-x-6 gap-y-2`}>
+              <div className="flex items-center gap-2 min-w-[180px]">
+                <span className={`inline-block w-2.5 h-2.5 rounded-full ${dot} ${ok ? "" : "animate-pulse"}`} />
+                <span className="text-xs uppercase tracking-widest font-semibold">
+                  Route State
+                </span>
+              </div>
+              <div className="text-xs leading-snug font-mono space-y-1 flex-1 min-w-[260px]">
+                <div>
+                  <span className="opacity-60">gameId:</span>{" "}
+                  <span className="font-semibold">{routeState.gameId}</span>
+                  <span className="opacity-60"> · active jackpot_groups on brand {brandId}:</span>{" "}
+                  <span className="font-semibold">{routeState.activeGroupCount}</span>
+                </div>
+                {ok ? (
+                  <div>
+                    Dynamic resolver will map <code>gameId → jackpot_group</code> at the API.
+                  </div>
+                ) : hasTarget ? (
+                  <div>
+                    <strong className="font-semibold">⚠ Fallback armed:</strong> no active group
+                    routes this gameId, so spins will be sent with explicit{" "}
+                    <code>{routeState.fallbackTarget!.kind === "group" ? "groupId" : "jackpotId"}={routeState.fallbackTarget!.id}</code>{" "}
+                    (<span className="font-semibold">{routeState.fallbackTarget!.name}</span>).
+                  </div>
+                ) : (
+                  <div>
+                    <strong className="font-semibold">⛔ No fallback target available.</strong>{" "}
+                    Create an enabled jackpot or activate a group for brand {brandId}.
+                  </div>
+                )}
+                {fallbackUsed ? (
+                  <div className="text-amber-200">
+                    Last spin used fallback → {fallbackUsed.targetKind}{" "}
+                    <span className="font-semibold">"{fallbackUsed.targetName}"</span>{" "}
+                    <span className="opacity-60">({fallbackUsed.reason})</span>
+                  </div>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                <a
+                  href="/admin/jackpot-groups"
+                  className="px-2.5 py-1 rounded border border-current/40 hover:bg-white/5 transition"
+                >
+                  Manage jackpot groups →
+                </a>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
+
         {/* ── Player widget host ───────────────────────────────── */}
         <section className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 relative overflow-hidden min-h-[420px]">
           <div className="text-xs uppercase tracking-wider text-slate-400 mb-3">
