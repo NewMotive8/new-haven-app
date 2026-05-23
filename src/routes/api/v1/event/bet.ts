@@ -859,8 +859,10 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             totalContribution: e.ledger.totalContribution,
             tierBreakdown: e.ledger.entries,
           })),
+          attributes,
           win,
         };
+
         appendAudit({
           loggedAt: new Date().toISOString(),
           transactionId: body.transactionId,
