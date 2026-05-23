@@ -48,7 +48,44 @@ export const Route = createFileRoute("/api/public/_audit/seed")({
         }
         const { brandId, gameId } = parsed.data;
 
-        // Look up or create the group (idempotent on name).
+        // 1. Ensure a games row exists for this operator_game_id. The
+        //    resolveGroupForBet helper maps operator_game_id → games.id and
+        //    then looks for a group whose assigned_game_ids contains it.
+        const existingGame = await supabaseAdmin
+          .from("games")
+          .select("id")
+          .eq("operator_game_id", gameId)
+          .maybeSingle();
+
+        let gameNumericId: number;
+        if (existingGame.data) {
+          gameNumericId = Number((existingGame.data as any).id);
+          await supabaseAdmin.from("games").update({ enabled: true }).eq("id", gameNumericId);
+        } else {
+          // Use brandId as the deterministic game id to keep isolation simple.
+          gameNumericId = brandId;
+          const insGame = await supabaseAdmin
+            .from("games")
+            .insert({
+              id: gameNumericId,
+              name: `__audit__-game-${brandId}`,
+              master_category: "slots",
+              provider: "audit",
+              operator_game_id: gameId,
+              enabled: true,
+            })
+            .select("id")
+            .single();
+          if (insGame.error || !insGame.data) {
+            return errorJson(
+              `Game insert failed: ${insGame.error?.message ?? "unknown"}`,
+              500,
+            );
+          }
+          gameNumericId = Number((insGame.data as any).id);
+        }
+
+        // 2. Look up or create the group (idempotent on name).
         const groupName = `__audit__-${brandId}`;
         const existingGroup = await supabaseAdmin
           .from("jackpot_groups")
@@ -63,21 +100,12 @@ export const Route = createFileRoute("/api/public/_audit/seed")({
         let groupId: number;
         if (existingGroup.data) {
           groupId = Number(existingGroup.data.id);
-          // Ensure it's active and has the right gameId mapped.
-          const upd = await supabaseAdmin
+          // Force to draft so we can edit children.
+          await supabaseAdmin
             .from("jackpot_groups")
-            .update({
-              status: "active",
-              assigned_game_ids: [],
-              assigned_categories: [gameId],
-            })
+            .update({ status: "draft" })
             .eq("id", groupId);
-          if (upd.error) {
-            return errorJson(`Group update failed: ${upd.error.message}`, 500);
-          }
         } else {
-          // Insert as draft, then flip to active (status guard enforces the
-          // draft → active transition).
           const ins = await supabaseAdmin
             .from("jackpot_groups")
             .insert({
@@ -88,8 +116,8 @@ export const Route = createFileRoute("/api/public/_audit/seed")({
               contribution_source: "player",
               contribution_type: "percentage",
               master_contribution_value: 0.01,
-              assigned_categories: [gameId],
-              assigned_game_ids: [],
+              assigned_categories: [],
+              assigned_game_ids: [gameNumericId],
             })
             .select("id")
             .single();
@@ -100,22 +128,9 @@ export const Route = createFileRoute("/api/public/_audit/seed")({
             );
           }
           groupId = Number(ins.data.id);
-          const act = await supabaseAdmin
-            .from("jackpot_groups")
-            .update({ status: "active" })
-            .eq("id", groupId);
-          if (act.error) {
-            return errorJson(`Group activation failed: ${act.error.message}`, 500);
-          }
         }
 
-        // Group must be DRAFT to modify children (jackpots_group_guard). Flip
-        // back to draft, ensure jackpot exists, then re-activate.
-        await supabaseAdmin
-          .from("jackpot_groups")
-          .update({ status: "draft" })
-          .eq("id", groupId);
-
+        // 3. Ensure a child jackpot exists.
         const jpName = `__audit__-jackpot-${brandId}`;
         const existingJp = await supabaseAdmin
           .from("jackpots")
@@ -141,16 +156,12 @@ export const Route = createFileRoute("/api/public/_audit/seed")({
               split_share: 1,
               tier_rank: 1,
               trigger_condition: {},
-              assigned_game_ids: [],
-              assigned_categories: [gameId],
+              assigned_game_ids: [gameNumericId],
+              assigned_categories: [],
             })
             .select("id")
             .single();
           if (insJp.error || !insJp.data) {
-            await supabaseAdmin
-              .from("jackpot_groups")
-              .update({ status: "active" })
-              .eq("id", groupId);
             return errorJson(
               `Jackpot insert failed: ${insJp.error?.message ?? "unknown"}`,
               500,
@@ -159,7 +170,7 @@ export const Route = createFileRoute("/api/public/_audit/seed")({
           jackpotId = Number(insJp.data.id);
         }
 
-        // Ensure pool + seed rows exist.
+        // 4. Ensure pool + seed rows exist.
         await supabaseAdmin
           .from("jackpot_pools")
           .upsert({ jackpot_id: jackpotId, current_balance: 0 }, { onConflict: "jackpot_id" });
@@ -167,17 +178,20 @@ export const Route = createFileRoute("/api/public/_audit/seed")({
           .from("jackpot_seeds")
           .upsert({ jackpot_id: jackpotId, base_seed_amount: 0 }, { onConflict: "jackpot_id" });
 
-        // Re-activate the group with the gameId mapped (category-based routing).
+        // 5. Activate the group with the gameId mapped.
         const reAct = await supabaseAdmin
           .from("jackpot_groups")
           .update({
             status: "active",
-            assigned_categories: [gameId],
+            assigned_game_ids: [gameNumericId],
+            assigned_categories: [],
           })
           .eq("id", groupId);
         if (reAct.error) {
           return errorJson(`Group re-activation failed: ${reAct.error.message}`, 500);
         }
+
+        return json({ groupId, jackpotId, gameId, gameNumericId });
 
         return json({ groupId, jackpotId, gameId });
       },

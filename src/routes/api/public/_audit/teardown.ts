@@ -73,6 +73,11 @@ export const Route = createFileRoute("/api/public/_audit/teardown")({
 
         // Attempt to delete admin_audit_log rows — the append-only trigger
         // MUST raise. We capture and report.
+        // Clean up games rows seeded by the audit fixture (identified by id=brandId).
+        await supabaseAdmin.from("games").delete().eq("id", brandId);
+
+        // Attempt to delete admin_audit_log rows — the append-only trigger
+        // MUST raise. We capture and report.
         const auditDel = await supabaseAdmin
           .from("admin_audit_log")
           .delete()
