@@ -614,6 +614,8 @@ export const Route = createFileRoute("/api/v1/event/bet")({
               winJackpotId,
               winAmount: winAmountRequested,
               playerId: body.playerId ?? null,
+              attributes,
+
             });
             isReplay = rec.isReplay;
             if (isReplay && rec.row?.response) {
