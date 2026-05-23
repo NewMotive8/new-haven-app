@@ -3,10 +3,10 @@
  *
  * Accepts a fully structured server-to-server transaction payload, applies
  * an in-memory idempotency (deduplication) filter keyed by `transactionId`,
- * and optionally consumes a caller-supplied certified RNG float
- * (`systemRngValue`) instead of the local PRNG when evaluating jackpot
- * win triggers. When a campaign has community payout enabled, the win
- * branch routes through the existing `applyCommunityPayout` helper.
+ * and ALWAYS evaluates jackpot win triggers using a server-side
+ * cryptographically secure RNG (Web Crypto). Client-supplied RNG overrides
+ * are forbidden (GLI-12 compliance). When a campaign has community payout
+ * enabled, the win branch routes through `applyCommunityPayout`.
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
