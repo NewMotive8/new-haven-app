@@ -856,19 +856,27 @@ function SandboxDemoPage() {
         setLastRngSource(json.rngSource ?? null);
         const per = json.perJackpot ?? [];
 
-        // Tile displays reflect EVERY pool the server contributed to, so the
-        // visible tile always animates on each spin. The Allocation Tracker
-        // (Σ opted-in pools) keeps its opted-in-only semantics below.
+        // Tile displays reflect EVERY pool the server contributed to. The
+        // contribution chip (lastSplit) ALWAYS shows the full real-time split
+        // across every contributed jackpot. The Allocation Tracker keeps
+        // opted-in-only semantics so users can scope cumulative totals.
         let aggPool = 0;
         let aggSeed = 0;
         let aggHouse = 0;
+        let trackerPool = 0;
+        let trackerSeed = 0;
+        let trackerHouse = 0;
         const poolDeltas: Record<number, number> = {};
         for (const e of per) {
           poolDeltas[e.jackpotId] = (poolDeltas[e.jackpotId] ?? 0) + e.contribution.pool;
-          if (!optIns[e.jackpotId]) continue;
           aggPool += e.contribution.pool;
           aggSeed += e.contribution.seed;
           aggHouse += e.contribution.house;
+          if (optIns[e.jackpotId]) {
+            trackerPool += e.contribution.pool;
+            trackerSeed += e.contribution.seed;
+            trackerHouse += e.contribution.house;
+          }
         }
 
         // Some bet responses still come back in aggregate-only form (no
@@ -892,10 +900,14 @@ function SandboxDemoPage() {
             poolDeltas[explicitJackpotId] = (poolDeltas[explicitJackpotId] ?? 0) + aggregatePool;
           }
 
+          // Always reflect full aggregate in the chip, regardless of opt-in.
+          aggPool += aggregatePool;
+          aggSeed += aggregateSeed;
+          aggHouse += aggregateHouse;
           if (typeof explicitJackpotId === "number" && optIns[explicitJackpotId]) {
-            aggPool += aggregatePool;
-            aggSeed += aggregateSeed;
-            aggHouse += aggregateHouse;
+            trackerPool += aggregatePool;
+            trackerSeed += aggregateSeed;
+            trackerHouse += aggregateHouse;
           }
         }
 
@@ -913,7 +925,26 @@ function SandboxDemoPage() {
           }
           return next;
         });
-        bumpTracker(w, aggPool, aggSeed, aggHouse);
+
+        // Auto-focus the carousel on the tile that received the largest bump,
+        // so the user sees the animation on the visible tile.
+        const bumpedId = Object.entries(poolDeltas)
+          .filter(([, v]) => v > 0)
+          .sort((a, b) => b[1] - a[1])[0]?.[0];
+        if (bumpedId != null) {
+          const target = Number(bumpedId);
+          const foundIdx = displayPools.findIndex((dp) =>
+            dp.kind === "single"
+              ? dp.jackpot.id === target
+              : dp.tiers.some((t) => t.id === target),
+          );
+          if (foundIdx >= 0 && foundIdx !== activeIndex) {
+            setActiveIndex(foundIdx);
+          }
+        }
+
+        bumpTracker(w, trackerPool, trackerSeed, trackerHouse);
+
         await Promise.all(
           Object.entries(poolDeltas).map(([id, add]) =>
             persistPoolGrowth(Number(id), add),
