@@ -42,7 +42,15 @@ import type { JackpotConfigDTO, JackpotDTO } from "@/lib/jackpot/types";
 const BetEventSchema = z
   .object({
     transactionId: z.string().min(1).max(128),
-    wager: z.number().positive().finite(),
+    // B2B canonical fields (preferred)
+    wagerAmount: z.number().positive().finite().optional(),
+    currency: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{2,16}$/, "currency must be 2–16 ISO/token chars")
+      .optional(),
+    timestamp: z.string().datetime({ offset: true }).optional(),
+    // Legacy aliases (back-compat with sandbox / simulator)
+    wager: z.number().positive().finite().optional(),
     gameId: z.string().min(1).max(128),
     playerSegments: z.array(z.string().min(1).max(64)).max(64).default([]),
     // systemRngValue removed (GLI-12): server-side crypto RNG is the
@@ -57,6 +65,13 @@ const BetEventSchema = z
     configs: z.array(z.any()).optional(),
   })
   .superRefine((val, ctx) => {
+    if (val.wagerAmount == null && val.wager == null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["wagerAmount"],
+        message: "wagerAmount (or legacy 'wager') is required",
+      });
+    }
     const routes = [
       val.groupId != null,
       val.jackpotId != null,
@@ -71,6 +86,7 @@ const BetEventSchema = z
       });
     }
   });
+
 
 type BetEventBody = z.infer<typeof BetEventSchema>;
 
