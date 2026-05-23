@@ -35,7 +35,9 @@ const BetEventSchema = z
     wager: z.number().positive().finite(),
     gameId: z.string().min(1).max(128),
     playerSegments: z.array(z.string().min(1).max(64)).max(64).default([]),
-    systemRngValue: z.number().min(0).max(1).optional(),
+    // systemRngValue removed (GLI-12): server-side crypto RNG is the
+    // single source of truth for win-trigger evaluation. Client overrides
+    // are no longer accepted.
     // Optional back-compat / routing hints (mutually exclusive)
     jackpotId: z.number().int().optional(),
     groupId: z.number().int().positive().optional(),
