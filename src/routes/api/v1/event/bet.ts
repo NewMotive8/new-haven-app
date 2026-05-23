@@ -232,15 +232,28 @@ export const Route = createFileRoute("/api/v1/event/bet")({
     handlers: {
       OPTIONS: async () => preflight(),
       POST: async ({ request }) => {
+        // ---- Vault door: dual-layer authentication ----------------------
         const blocked = requireInternalSecret(request);
         if (blocked) return blocked;
 
         const brand = requireBrandId(request);
         if (brand instanceof Response) return brand;
 
+        // Read raw body once — HMAC verification needs the exact bytes
+        // before any JSON parsing/normalization.
+        let rawBody: string;
+        try {
+          rawBody = await request.text();
+        } catch {
+          return errorJson("Unable to read request body", 400);
+        }
+
+        const sigBlocked = await verifyOperatorSignature(request, rawBody, brand);
+        if (sigBlocked) return sigBlocked;
+
         let raw: unknown;
         try {
-          raw = await request.json();
+          raw = JSON.parse(rawBody);
         } catch {
           return errorJson("Invalid JSON body", 400);
         }
@@ -255,26 +268,76 @@ export const Route = createFileRoute("/api/v1/event/bet")({
           );
         }
         const body: BetEventBody = parsed.data;
+        // Normalize wager (B2B prefers `wagerAmount`, legacy callers use `wager`).
+        const wager: number = (body.wagerAmount ?? body.wager) as number;
 
         // -----------------------------------------------------------------
-        // Idempotency filter
+        // Idempotency filter — fast in-memory cache + authoritative DB check
         // -----------------------------------------------------------------
         const cached = processedTransactions.get(body.transactionId);
         if (cached) {
           return json(
             {
               ...(cached.response as Record<string, unknown>),
+              status: "duplicate_ignored",
               idempotentReplay: true,
             },
             { headers: { "X-Idempotent-Replay": "true" } },
           );
         }
+        try {
+          const existing = await findExistingTransaction(brand, body.transactionId);
+          if (existing) {
+            rememberTransaction(body.transactionId, existing.response);
+            return json(
+              {
+                ...existing.response,
+                status: "duplicate_ignored",
+                idempotentReplay: true,
+              },
+              { headers: { "X-Idempotent-Replay": "true" } },
+            );
+          }
+        } catch (e: any) {
+          // Idempotency lookup failure is non-fatal — fall through to write
+          // path; the DB unique constraint will still catch duplicates.
+          console.warn("[bet] idempotency pre-check failed:", e?.message ?? e);
+        }
 
-        const wager = body.wager;
+        // -----------------------------------------------------------------
+        // Routing target resolution — explicit groupId/jackpotId, or
+        // dynamic lookup of an active group mapped to this gameId.
+        // -----------------------------------------------------------------
+        if (
+          body.groupId == null &&
+          body.jackpotId == null &&
+          body.config == null &&
+          !(Array.isArray(body.configs) && body.configs.length > 0)
+        ) {
+          try {
+            const resolved = await resolveGroupForBet(brand, {
+              gameId: body.gameId,
+            });
+            if (!resolved) {
+              return errorJson(
+                `NO_ACTIVE_GROUP_FOR_GAME: no active jackpot group routes gameId=${body.gameId} for brand=${brand}`,
+                404,
+              );
+            }
+            body.groupId = resolved.groupId;
+          } catch (e: any) {
+            return errorJson(
+              `Routing resolution failed: ${e?.message ?? String(e)}`,
+              500,
+            );
+          }
+        }
+
         // GLI-12: secure server-side RNG only. `rngSource` retained as a
         // constant for back-compat with downstream audit consumers.
         const rngSource: "local" = "local";
         const rng: () => number = secureRandomFloat;
+
 
         // -----------------------------------------------------------------
         // Phase 2 — relational jackpot-group fan-out branch.
