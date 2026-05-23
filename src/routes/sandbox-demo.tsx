@@ -295,10 +295,43 @@ function SandboxDemoPage() {
   const [batchProgress, setBatchProgress] = useState(0);
   const cancelRef = useRef(false);
   const batchRunningRef = useRef(false);
+  const localDisplayFloorsRef = useRef<Record<number, number>>({});
 
   const [batchStats, setBatchStats] = useState<BatchStats | null>(null);
   const [showQaSuite, setShowQaSuite] = useState(false);
   const widgetHostRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    localDisplayFloorsRef.current = {};
+    setOptIns({});
+    setPendingOptIn(null);
+  }, [brandId]);
+
+  const applyImmediatePoolDisplayDeltas = useCallback(
+    (deltas: Record<number, number>) => {
+      const entries = Object.entries(deltas).filter(
+        ([, add]) => Number.isFinite(add) && add !== 0,
+      );
+      if (entries.length === 0) return;
+
+      setPoolDisplays((prev) => {
+        const next = { ...prev };
+        for (const [rawId, rawAdd] of entries) {
+          const id = Number(rawId);
+          const add = Number(rawAdd);
+          const base = next[id] ?? pools.find((p) => p.id === id)?.poolBalance ?? 0;
+          const bumped = base + add;
+          next[id] = bumped;
+          localDisplayFloorsRef.current[id] = Math.max(
+            localDisplayFloorsRef.current[id] ?? Number.NEGATIVE_INFINITY,
+            bumped,
+          );
+        }
+        return next;
+      });
+    },
+    [pools],
+  );
 
   // ── Brand id bootstrap ───────────────────────────────────────────────────
   useEffect(() => {
