@@ -107,6 +107,7 @@ function rawJsonFor(bp: Blueprint): string {
 export function BlueprintCenter({ host, onInjectSingle }: Props) {
   const [open, setOpen] = React.useState(false);
   const [activeTier, setActiveTier] = React.useState<TrafficTier>("high");
+  const [fundingFilter, setFundingFilter] = React.useState<FundingFilter>("all");
   const [cloneTarget, setCloneTarget] = React.useState<Blueprint | null>(null);
   const navigate = useNavigate();
   const { brandId } = React.useContext(BrandContext);
@@ -114,17 +115,17 @@ export function BlueprintCenter({ host, onInjectSingle }: Props) {
   function handleSandbox(bp: Blueprint) {
     if (bp.kind === "single") {
       try {
-        const cfg = mapPayloadToConfig(bp.payload);
+        const tunedPayload = applyFundingDefaults(bp.payload, bp.fundingType);
+        const cfg = mapPayloadToConfig(tunedPayload);
         if (host === "simulator" && onInjectSingle) {
           onInjectSingle(cfg);
           toast.success(`Injected "${bp.name}" into sandbox`);
           setOpen(false);
         } else {
-          // wizard host — round-trip via /admin/jackpots/new with state
           try {
             sessionStorage.setItem(
               "jackpot:pendingPayload",
-              JSON.stringify(bp.payload),
+              JSON.stringify(tunedPayload),
             );
           } catch { /* noop */ }
           navigate({ to: "/admin/jackpots/new" });
@@ -146,6 +147,9 @@ export function BlueprintCenter({ host, onInjectSingle }: Props) {
     navigate({ to: "/admin/jackpots/new", search: { tab: "multi" } as never });
     setOpen(false);
   }
+
+  const visibleByFunding = (b: Blueprint) =>
+    fundingFilter === "all" ? true : b.fundingType === fundingFilter;
 
   return (
     <>
