@@ -309,9 +309,7 @@ function SandboxDemoPage() {
 
   const applyImmediatePoolDisplayDeltas = useCallback(
     (deltas: Record<number, number>) => {
-      const entries = Object.entries(deltas).filter(
-        ([, add]) => Number.isFinite(add) && add !== 0,
-      );
+      const entries = Object.entries(deltas).filter(([, add]) => Number.isFinite(add));
       if (entries.length === 0) return;
 
       setPoolDisplays((prev) => {
