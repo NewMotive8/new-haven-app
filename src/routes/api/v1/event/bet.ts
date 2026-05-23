@@ -712,6 +712,10 @@ export const Route = createFileRoute("/api/v1/event/bet")({
           eventId: body.eventId ?? null,
           playerId: body.playerId ?? null,
           processedAt: new Date().toISOString(),
+          status: "ok" as const,
+          currency: body.currency ?? null,
+          operatorTimestamp: body.timestamp ?? null,
+
           wager,
           matched: multi.perCampaign.length,
           splitDenominator: multi.splitDenominator,
