@@ -367,6 +367,9 @@ export const Route = createFileRoute("/api/v1/event/bet")({
               eventId: body.eventId ?? null,
               playerId: body.playerId ?? null,
               processedAt: new Date().toISOString(),
+          status: "ok" as const,
+          currency: body.currency ?? null,
+          operatorTimestamp: body.timestamp ?? null,
               wager,
               groupId: group.id,
               routingMode: "group" as const,
@@ -453,6 +456,9 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             rngSource,
             gameId: body.gameId,
             playerSegments: body.playerSegments,
+          status: "ok" as const,
+          currency: body.currency ?? null,
+          operatorTimestamp: body.timestamp ?? null,
             eventId: body.eventId ?? null,
             playerId: body.playerId ?? null,
             processedAt: new Date().toISOString(),
@@ -589,6 +595,9 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             transactionId: body.transactionId,
             idempotentReplay: false,
             rngSource,
+          status: "ok" as const,
+          currency: body.currency ?? null,
+          operatorTimestamp: body.timestamp ?? null,
             gameId: body.gameId,
             playerSegments: body.playerSegments,
             jackpotId: cfg.id,
@@ -639,6 +648,9 @@ export const Route = createFileRoute("/api/v1/event/bet")({
 
         if (configs.length === 0) {
           const empty = {
+          status: "ok" as const,
+          currency: body.currency ?? null,
+          operatorTimestamp: body.timestamp ?? null,
             brandId: brand,
             transactionId: body.transactionId,
             idempotentReplay: false,
@@ -687,6 +699,9 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             }
             break;
           }
+          status: "ok" as const,
+          currency: body.currency ?? null,
+          operatorTimestamp: body.timestamp ?? null,
         }
 
         const response = {
