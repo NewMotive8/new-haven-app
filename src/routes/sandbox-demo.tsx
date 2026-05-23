@@ -734,7 +734,7 @@ function SandboxDemoPage() {
           totalContribution: json.totalContribution ?? 0,
           processedAt: new Date().toISOString(),
         });
-        setPoolDisplays((d) => ({ ...d, [activePool.id]: (d[activePool.id] ?? 0) + poolAdd }));
+        applyImmediatePoolDisplayDeltas({ [activePool.id]: poolAdd });
         bumpTracker(w, poolAdd, seedAdd, houseAdd);
         await persistPoolGrowth(activePool.id, poolAdd);
 
@@ -977,19 +977,30 @@ function SandboxDemoPage() {
           totalContribution: aggPool + aggSeed + aggHouse,
           processedAt: new Date().toISOString(),
         });
-        setPoolDisplays((d) => {
-          const next = { ...d };
-          for (const [id, add] of Object.entries(poolDeltas)) {
-            next[Number(id)] = (next[Number(id)] ?? 0) + add;
+        const immediatePoolDeltas: Record<number, number> = { ...poolDeltas };
+        const activeTile = displayPools[activeIndex] ?? activeDisplay;
+        if (activeTile?.kind === "single") {
+          const activeId = activeTile.jackpot.id;
+          if (immediatePoolDeltas[activeId] == null) immediatePoolDeltas[activeId] = 0;
+        } else if (activeTile?.kind === "group") {
+          for (const tier of activeTile.tiers) {
+            if (optIns[tier.id] && immediatePoolDeltas[tier.id] == null) {
+              immediatePoolDeltas[tier.id] = 0;
+            }
           }
-          return next;
-        });
+        }
+        for (const jp of pools) {
+          if (optIns[jp.id] && immediatePoolDeltas[jp.id] == null) {
+            immediatePoolDeltas[jp.id] = 0;
+          }
+        }
+        applyImmediatePoolDisplayDeltas(immediatePoolDeltas);
 
         // Auto-focus priority chain (respects what the user is watching):
         //  1. If the currently active tile got any bump, stay put.
         //  2. Else prefer an opted-in bumped jackpot (largest delta wins).
         //  3. Else fall back to the absolute largest-delta bumped tile.
-        const bumped = Object.entries(poolDeltas)
+        const bumped = Object.entries(immediatePoolDeltas)
           .filter(([, v]) => v > 0)
           .map(([id, v]) => ({ id: Number(id), delta: v }))
           .sort((a, b) => b.delta - a.delta);
