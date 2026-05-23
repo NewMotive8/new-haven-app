@@ -542,6 +542,59 @@ function SandboxDemoPage() {
     [optedInPools, wager],
   );
 
+  // ── Route-state diagnostics + auto-fallback target ───────────────────────
+  // The live bet API resolves a target through the most-recently-activated
+  // jackpot_group whose assigned_game_ids includes the gameId. In sandbox
+  // brands we frequently have NO active group routed to `sandbox-game`,
+  // which used to 404 every spin with NO_ACTIVE_GROUP_FOR_GAME. The
+  // diagnostic below + an explicit fallback target keep spins resolving
+  // against the visible pool so QA can keep working.
+  const [fallbackUsed, setFallbackUsed] = useState<null | {
+    reason: string;
+    targetKind: "group" | "jackpot";
+    targetId: number;
+    targetName: string;
+    at: string;
+  }>(null);
+
+  const activeGroupsList = useMemo(
+    () => groups.filter((g) => g.status === "active"),
+    [groups],
+  );
+
+  const fallbackTarget = useMemo<
+    | { kind: "group"; id: number; name: string }
+    | { kind: "jackpot"; id: number; name: string }
+    | null
+  >(() => {
+    const visible = displayPools[activeIndex] ?? displayPools[0];
+    if (visible?.kind === "group") {
+      return { kind: "group", id: visible.group.id, name: visible.name };
+    }
+    if (visible?.kind === "single") {
+      return { kind: "jackpot", id: visible.jackpot.id, name: visible.jackpot.name };
+    }
+    if (activeGroupsList[0]) {
+      return { kind: "group", id: activeGroupsList[0].id, name: activeGroupsList[0].name };
+    }
+    if (pools[0]) {
+      return { kind: "jackpot", id: pools[0].id, name: pools[0].name };
+    }
+    return null;
+  }, [displayPools, activeIndex, activeGroupsList, pools]);
+
+  const routeState = useMemo(() => {
+    const hasActiveGroup = activeGroupsList.length > 0;
+    const game = (gameId || "").trim() || "sandbox-game";
+    return {
+      gameId: game,
+      hasActiveGroup,
+      activeGroupCount: activeGroupsList.length,
+      willFallback: !hasActiveGroup,
+      fallbackTarget,
+    };
+  }, [activeGroupsList, gameId, fallbackTarget]);
+
   // ── Persist pool growth so polling reflects each spin ─────────────────────
   const persistPoolGrowth = async (jackpotId: number, amount: number) => {
     if (amount <= 0) return;
