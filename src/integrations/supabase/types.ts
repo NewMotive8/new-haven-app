@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_log: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          after_state: Json | null
+          before_state: Json | null
+          brand_id: number | null
+          delta: Json | null
+          id: number
+          ip: string | null
+          occurred_at: string
+          request_id: string | null
+          target_id: string | null
+          target_type: string
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
+          brand_id?: number | null
+          delta?: Json | null
+          id?: number
+          ip?: string | null
+          occurred_at?: string
+          request_id?: string | null
+          target_id?: string | null
+          target_type: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
+          brand_id?: number | null
+          delta?: Json | null
+          id?: number
+          ip?: string | null
+          occurred_at?: string
+          request_id?: string | null
+          target_id?: string | null
+          target_type?: string
+        }
+        Relationships: []
+      }
       games: {
         Row: {
           created_at: string
@@ -182,6 +227,36 @@ export type Database = {
           },
         ]
       }
+      jackpot_wins: {
+        Row: {
+          amount: number
+          created_at: string
+          id: number
+          jackpot_id: number
+          player_id: string | null
+          status: string
+          transaction_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: number
+          jackpot_id: number
+          player_id?: string | null
+          status?: string
+          transaction_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: number
+          jackpot_id?: number
+          player_id?: string | null
+          status?: string
+          transaction_id?: string
+        }
+        Relationships: []
+      }
       jackpots: {
         Row: {
           assigned_categories: string[]
@@ -300,25 +375,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      apply_group_bet: {
-        Args: { p_payload: Json }
-        Returns: {
-          brand_id: number
-          group_id: number | null
-          processed_at: string
-          response: Json | null
-          totals: Json
-          transaction_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "jackpot_transactions"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      apply_group_bet: { Args: { p_payload: Json }; Returns: Json }
       apply_jackpot_topup: {
-        Args: { p_amount: number; p_is_seed: boolean; p_jackpot_id: number }
+        Args: {
+          p_actor_user_id?: string
+          p_amount: number
+          p_brand_id?: number
+          p_is_seed: boolean
+          p_jackpot_id: number
+          p_request_id?: string
+        }
         Returns: undefined
       }
       has_role: {
