@@ -194,6 +194,7 @@ export type Database = {
       }
       jackpot_transactions: {
         Row: {
+          attributes: Json | null
           brand_id: number
           group_id: number | null
           processed_at: string
@@ -202,6 +203,7 @@ export type Database = {
           transaction_id: string
         }
         Insert: {
+          attributes?: Json | null
           brand_id: number
           group_id?: number | null
           processed_at?: string
@@ -210,6 +212,7 @@ export type Database = {
           transaction_id: string
         }
         Update: {
+          attributes?: Json | null
           brand_id?: number
           group_id?: number | null
           processed_at?: string
