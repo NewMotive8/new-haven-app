@@ -275,14 +275,20 @@ export async function applyTopup(
   brandId: string,
   dto: TopupDTO,
 ): Promise<JackpotDTO | undefined> {
+  // Concurrency-safe: existence check is followed by an atomic SQL
+  // increment (`apply_jackpot_topup` Postgres function) instead of a
+  // JS read-modify-write. Two simultaneous top-ups can no longer
+  // clobber each other's balance.
   const existing = await getJackpot(brandId, dto.jackpotId);
   if (!existing) return undefined;
   const amount = Number(dto.amount) || 0;
-  const patch: Partial<JackpotDTO> = {
-    poolBalance: existing.poolBalance + amount,
-  };
-  if (dto.isSeed) patch.seedAmount = existing.seedAmount + amount;
-  return updateJackpot(brandId, dto.jackpotId, patch);
+  const { error } = await supabaseAdmin.rpc("apply_jackpot_topup" as any, {
+    p_jackpot_id: dto.jackpotId,
+    p_amount: amount,
+    p_is_seed: !!dto.isSeed,
+  });
+  if (error) throw new Error(error.message);
+  return getJackpot(brandId, dto.jackpotId);
 }
 
 /**
