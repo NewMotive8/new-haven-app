@@ -263,6 +263,8 @@ function SandboxDemoPage() {
     cumHouse: number;
   }>({ spins: 0, totalWager: 0, cumPool: 0, cumSeed: 0, cumHouse: 0 });
   const [celebrating, setCelebrating] = useState(false);
+  const [lastWinInfo, setLastWinInfo] = useState<{ amount?: number; jackpotName?: string } | null>(null);
+  const celebrationLockedRef = useRef(false);
   const [lastCommunity, setLastCommunity] = useState<CommunityPayoutBreakdown | null>(null);
   const [spinning, setSpinning] = useState(false);
   // ── S2S tester inputs (Phase 1 microservice contract) ────────────────────
