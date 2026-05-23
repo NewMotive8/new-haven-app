@@ -186,10 +186,41 @@ export function BlueprintCenter({ host, onInjectSingle }: Props) {
             <X className="h-4 w-4" />
           </SheetClose>
 
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <span className="text-[10px] uppercase tracking-[0.18em] text-neutral-500 mr-1">
+              Funding
+            </span>
+            {([
+              { v: "all", label: "All" },
+              { v: "MARKETING_FUNDED", label: "Marketing Funded" },
+              { v: "PLAYER_CONTRIBUTION", label: "Player Contribution" },
+            ] as Array<{ v: FundingFilter; label: string }>).map((opt) => {
+              const active = fundingFilter === opt.v;
+              const tone =
+                opt.v === "MARKETING_FUNDED"
+                  ? "border-emerald-500/50 text-emerald-300"
+                  : opt.v === "PLAYER_CONTRIBUTION"
+                    ? "border-amber-500/50 text-amber-300"
+                    : "border-neutral-700 text-neutral-300";
+              return (
+                <button
+                  key={opt.v}
+                  type="button"
+                  onClick={() => setFundingFilter(opt.v)}
+                  className={`text-[11px] px-2.5 py-1 rounded-full border transition ${tone} ${
+                    active ? "bg-white/10 ring-1 ring-white/30" : "bg-transparent hover:bg-white/5"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+
           <Tabs
             value={activeTier}
             onValueChange={(v) => setActiveTier(v as TrafficTier)}
-            className="mt-6"
+            className="mt-4"
           >
             <TabsList className="bg-neutral-900 border border-neutral-800 w-full grid grid-cols-3 h-10">
               <TabsTrigger value="high" className="text-xs bg-blue-600 text-white hover:!bg-blue-600 hover:!text-white data-[state=active]:!bg-white data-[state=active]:!text-neutral-900 data-[state=active]:font-semibold data-[state=active]:shadow-md data-[state=active]:ring-2 data-[state=active]:ring-indigo-400">High Traffic</TabsTrigger>
@@ -197,21 +228,30 @@ export function BlueprintCenter({ host, onInjectSingle }: Props) {
               <TabsTrigger value="small" className="text-xs bg-blue-600 text-white hover:!bg-blue-600 hover:!text-white data-[state=active]:!bg-white data-[state=active]:!text-neutral-900 data-[state=active]:font-semibold data-[state=active]:shadow-md data-[state=active]:ring-2 data-[state=active]:ring-indigo-400">Small Traffic</TabsTrigger>
             </TabsList>
 
-            {(["high", "medium", "small"] as TrafficTier[]).map((tier) => (
-              <TabsContent key={tier} value={tier} className="mt-4 space-y-4">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">
-                  {TIER_LABEL[tier]} · {BLUEPRINTS.filter((b) => b.tier === tier).length} blueprints
-                </p>
-                {BLUEPRINTS.filter((b) => b.tier === tier).map((bp) => (
-                  <BlueprintCardView
-                    key={bp.id}
-                    bp={bp}
-                    onSandbox={() => handleSandbox(bp)}
-                    onClone={() => setCloneTarget(bp)}
-                  />
-                ))}
-              </TabsContent>
-            ))}
+            {(["high", "medium", "small"] as TrafficTier[]).map((tier) => {
+              const list = BLUEPRINTS.filter((b) => b.tier === tier && visibleByFunding(b));
+              return (
+                <TabsContent key={tier} value={tier} className="mt-4 space-y-4">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">
+                    {TIER_LABEL[tier]} · {list.length} blueprints
+                  </p>
+                  {list.length === 0 ? (
+                    <p className="text-xs text-neutral-500 italic">
+                      No blueprints match the current funding filter.
+                    </p>
+                  ) : (
+                    list.map((bp) => (
+                      <BlueprintCardView
+                        key={bp.id}
+                        bp={bp}
+                        onSandbox={() => handleSandbox(bp)}
+                        onClone={() => setCloneTarget(bp)}
+                      />
+                    ))
+                  )}
+                </TabsContent>
+              );
+            })}
           </Tabs>
         </SheetContent>
       </Sheet>
