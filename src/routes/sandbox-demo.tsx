@@ -447,23 +447,19 @@ function SandboxDemoPage() {
         setPoolDisplays((prev) => {
           const next: Record<number, number> = { ...prev };
           for (const jp of enabled) {
-            // While a batch is in flight, keep the locally-driven value to
-            // avoid flicker/race with in-flight deltas. Otherwise always
-            // sync to the canonical server balance.
-            if (batchRunningRef.current && next[jp.id] != null) continue;
-            next[jp.id] = jp.poolBalance;
-          }
-          return next;
-        });
-
-        setOptIns((prev) => {
-          const next: Record<number, boolean> = { ...prev };
-          for (const jp of enabled) {
-            if (next[jp.id] == null) {
-              // Default: opted-in for newly discovered jackpots so the
-              // contribution chip + tracker animate immediately on first spin.
-              next[jp.id] = true;
+            const localFloor = localDisplayFloorsRef.current[jp.id];
+            const serverBalance = jp.poolBalance;
+            if (localFloor != null && serverBalance >= localFloor) {
+              delete localDisplayFloorsRef.current[jp.id];
+              next[jp.id] = serverBalance;
+              continue;
             }
+            if (localFloor != null) {
+              next[jp.id] = Math.max(next[jp.id] ?? 0, localFloor);
+              continue;
+            }
+            if (batchRunningRef.current && next[jp.id] != null) continue;
+            next[jp.id] = serverBalance;
           }
           return next;
         });
