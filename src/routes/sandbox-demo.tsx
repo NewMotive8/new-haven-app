@@ -1948,6 +1948,64 @@ function SandboxDemoPage() {
           </div>
         </div>
       )}
+
+      {celebrating && (
+        <div
+          className="jooba-fs-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Jackpot win"
+          onClick={closeCelebration}
+        >
+          <div className="jooba-fs-confetti" aria-hidden>
+            {Array.from({ length: 120 }).map((_, i) => (
+              <span key={i} style={{ ["--i" as never]: i }} />
+            ))}
+          </div>
+          <div className="jooba-fs-panel" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="jooba-fs-close"
+              onClick={closeCelebration}
+              aria-label="Close win animation"
+            >
+              ×
+            </button>
+            <div className="jooba-fs-coin" aria-hidden>€</div>
+            <div
+              className="jooba-fs-title"
+              dangerouslySetInnerHTML={{ __html: texts.winMessage }}
+            />
+            {lastWinInfo?.jackpotName && (
+              <div className="jooba-fs-sub">{lastWinInfo.jackpotName}</div>
+            )}
+            {typeof lastWinInfo?.amount === "number" && lastWinInfo.amount > 0 && (
+              <div className="jooba-fs-amount">{fmt(lastWinInfo.amount)}</div>
+            )}
+            {lastCommunity && (
+              <div className="jooba-fs-community">
+                <div className="jooba-fs-community-badge">Community Payout Triggered</div>
+                <div>
+                  Triggering Winner Payout: <strong>{fmt(lastCommunity.triggeringPayout)}</strong>
+                </div>
+                <div>
+                  Community Split: <strong>{fmt(lastCommunity.communityPool)}</strong> across{" "}
+                  <strong>{lastCommunity.communitySize}</strong> players (
+                  <strong>{fmt(lastCommunity.communityMemberPayOut)}</strong> each).
+                </div>
+                {lastCommunity.cappedDelta > 0 && (
+                  <div className="jooba-fs-community-cap">
+                    Per-member cap applied — delta {fmt(lastCommunity.cappedDelta)} returned to house.
+                  </div>
+                )}
+              </div>
+            )}
+            <button type="button" className="jooba-fs-cta" onClick={closeCelebration}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
