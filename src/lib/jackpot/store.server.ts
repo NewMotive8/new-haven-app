@@ -872,6 +872,11 @@ export async function updateGroupProfile(
 
 /**
  * Persist a group bet via the atomic `apply_group_bet` Postgres function.
+ * The function runs pool-delta application, win settlement (SELECT ... FOR
+ * UPDATE row-lock + clamp + decrement + `jackpot_wins` insert) and the
+ * `jackpot_transactions` row write inside a single SQL transaction, and
+ * returns `{ transaction, win }` as JSON.
+ *
  * On duplicate-transaction (unique-violation), re-reads the existing row and
  * returns it with `isReplay = true` so the caller can emit an idempotent
  * replay response.
@@ -883,7 +888,14 @@ export async function recordGroupTransaction(payload: {
   totals: { pool: number; seed: number; house: number };
   response: Record<string, unknown>;
   poolDeltas: Array<{ jackpotId: number; delta: number }>;
-}): Promise<{ row: any; isReplay: boolean }> {
+  winJackpotId?: number | null;
+  winAmount?: number;
+  playerId?: string | null;
+}): Promise<{
+  row: any;
+  isReplay: boolean;
+  win: { id: number; amount: number; jackpotId: number; status: string } | null;
+}> {
   const { data, error } = await supabaseAdmin.rpc("apply_group_bet" as any, {
     p_payload: payload as any,
   });
@@ -897,11 +909,28 @@ export async function recordGroupTransaction(payload: {
         .eq("transaction_id", payload.transactionId)
         .maybeSingle();
       if (rErr) throw new Error(rErr.message);
-      return { row: existing, isReplay: true };
+      return { row: existing, isReplay: true, win: null };
     }
     throw new Error(error.message);
   }
-  return { row: data, isReplay: false };
+  const envelope = (data ?? {}) as {
+    transaction?: any;
+    win?: {
+      id: number;
+      amount: number | string;
+      jackpot_id: number;
+      status: string;
+    } | null;
+  };
+  const winRow = envelope.win
+    ? {
+        id: Number(envelope.win.id),
+        amount: Number(envelope.win.amount),
+        jackpotId: Number(envelope.win.jackpot_id),
+        status: String(envelope.win.status),
+      }
+    : null;
+  return { row: envelope.transaction ?? null, isReplay: false, win: winRow };
 }
 
 /**
