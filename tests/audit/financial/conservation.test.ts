@@ -34,15 +34,10 @@ beforeAll(() => {
   fx = auditFixtureIds();
 });
 
-// Run the rest of the audit suite without leaving stray rows behind: we
-// keep pool balance + audit-log entries (they're scoped to brand 999999),
-// but make sure we don't accumulate jackpot_transactions across runs that
-// poison other tests via the unique-tx-id index.
-afterAll(() => {
-  psql(
-    `DELETE FROM public.jackpot_transactions WHERE brand_id = 999999 AND transaction_id LIKE 'audit-fin-%'`,
-  );
-});
+// No afterAll cleanup: sandbox psql lacks DELETE on jackpot_transactions.
+// Transaction ids are uniquified per run (Date.now() + random), so rows
+// accumulate harmlessly under brand 999999 without colliding with future runs.
+
 
 async function signedBet(payload: Record<string, unknown>) {
   const raw = JSON.stringify(payload);
