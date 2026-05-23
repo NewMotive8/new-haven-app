@@ -45,6 +45,13 @@ const FUNDING_BADGE: Record<FundingType, { label: string; cls: string }> = {
   },
 };
 
+const TYPE_BADGE: Record<string, { label: string; cls: string }> = {
+  classic: { label: "Classic", cls: "bg-blue-500/15 text-blue-300 border-blue-500/50" },
+  must_drop: { label: "Must Drop", cls: "bg-purple-500/15 text-purple-300 border-purple-500/50" },
+  frequency: { label: "Happy Hour", cls: "bg-pink-500/15 text-pink-300 border-pink-500/50" },
+  multi: { label: "Multi Level", cls: "bg-teal-500/15 text-teal-300 border-teal-500/50" },
+};
+
 /**
  * For MARKETING_FUNDED templates, zero out the player skim & operator share
  * so the wizard opens with a pure promotional pool funded by the seed only.
@@ -281,6 +288,8 @@ function BlueprintCardView({
   const vibeClass = VIBE_STYLES[bp.vibe] ?? "bg-neutral-700/30 text-neutral-200";
   const KindIcon = bp.kind === "multi" ? Layers : Flame;
   const funding = FUNDING_BADGE[bp.fundingType];
+  const typeKey = bp.kind === "multi" ? "multi" : bp.payload.type;
+  const typeBadge = TYPE_BADGE[typeKey] ?? { label: typeKey, cls: "bg-neutral-700/30 text-neutral-200 border-neutral-600" };
   return (
     <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4 space-y-3">
       <div className="flex items-start justify-between gap-3">
@@ -294,6 +303,7 @@ function BlueprintCardView({
         </div>
         <div className="flex flex-col items-end gap-1.5 shrink-0">
           <Badge className={`border font-semibold ${funding.cls}`}>{funding.label}</Badge>
+          <Badge className={`border ${typeBadge.cls}`}>{typeBadge.label}</Badge>
           <Badge className={`border ${vibeClass}`}>{bp.vibe}</Badge>
         </div>
       </div>
