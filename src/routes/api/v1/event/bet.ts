@@ -699,10 +699,8 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             }
             break;
           }
-          status: "ok" as const,
-          currency: body.currency ?? null,
-          operatorTimestamp: body.timestamp ?? null,
         }
+
 
         const response = {
           brandId: brand,
