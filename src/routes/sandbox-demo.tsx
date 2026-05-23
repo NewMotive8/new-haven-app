@@ -319,6 +319,80 @@ function SandboxDemoPage() {
     [brandId],
   );
 
+  // ── VPC handshake ergonomics ────────────────────────────────────────────
+  // Surface a non-revealing fingerprint so operators can eyeball-compare what
+  // is in component state against what Lovable Cloud shows, without ever
+  // exposing the secret in the DOM.
+  const secretFingerprint = useMemo(() => {
+    const s = internalSecret;
+    if (!s) return null;
+    const last4 = s.length >= 4 ? s.slice(-4) : s;
+    return { length: s.length, last4, hasWhitespace: /\s/.test(s) };
+  }, [internalSecret]);
+
+  // Fires a payload-less POST against /api/v1/event/bet purely to exercise the
+  // handshake gate. The route validates the secret BEFORE the Zod body schema,
+  // so:
+  //   403 INTERNAL_HANDSHAKE_MISSING  → no Authorization header (mode = omitted)
+  //   403 INTERNAL_HANDSHAKE_INVALID  → secret present but wrong
+  //   any non-403                     → secret accepted (downstream may 400 on body, that's fine)
+  const probeHandshake = useCallback(async () => {
+    if (probingHandshake) return;
+    setProbingHandshake(true);
+    try {
+      const authHeaders: Record<string, string> = {};
+      if (authMode === "authorized") {
+        authHeaders["Authorization"] = `Bearer ${internalSecret.trim()}`;
+      } else if (authMode === "rogue") {
+        authHeaders["Authorization"] = `Bearer rogue-preflight`;
+      }
+      const res = await fetch("/api/v1/event/bet", {
+        method: "POST",
+        headers: { ...headers(), ...authHeaders },
+        body: JSON.stringify({ __handshakePreflight: true }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        code?: string;
+        message?: string;
+        error?: string;
+      };
+      if (res.status === 403) {
+        setLastHandshake({
+          status: "blocked",
+          code: json.code,
+          message: json.message ?? json.error,
+          httpStatus: 403,
+        });
+        toast.error(`Handshake blocked · ${json.code ?? "403"}`, {
+          description: json.message ?? json.error ?? "VPC gate rejected the request.",
+        });
+      } else if (res.status === 503 && json.code === "INTERNAL_SECRET_NOT_SET") {
+        setLastHandshake({
+          status: "blocked",
+          code: json.code,
+          message: json.message,
+          httpStatus: 503,
+        });
+        toast.error("Server has no INTERNAL_SERVICE_SECRET configured", {
+          description: "Set it in Lovable Cloud → Secrets, then retry.",
+        });
+      } else {
+        // Cleared the handshake — any downstream 400/404/200 means the gate accepted us.
+        setLastHandshake({ status: "ok" });
+        toast.success("Handshake OK", {
+          description: `Gate accepted the secret (downstream HTTP ${res.status}).`,
+        });
+      }
+    } catch (e) {
+      toast.error("Handshake preflight failed", {
+        description: (e as Error).message,
+      });
+    } finally {
+      setProbingHandshake(false);
+    }
+  }, [authMode, internalSecret, headers, probingHandshake]);
+
+
   // ── Poll /api/v1/jackpots every 2s — load ALL enabled pools ──────────────
   useEffect(() => {
     if (!brandId) return;
