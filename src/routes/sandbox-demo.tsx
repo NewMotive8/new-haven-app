@@ -707,6 +707,13 @@ function SandboxDemoPage() {
         if (typeof sysRng === "number" && Number.isFinite(sysRng)) {
           payload.systemRngValue = Math.min(1, Math.max(0, sysRng));
         }
+        // Pre-attach the fallback target when we know dynamic routing
+        // cannot resolve (no active group on this brand). This avoids the
+        // 404 round-trip entirely.
+        if (routeState.willFallback && fallbackTarget) {
+          if (fallbackTarget.kind === "group") payload.groupId = fallbackTarget.id;
+          else payload.jackpotId = fallbackTarget.id;
+        }
 
         const authHeaders: Record<string, string> = {};
         if (authMode === "authorized") {
@@ -719,13 +726,13 @@ function SandboxDemoPage() {
           authHeaders["Authorization"] = `Bearer rogue-${rogue}`;
         }
 
-        const res = await fetch("/api/v1/event/bet", {
+        let res = await fetch("/api/v1/event/bet", {
           method: "POST",
           headers: { ...headers(), ...authHeaders },
           body: JSON.stringify(payload),
         });
 
-        const json = (await res.json().catch(() => ({}))) as {
+        let json = (await res.json().catch(() => ({}))) as {
           contribution?: { pool: number; seed: number; house: number };
           totalContribution?: number;
           perJackpot?: PerJackpotEntry[];
@@ -745,6 +752,54 @@ function SandboxDemoPage() {
             cappedDelta?: number;
           } | null;
         };
+
+        // Server-side auto-fallback: if the dynamic gameId → group resolver
+        // can't find an active routed group, retry once with the explicit
+        // fallback target so the spin always visually resolves.
+        const noActiveGroup =
+          res.status === 404 &&
+          typeof (json.error || json.message) === "string" &&
+          /NO_ACTIVE_GROUP_FOR_GAME/.test((json.error || json.message)!);
+        if (noActiveGroup && fallbackTarget && payload.groupId == null && payload.jackpotId == null) {
+          if (fallbackTarget.kind === "group") payload.groupId = fallbackTarget.id;
+          else payload.jackpotId = fallbackTarget.id;
+          // Use a fresh transactionId so the server doesn't replay-cache the 404.
+          payload.transactionId =
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `txn-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+          setTxnId(String(payload.transactionId));
+          res = await fetch("/api/v1/event/bet", {
+            method: "POST",
+            headers: { ...headers(), ...authHeaders },
+            body: JSON.stringify(payload),
+          });
+          json = (await res.json().catch(() => ({}))) as typeof json;
+          if (res.ok) {
+            setFallbackUsed({
+              reason: `NO_ACTIVE_GROUP_FOR_GAME · gameId="${payload.gameId}"`,
+              targetKind: fallbackTarget.kind,
+              targetId: fallbackTarget.id,
+              targetName: fallbackTarget.name,
+              at: new Date().toISOString(),
+            });
+            toast.warning("Fallback routing engaged", {
+              description: `No active group mapped to "${payload.gameId}". Spin resolved against ${fallbackTarget.kind} "${fallbackTarget.name}" instead.`,
+            });
+          }
+        } else if (res.ok && payload.groupId == null && payload.jackpotId == null) {
+          // Server-side routing accepted the gameId — clear any stale warning.
+          setFallbackUsed(null);
+        } else if (res.ok && (payload.groupId != null || payload.jackpotId != null) && routeState.willFallback) {
+          // We sent the explicit target up-front; record the diagnostic.
+          setFallbackUsed({
+            reason: `no active jackpot_group on brand ${brandId} · gameId="${payload.gameId}"`,
+            targetKind: fallbackTarget!.kind,
+            targetId: fallbackTarget!.id,
+            targetName: fallbackTarget!.name,
+            at: new Date().toISOString(),
+          });
+        }
 
         if (!res.ok) {
           setLastHandshake({
