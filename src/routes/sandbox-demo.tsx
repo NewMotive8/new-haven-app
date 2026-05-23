@@ -1051,39 +1051,7 @@ function SandboxDemoPage() {
 
                 {/* Body: carousel track */}
                 <div id="jooba-widget-body" className="jooba-widget-body">
-                  {celebrating ? (
-                    <div className="jooba-celebration">
-                      <div
-                        className="jooba-win-message"
-                        dangerouslySetInnerHTML={{ __html: texts.winMessage }}
-                      />
-                      {lastCommunity && (
-                        <div className="mt-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-400/40 text-left text-xs text-emerald-100 max-w-[320px] mx-auto space-y-1">
-                          <div className="inline-block px-2 py-0.5 rounded-full bg-emerald-500 text-emerald-950 font-bold tracking-wider text-[10px] uppercase">
-                            Community Payout Triggered
-                          </div>
-                          <div>
-                            Triggering Winner Payout: <strong>{fmt(lastCommunity.triggeringPayout)}</strong>
-                          </div>
-                          <div>
-                            Community Split: <strong>{fmt(lastCommunity.communityPool)}</strong> distributed among{" "}
-                            <strong>{lastCommunity.communitySize}</strong> active community players{" "}
-                            (<strong>{fmt(lastCommunity.communityMemberPayOut)}</strong> each).
-                          </div>
-                          {lastCommunity.cappedDelta > 0 && (
-                            <div className="text-amber-300">
-                              Per-member cap applied — delta {fmt(lastCommunity.cappedDelta)} returned to house.
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      <div className="jooba-confetti">
-                        {Array.from({ length: 60 }).map((_, i) => (
-                          <span key={i} style={{ ["--i" as never]: i }} />
-                        ))}
-                      </div>
-                    </div>
-                  ) : displayPools.length === 0 ? (
+                  {displayPools.length === 0 ? (
                     <div className="jooba-info-label">Awaiting jackpot…</div>
                   ) : (
                     <>
