@@ -822,6 +822,12 @@ function SandboxDemoPage() {
               if (typeof wjid === "number" && stats.perJackpot[wjid]) {
                 stats.perJackpot[wjid].hits++;
               }
+              if (!celebrationLockedRef.current) {
+                const jpName =
+                  (typeof wjid === "number" && stats.perJackpot[wjid]?.jackpotName) ||
+                  pools.find((p) => p.id === wjid)?.name;
+                triggerCelebration({ jackpotName: jpName });
+              }
             }
           } else {
             stats.blocked++;
