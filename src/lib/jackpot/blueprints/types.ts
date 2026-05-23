@@ -28,6 +28,8 @@ export interface BlueprintMeta {
   name: string;
   tier: TrafficTier;
   vibe: Vibe;
+  /** Funding model — drives badge styling and wizard defaults. */
+  fundingType: FundingType;
   objective: string;
   targetGameTypes: string[];
 }
