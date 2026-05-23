@@ -3,10 +3,10 @@
  *
  * Accepts a fully structured server-to-server transaction payload, applies
  * an in-memory idempotency (deduplication) filter keyed by `transactionId`,
- * and optionally consumes a caller-supplied certified RNG float
- * (`systemRngValue`) instead of the local PRNG when evaluating jackpot
- * win triggers. When a campaign has community payout enabled, the win
- * branch routes through the existing `applyCommunityPayout` helper.
+ * and ALWAYS evaluates jackpot win triggers using a server-side
+ * cryptographically secure RNG (Web Crypto). Client-supplied RNG overrides
+ * are forbidden (GLI-12 compliance). When a campaign has community payout
+ * enabled, the win branch routes through `applyCommunityPayout`.
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
@@ -35,7 +35,9 @@ const BetEventSchema = z
     wager: z.number().positive().finite(),
     gameId: z.string().min(1).max(128),
     playerSegments: z.array(z.string().min(1).max(64)).max(64).default([]),
-    systemRngValue: z.number().min(0).max(1).optional(),
+    // systemRngValue removed (GLI-12): server-side crypto RNG is the
+    // single source of truth for win-trigger evaluation. Client overrides
+    // are no longer accepted.
     // Optional back-compat / routing hints (mutually exclusive)
     jackpotId: z.number().int().optional(),
     groupId: z.number().int().positive().optional(),
@@ -243,12 +245,10 @@ export const Route = createFileRoute("/api/v1/event/bet")({
         }
 
         const wager = body.wager;
-        const rngSource: "external" | "local" =
-          typeof body.systemRngValue === "number" ? "external" : "local";
-        const rng: () => number =
-          typeof body.systemRngValue === "number"
-            ? () => body.systemRngValue!
-            : secureRandomFloat;
+        // GLI-12: secure server-side RNG only. `rngSource` retained as a
+        // constant for back-compat with downstream audit consumers.
+        const rngSource: "local" = "local";
+        const rng: () => number = secureRandomFloat;
 
         // -----------------------------------------------------------------
         // Phase 2 — relational jackpot-group fan-out branch.
@@ -379,11 +379,17 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             win,
           };
 
-          // Atomic DB write — pool deltas + transaction row in one tx.
+          // Atomic DB write — pool deltas + win settlement + transaction row
+          // committed together inside `apply_group_bet` (SELECT ... FOR UPDATE
+          // row-lock + clamp + decrement + ledger insert).
           const poolDeltas = perJackpot.map((e) => ({
             jackpotId: e.jackpotId,
             delta: e.contribution.pool,
           }));
+          const winJackpotId =
+            win && typeof win.jackpotId === "number" ? win.jackpotId : null;
+          const winAmountRequested =
+            win && typeof win.amount === "number" ? win.amount : 0;
           let isReplay = false;
           try {
             const rec = await recordGroupTransaction({
@@ -393,6 +399,9 @@ export const Route = createFileRoute("/api/v1/event/bet")({
               totals,
               response,
               poolDeltas,
+              winJackpotId,
+              winAmount: winAmountRequested,
+              playerId: body.playerId ?? null,
             });
             isReplay = rec.isReplay;
             if (isReplay && rec.row?.response) {
@@ -403,6 +412,14 @@ export const Route = createFileRoute("/api/v1/event/bet")({
                 },
                 { headers: { "X-Idempotent-Replay": "true" } },
               );
+            }
+            // GLI-12: trust the DB-clamped payout as the authoritative
+            // win amount in the HTTP response (the pool may have been
+            // smaller than the requested winAmount).
+            if (win && rec.win && typeof rec.win.amount !== "undefined") {
+              const settledAmount = Number(rec.win.amount) || 0;
+              win.amount = settledAmount;
+              (response as Record<string, unknown>).win = win;
             }
           } catch (e: any) {
             return errorJson(

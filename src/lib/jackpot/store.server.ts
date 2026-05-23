@@ -4,6 +4,45 @@ import type { JackpotDTO, JackpotConfigDTO, TopupDTO } from "./types";
 // PostgreSQL-backed store. Replaces the previous in-memory mock.
 // All functions are async; callers must `await`.
 
+/**
+ * Append a single immutable audit entry. Failures are surfaced so the caller
+ * decides whether to fail the whole administrative action; we never silently
+ * swallow audit-write errors (GLI-12).
+ */
+export interface AdminAuditContext {
+  actorUserId?: string | null;
+  brandId?: number | null;
+  requestId?: string | null;
+  ip?: string | null;
+}
+
+export async function writeAdminAudit(entry: {
+  action: string;
+  targetType: string;
+  targetId: string | number | null;
+  before?: unknown;
+  after?: unknown;
+  delta?: unknown;
+  context?: AdminAuditContext;
+}): Promise<void> {
+  const ctx = entry.context ?? {};
+  const { error } = await supabaseAdmin
+    .from("admin_audit_log")
+    .insert({
+      actor_user_id: ctx.actorUserId ?? null,
+      brand_id: ctx.brandId ?? null,
+      action: entry.action,
+      target_type: entry.targetType,
+      target_id: entry.targetId == null ? null : String(entry.targetId),
+      before_state: (entry.before ?? null) as any,
+      after_state: (entry.after ?? null) as any,
+      delta: (entry.delta ?? null) as any,
+      request_id: ctx.requestId ?? null,
+      ip: ctx.ip ?? null,
+    });
+  if (error) throw new Error(`admin_audit_log insert failed: ${error.message}`);
+}
+
 type JackpotRow = {
   id: number;
   name: string;
@@ -211,6 +250,7 @@ export async function updateJackpot(
   brandId: string,
   id: number,
   dto: Partial<JackpotDTO> & { triggerProbability?: number },
+  auditCtx?: AdminAuditContext,
 ): Promise<JackpotDTO | undefined> {
   const existing = await getJackpot(brandId, id);
   if (!existing) return undefined;
@@ -250,15 +290,40 @@ export async function updateJackpot(
     if (error) throw new Error(error.message);
   }
 
-  return getJackpot(brandId, id);
+  const after = await getJackpot(brandId, id);
+
+  // GLI-12: append-only audit row for every successful admin mutation.
+  await writeAdminAudit({
+    action: "jackpot_update",
+    targetType: "jackpot",
+    targetId: id,
+    before: existing,
+    after,
+    delta: dto,
+    context: { brandId: Number(brandId), ...(auditCtx ?? {}) },
+  });
+
+  return after;
 }
 
-export async function deleteJackpot(brandId: string, id: number): Promise<boolean> {
+export async function deleteJackpot(
+  brandId: string,
+  id: number,
+  auditCtx?: AdminAuditContext,
+): Promise<boolean> {
   const existing = await getJackpot(brandId, id);
   if (!existing) return false;
   await assertJackpotEditable(brandId, id);
   const { error } = await supabaseAdmin.from("jackpots").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  await writeAdminAudit({
+    action: "jackpot_delete",
+    targetType: "jackpot",
+    targetId: id,
+    before: existing,
+    after: null,
+    context: { brandId: Number(brandId), ...(auditCtx ?? {}) },
+  });
   return true;
 }
 
@@ -267,18 +332,19 @@ export async function setEnabled(
   brandId: string,
   id: number,
   enabled: boolean,
+  auditCtx?: AdminAuditContext,
 ): Promise<JackpotDTO | undefined> {
-  return updateJackpot(brandId, id, { enabled });
+  return updateJackpot(brandId, id, { enabled }, auditCtx);
 }
 
 export async function applyTopup(
   brandId: string,
   dto: TopupDTO,
+  auditCtx?: AdminAuditContext,
 ): Promise<JackpotDTO | undefined> {
   // Concurrency-safe: existence check is followed by an atomic SQL
-  // increment (`apply_jackpot_topup` Postgres function) instead of a
-  // JS read-modify-write. Two simultaneous top-ups can no longer
-  // clobber each other's balance.
+  // increment (`apply_jackpot_topup` Postgres function) which also writes
+  // the immutable audit row in the same transaction.
   const existing = await getJackpot(brandId, dto.jackpotId);
   if (!existing) return undefined;
   const amount = Number(dto.amount) || 0;
@@ -286,6 +352,9 @@ export async function applyTopup(
     p_jackpot_id: dto.jackpotId,
     p_amount: amount,
     p_is_seed: !!dto.isSeed,
+    p_actor_user_id: auditCtx?.actorUserId ?? null,
+    p_brand_id: Number(brandId),
+    p_request_id: auditCtx?.requestId ?? dto.backofficeUser ?? null,
   });
   if (error) throw new Error(error.message);
   return getJackpot(brandId, dto.jackpotId);
@@ -872,6 +941,11 @@ export async function updateGroupProfile(
 
 /**
  * Persist a group bet via the atomic `apply_group_bet` Postgres function.
+ * The function runs pool-delta application, win settlement (SELECT ... FOR
+ * UPDATE row-lock + clamp + decrement + `jackpot_wins` insert) and the
+ * `jackpot_transactions` row write inside a single SQL transaction, and
+ * returns `{ transaction, win }` as JSON.
+ *
  * On duplicate-transaction (unique-violation), re-reads the existing row and
  * returns it with `isReplay = true` so the caller can emit an idempotent
  * replay response.
@@ -883,7 +957,14 @@ export async function recordGroupTransaction(payload: {
   totals: { pool: number; seed: number; house: number };
   response: Record<string, unknown>;
   poolDeltas: Array<{ jackpotId: number; delta: number }>;
-}): Promise<{ row: any; isReplay: boolean }> {
+  winJackpotId?: number | null;
+  winAmount?: number;
+  playerId?: string | null;
+}): Promise<{
+  row: any;
+  isReplay: boolean;
+  win: { id: number; amount: number; jackpotId: number; status: string } | null;
+}> {
   const { data, error } = await supabaseAdmin.rpc("apply_group_bet" as any, {
     p_payload: payload as any,
   });
@@ -897,11 +978,28 @@ export async function recordGroupTransaction(payload: {
         .eq("transaction_id", payload.transactionId)
         .maybeSingle();
       if (rErr) throw new Error(rErr.message);
-      return { row: existing, isReplay: true };
+      return { row: existing, isReplay: true, win: null };
     }
     throw new Error(error.message);
   }
-  return { row: data, isReplay: false };
+  const envelope = (data ?? {}) as {
+    transaction?: any;
+    win?: {
+      id: number;
+      amount: number | string;
+      jackpot_id: number;
+      status: string;
+    } | null;
+  };
+  const winRow = envelope.win
+    ? {
+        id: Number(envelope.win.id),
+        amount: Number(envelope.win.amount),
+        jackpotId: Number(envelope.win.jackpot_id),
+        status: String(envelope.win.status),
+      }
+    : null;
+  return { row: envelope.transaction ?? null, isReplay: false, win: winRow };
 }
 
 /**
