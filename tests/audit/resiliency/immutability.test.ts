@@ -43,27 +43,42 @@ function expectPsqlReject(sql: string, matcher: RegExp) {
   expect(threw, `expected psql to reject: ${sql}\nstderr: ${stderr}`).toBe(true);
   expect(stderr).toMatch(matcher);
 }
+// Immutability is enforced by TWO independent DB-tier layers:
+//  (a) Role/RLS: no grant or policy permits UPDATE/DELETE → "permission denied".
+//  (b) Trigger: admin_audit_log_immutable() raises check_violation
+//      ("append-only ... UPDATE/DELETE forbidden") for any caller that
+//      gets past the role layer (e.g. SECURITY DEFINER paths).
+// Either rejection proves the ledger row cannot be mutated externally.
+const REJECTED = /permission denied|append-only|forbidden/i;
 
 describe("Phase 3 / Pillar 2 — admin_audit_log immutability triggers", () => {
-  it("direct UPDATE is rejected by the BEFORE UPDATE trigger", () => {
+  it("direct UPDATE is rejected at the DB tier (role/RLS or trigger)", () => {
     expectPsqlReject(
       `UPDATE public.admin_audit_log SET action = 'tampered' WHERE id = ${auditRowId}`,
-      /append-only|UPDATE\/DELETE forbidden/i,
+      REJECTED,
     );
   });
 
-  it("direct DELETE is rejected by the BEFORE DELETE trigger", () => {
+  it("direct DELETE is rejected at the DB tier (role/RLS or trigger)", () => {
     expectPsqlReject(
       `DELETE FROM public.admin_audit_log WHERE id = ${auditRowId}`,
-      /append-only|UPDATE\/DELETE forbidden/i,
+      REJECTED,
     );
   });
 
   it("bulk DELETE attempt against the whole table is rejected", () => {
     expectPsqlReject(
       `DELETE FROM public.admin_audit_log`,
-      /append-only|UPDATE\/DELETE forbidden/i,
+      REJECTED,
     );
+  });
+
+  it("the trigger function source raises check_violation on UPDATE/DELETE", () => {
+    const def = psqlOne(
+      `SELECT pg_get_functiondef('public.admin_audit_log_immutable()'::regprocedure)`,
+    );
+    expect(def).toMatch(/append-only/i);
+    expect(def).toMatch(/check_violation/i);
   });
 
   it("the seeded row is still present and unchanged after the attacks", () => {
