@@ -647,6 +647,7 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             rngSource,
             contribution: totals,
             totalContribution,
+            attributes,
             perJackpot: perJackpot.map((e) => ({
               jackpotId: e.jackpotId,
               jackpotName: e.jackpotName,
@@ -656,6 +657,7 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             })),
             win,
           });
+
           rememberTransaction(body.transactionId, response);
           return json(response);
         }
