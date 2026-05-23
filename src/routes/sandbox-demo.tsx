@@ -567,14 +567,20 @@ function SandboxDemoPage() {
   // received the contribution so the user sees the number move.
   useEffect(() => {
     if (!fallbackUsed) return;
+    const activeTile = displayPools[activeIndex];
+    const keepCurrentFocus =
+      activeTile != null &&
+      (activeTile.kind === "single"
+        ? !!optIns[activeTile.jackpot.id]
+        : activeTile.tiers.some((t) => !!optIns[t.id]));
+    if (keepCurrentFocus) return;
     const wantedId =
       fallbackUsed.targetKind === "group"
         ? `g${fallbackUsed.targetId}`
         : `j${fallbackUsed.targetId}`;
     const idx = displayPools.findIndex((dp) => dp.id === wantedId);
     if (idx >= 0) setActiveIndex(idx);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fallbackUsed]);
+  }, [fallbackUsed, displayPools, activeIndex, optIns]);
 
   const activeGroupsList = useMemo(
     () => groups.filter((g) => g.status === "active"),
@@ -942,12 +948,17 @@ function SandboxDemoPage() {
               : dp.tiers.some((t) => t.id === target);
 
           const activeTile = displayPools[activeIndex];
+          const activeTileLocked =
+            activeTile != null &&
+            (activeTile.kind === "single"
+              ? !!optIns[activeTile.jackpot.id]
+              : activeTile.tiers.some((t) => !!optIns[t.id]));
           const activeBumped =
             activeTile != null &&
             bumped.some((b) => tileMatches(activeTile, b.id));
 
           let foundIdx = -1;
-          if (!activeBumped) {
+          if (!activeBumped && !activeTileLocked) {
             const optedInBump = bumped.find((b) => optIns[b.id]);
             const pick = optedInBump ?? bumped[0];
             foundIdx = displayPools.findIndex((dp) => tileMatches(dp, pick.id));
