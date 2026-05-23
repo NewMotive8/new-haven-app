@@ -1307,7 +1307,7 @@ function SandboxDemoPage() {
           <div className="text-xs uppercase tracking-widest text-emerald-400 mb-1">
             Hidden · Phase C
           </div>
-          <h1 className="text-3xl font-bold">Sandbox Demo — Live Widget Proof</h1>
+          <h1 className="text-3xl font-bold">Sandbox Demo — Live Widget Test</h1>
           <p className="text-slate-400 text-sm mt-1">
             Native player widget driven by real <code>/api/v1/jackpots</code> polling and the new
             multi-campaign <code>/api/v1/event/bet</code> router.
