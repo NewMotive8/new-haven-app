@@ -283,6 +283,7 @@ function SandboxDemoPage() {
     | { status: "blocked"; code?: string; message?: string; httpStatus: number }
     | null
   >(null);
+  const [probingHandshake, setProbingHandshake] = useState(false);
   // ── Phase 3: Compliance audit ledger (polled, newest-first) ──────────────
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [auditCap, setAuditCap] = useState<number>(200);
