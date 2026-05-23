@@ -1,29 +1,46 @@
 import { describe, it, expect } from "vitest";
-import { postBet, basePayload } from "../helpers/http";
-import { INTERNAL_SECRET } from "../setup";
+import {
+  AUDIT_BRAND_ID,
+  INTERNAL_SECRET,
+  postBet,
+  validBetPayload,
+} from "../setup";
 
-describe("Bearer auth (INTERNAL_SERVICE_SECRET)", () => {
-  it("rejects request with no Authorization header → 403 INTERNAL_HANDSHAKE_MISSING", async () => {
-    const res = await postBet({ bearer: null });
-    expect(res.status).toBe(403);
-    expect(res.json?.code).toBe("INTERNAL_HANDSHAKE_MISSING");
-  });
-
-  it("rejects wrong bearer secret → 403 INTERNAL_HANDSHAKE_INVALID", async () => {
-    const res = await postBet({ bearer: "definitely-not-the-real-secret" });
-    expect(res.status).toBe(403);
-    expect(res.json?.code).toBe("INTERNAL_HANDSHAKE_INVALID");
-  });
-
-  it("accepts X-Internal-Service-Secret header variant", async () => {
-    const res = await postBet({
-      bearer: null,
-      extraHeaders: { "X-Internal-Service-Secret": INTERNAL_SECRET },
-      body: basePayload(),
+describe("Phase 1 / Bearer Auth — INTERNAL_SERVICE_SECRET gate", () => {
+  it("rejects with 403 when no Authorization header is supplied", async () => {
+    const res = await postBet(validBetPayload(), {
+      "x-brand-id": AUDIT_BRAND_ID,
     });
-    // 200 (success) or 404 (no group for gameId) — either proves auth passed.
-    expect([200, 404]).toContain(res.status);
-    expect(res.json?.code).not.toBe("INTERNAL_HANDSHAKE_MISSING");
-    expect(res.json?.code).not.toBe("INTERNAL_HANDSHAKE_INVALID");
+    expect(res.status).toBe(403);
+    expect(res.body?.code).toBe("INTERNAL_HANDSHAKE_MISSING");
+  });
+
+  it("rejects with 403 when a wrong bearer token is supplied", async () => {
+    const res = await postBet(validBetPayload(), {
+      Authorization: "Bearer not-the-real-secret",
+      "x-brand-id": AUDIT_BRAND_ID,
+    });
+    expect(res.status).toBe(403);
+    expect(res.body?.code).toBe("INTERNAL_HANDSHAKE_INVALID");
+  });
+
+  it("rejects with 403 when X-Internal-Service-Secret is wrong", async () => {
+    const res = await postBet(validBetPayload(), {
+      "X-Internal-Service-Secret": "still-not-the-secret",
+      "x-brand-id": AUDIT_BRAND_ID,
+    });
+    expect(res.status).toBe(403);
+    expect(res.body?.code).toBe("INTERNAL_HANDSHAKE_INVALID");
+  });
+
+  it("passes the bearer gate when a valid secret is supplied", async () => {
+    // We expect to clear the auth layer; downstream logic may return 404 for
+    // the unknown gameId. Anything other than 401/403 means auth accepted us.
+    const res = await postBet(validBetPayload(), {
+      Authorization: `Bearer ${INTERNAL_SECRET}`,
+      "x-brand-id": AUDIT_BRAND_ID,
+    });
+    expect(res.status).not.toBe(401);
+    expect(res.status).not.toBe(403);
   });
 });

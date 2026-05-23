@@ -1,19 +1,22 @@
 import { defineConfig } from "vitest/config";
-import tsconfigPaths from "vite-tsconfig-paths";
+import path from "node:path";
 
 export default defineConfig({
-  plugins: [tsconfigPaths()],
+  resolve: {
+    alias: { "@": path.resolve(__dirname, "./src") },
+  },
   test: {
     include: ["tests/audit/**/*.test.ts"],
-    environment: "node",
-    fileParallelism: false,
-    sequence: { concurrent: false },
+    setupFiles: ["tests/audit/setup.ts"],
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
+    // Serial execution — probes share an in-memory idempotency cache on the
+    // server and inspect shared brand-scoped state. Avoid parallel collision.
+    pool: "threads",
     poolOptions: {
       threads: { singleThread: true, minThreads: 1, maxThreads: 1 },
     },
-    hookTimeout: 30_000,
-    testTimeout: 30_000,
-    setupFiles: ["tests/audit/setup.ts"],
+    fileParallelism: false,
     reporters: ["verbose"],
   },
 });
