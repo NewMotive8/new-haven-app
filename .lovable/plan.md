@@ -1,92 +1,48 @@
-## Goal
+## Problem
 
-Extend `POST /api/v1/event/bet` and the persisted ledger to accept an open-ended `attributes` object for **any vertical** — sportsbook (betType, sport, league, matchId, selections), casino (gameCategory, provider, gameSubtype, rtp), and channel/context (device, platform, clientType: native_app / desktop / mobile_web / tablet, geo, sessionId, VIP tier, etc.). One generic bag, no per-vertical hardcoding.
+On `/sandbox-demo`, when you spin:
 
-## 1. API contract — additive, fully back-compat
+- **Allocation Tracker** (Σ opted-in pools) updates — because it's a pure client-side cumulative counter (`bumpTracker`).
+- **Jackpot tile balance** never moves — even though the server is actually contributing to a pool.
 
-Extend `BetEventSchema` in `src/routes/api/v1/event/bet.ts` with one new optional field:
+## Root cause
 
-- `attributes`: `Record<string, JSON>` — arbitrary nested object of strings, numbers, booleans, arrays, or nested objects. Optional. Existing payloads remain valid.
+In `handleSpin` (multi-pool path) around line 827–832 of `src/routes/sandbox-demo.tsx`, the client filters the server's `perJackpot` response to **opted-in pools only** before updating both the tracker AND the tile displays:
 
-Validation (defense-in-depth, not business rules):
-- Must be a plain JSON object (reject arrays, primitives, `null`).
-- Serialized size ≤ 8 KB.
-- Max nesting depth 6, max 200 keys total (recursive count).
-- Key regex: `^[A-Za-z0-9_.:-]{1,64}$`.
-- Leaf scalars: string ≤ 1024 chars, finite numbers, booleans. Arrays ≤ 100 items.
-
-Implemented as a `zJsonAttributes` Zod helper (`z.record(z.string(), z.unknown())` + `superRefine` walking depth/size/keys/leaves) so callers get precise field paths on rejection.
-
-Existing first-class fields (`gameId`, `playerId`, `currency`, `playerSegments`, `timestamp`, routing hints) stay strict — they're indexed/queried. Everything else — sports tags, casino tags, device, platform — lives inside `attributes`.
-
-Example payloads the gateway must accept:
-
-```json
-// Casino
-{ "transactionId": "...", "wagerAmount": 1, "currency": "EUR", "gameId": "g-42",
-  "attributes": { "vertical": "casino", "gameCategory": "Slots",
-    "provider": "Pragmatic", "device": "mobile_web", "platform": "iOS",
-    "vipTier": "GOLD" } }
-
-// Sportsbook
-{ "transactionId": "...", "wagerAmount": 5, "currency": "EUR", "gameId": "sb-soccer",
-  "attributes": { "vertical": "sports", "betType": "LIVE", "sport": "SOCCER",
-    "league": "UEFA_CL", "matchId": "m-9931",
-    "selections": [{ "marketId": "1x2", "odds": 2.15, "pick": "HOME" }],
-    "device": "native_app", "platform": "Android" } }
+```ts
+for (const e of per) {
+  if (!optIns[e.jackpotId]) continue;   // <-- filter
+  aggPool += e.contribution.pool;
+  ...
+  poolDeltas[e.jackpotId] = ... ;       // tile display delta
+}
 ```
 
-## 2. Persistence — JSONB column on the ledger
+The visible tile (`activeDisplay.balance`) reads from `poolDisplays[id]`. If the routed/fallback pool isn't in your opt-in set (or the visible tile shows a different pool than the one the server routed to), `poolDisplays` never changes for that tile, so the number stays frozen.
 
-Migration adds a nullable `attributes JSONB` column to `public.jackpot_transactions`:
+Meanwhile the 2s poll (`/api/v1/jackpots`) re-syncs `poolDisplays` from `jp.poolBalance` — but only if the server's canonical balance actually changed. If the bet endpoint contributes only to the routed pool (and the user is viewing a different one), the visible pool's server balance never moves either, so even the poll can't rescue the tile.
 
-- `ALTER TABLE public.jackpot_transactions ADD COLUMN attributes JSONB;`
-- Partial GIN index: `CREATE INDEX IF NOT EXISTS idx_jackpot_transactions_attributes ON public.jackpot_transactions USING GIN (attributes) WHERE attributes IS NOT NULL;`
-- No backfill (column nullable, historical rows = NULL).
+The Allocation Tracker keeps moving because at least one opted-in pool is in `perJackpot`, so `aggPool > 0` and `bumpTracker` increments.
 
-Update `apply_group_bet(p_payload jsonb)` to read `p_payload->'attributes'` and write it into the `INSERT INTO public.jackpot_transactions` row (one extra column). Everything else untouched. RLS unchanged.
+## Fix
 
-## 3. Route plumbing
+Two surgical changes in `src/routes/sandbox-demo.tsx`, both UI-layer only — no server logic touched:
 
-In `src/routes/api/v1/event/bet.ts`:
-- After Zod parse, pass `attributes: body.attributes ?? null` into the RPC payload built by `recordGroupTransaction` / `apply_group_bet`.
-- Echo `attributes` back in the response envelope (next to `currency`, `operatorTimestamp`).
-- Append `attributes` to the in-memory `AuditEntry` shape so `/api/v1/event/bet/ledger` exposes it.
+1. **Always reflect server contributions on every tile.**
+   Split the loop: build `poolDeltas` for **all** `perJackpot` entries (so every contributing tile animates), but keep the Σ-opted-in math (`aggPool`/`aggSeed`/`aggHouse` + `bumpTracker`) filtered to opted-in pools so the Allocation Tracker semantics stay intact.
 
-No changes to RNG, idempotency, routing resolution, HMAC, or `computeMultiCampaignLedger`. `attributes` is pure passthrough metadata — never influences math or jackpot selection.
-
-## 4. Tests
-
-Add `tests/audit/contract/attributes.test.ts`:
-
-1. **Casino payload** — `gameCategory`, `provider`, `device: "mobile_web"`, `platform: "iOS"`, `vipTier` → 200, response echoes, ledger persists verbatim.
-2. **Sportsbook payload** — `betType`, `sport`, `league`, `matchId`, nested `selections` array → 200, same round-trip check.
-3. **Channel-only payload** — `attributes: { device: "native_app", platform: "Android", sessionId: "..." }` → 200.
-4. **No attributes** — back-compat smoke test, response shows `attributes: null`.
-5. **Oversized** (>8 KB) → 400, error path includes `attributes`.
-6. **Wrong type** (`attributes: [1,2,3]`, `attributes: "foo"`) → 400.
-7. **Forbidden key** (`"bad key!": 1`) → 400 with offending path.
-8. **Idempotent replay** of an attributes-bearing tx returns the original `attributes` from the DB (proves persistence, not just echo).
-
-Extend `validBetPayload()` in `tests/audit/setup.ts` to optionally take an `attributes` override.
-
-## 5. Files touched
-
-- `supabase/migrations/<new>.sql` — add JSONB column, GIN index, update `apply_group_bet` to persist `attributes`.
-- `src/routes/api/v1/event/bet.ts` — schema extension, response echo, audit entry field.
-- `src/lib/jackpot/store.server.ts` — pass `attributes` through `recordGroupTransaction` payload; include in `findExistingTransaction` return.
-- `tests/audit/setup.ts` — payload helper.
-- `tests/audit/contract/attributes.test.ts` — new suite.
-
-## 6. Out of scope
-
-- No per-vertical schemas, no enums for `betType` / `gameCategory` / `device` — that's the whole point of the generic bag.
-- No changes to jackpot math, RNG, HMAC, or group routing.
-- No new tables; no changes to `jackpot_wins`, `admin_audit_log`, or `jackpot_pools`.
-- Admin UI querying/filtering by `attributes` is a follow-up (GIN index is in place to support it).
+2. **Snap the carousel to the routed tile when fallback fires.**
+   When `routeState.willFallback` is true and `fallbackTarget` is used, set `activeIndex` to the `displayPools` entry matching that target after the spin resolves. This guarantees the user sees the tile that actually grew (covers the case where they're parked on a different pool).
 
 ## Verification
 
-- Existing `bun run test:audit` matrix stays green (37 tests).
-- New `attributes.test.ts` adds 8 passing cases covering both casino and sportsbook payloads.
-- `psql` spot-check: `SELECT transaction_id, attributes FROM jackpot_transactions ORDER BY processed_at DESC LIMIT 5;` shows JSONB round-tripped exactly.
+- Spin with no opt-ins → tile of routed/fallback pool ticks up, tracker stays at 0 (correct).
+- Spin with one opt-in matching the visible tile → tile and tracker both tick up by the same `pool` amount.
+- Spin with an opt-in on a different pool than the visible tile → both tiles update (visible one and the opted-in one), tracker reflects only the opted-in slice.
+- 2s poll continues to reconcile to canonical server balances; no double-counting because `batchRunningRef` guard and existing `persistPoolGrowth` paths are unchanged.
+
+## Files touched
+
+- `src/routes/sandbox-demo.tsx` (handleSpin multi-pool branch around lines 820–855; small `useEffect` to retarget `activeIndex` after fallback)
+
+No changes to server functions, bet endpoint, group resolver, or route tree.
