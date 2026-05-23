@@ -1402,13 +1402,44 @@ function SandboxDemoPage() {
                   type="password"
                   value={internalSecret}
                   onChange={(e) => setInternalSecret(e.target.value)}
+                  onBlur={(e) => {
+                    const trimmed = e.target.value.replace(/^\s+|\s+$/g, "");
+                    if (trimmed !== e.target.value) setInternalSecret(trimmed);
+                  }}
                   placeholder="paste INTERNAL_SERVICE_SECRET to test the authorized path"
                   className="mt-1 bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs font-mono"
                 />
+                <div className="flex items-center justify-between gap-2 mt-1">
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    {secretFingerprint
+                      ? <>stored: {secretFingerprint.length} chars · ends &ldquo;…{secretFingerprint.last4}&rdquo;</>
+                      : <>stored: (empty)</>}
+                    {secretFingerprint?.hasWhitespace ? (
+                      <span className="ml-2 text-amber-400">⚠ contains whitespace</span>
+                    ) : null}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={probeHandshake}
+                    disabled={probingHandshake || (authMode === "authorized" && !internalSecret)}
+                    className="text-[10px] uppercase tracking-wider px-2 py-1 rounded border border-slate-700 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {probingHandshake ? "probing…" : "Test handshake"}
+                  </button>
+                </div>
                 <span className="text-[10px] text-slate-500">
                   Sent as <code>Authorization: Bearer &lt;secret&gt;</code>. Stored in
                   component state only — never logged.
                 </span>
+                {lastHandshake?.status === "blocked" &&
+                lastHandshake.code === "INTERNAL_HANDSHAKE_INVALID" ? (
+                  <div className="mt-2 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-200">
+                    <strong className="font-semibold">Stale secret detected.</strong>{" "}
+                    The gateway rejected this value. Copy{" "}
+                    <code>INTERNAL_SERVICE_SECRET</code> from Lovable Cloud → Secrets and re-paste —
+                    watch for trailing whitespace, newlines, or smart-quote substitution.
+                  </div>
+                ) : null}
               </div>
             </div>
               <div className="flex flex-col gap-1">
