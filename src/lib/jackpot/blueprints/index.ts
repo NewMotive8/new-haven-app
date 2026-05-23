@@ -6,5 +6,6 @@ export type {
   BlueprintMeta,
   TrafficTier,
   Vibe,
+  FundingType,
 } from "./types";
 export { BLUEPRINTS } from "./templates";
