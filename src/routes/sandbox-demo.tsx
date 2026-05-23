@@ -679,10 +679,12 @@ function SandboxDemoPage() {
             communityMemberPayOut: json.win.communityMemberPayOut ?? 0,
             cappedDelta: json.win.cappedDelta ?? 0,
           });
-          triggerCelebration();
+          const winJpName = pools.find((p) => p.id === json.win!.jackpotId)?.name;
+          triggerCelebration({ amount: json.win.triggeringPayout ?? json.win.amount, jackpotName: winJpName });
         } else if (json.win) {
           setLastCommunity(null);
-          triggerCelebration();
+          const winJpName = pools.find((p) => p.id === json.win!.jackpotId)?.name;
+          triggerCelebration({ amount: json.win.amount, jackpotName: winJpName });
         }
       }
     } catch (e) {
