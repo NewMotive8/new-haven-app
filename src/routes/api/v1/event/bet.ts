@@ -586,8 +586,10 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             house: totals.house,
             totalContribution,
             perJackpot,
+            attributes,
             win,
           };
+
 
           // Atomic DB write — pool deltas + win settlement + transaction row
           // committed together inside `apply_group_bet` (SELECT ... FOR UPDATE
