@@ -1105,14 +1105,7 @@ function SandboxDemoPage() {
       if (ids.length === 0) return;
       const snap = { ...pendingDeltas };
       for (const k of ids) delete pendingDeltas[Number(k)];
-      setPoolDisplays((d) => {
-        const n = { ...d };
-        for (const [id, add] of Object.entries(snap)) {
-          const jid = Number(id);
-          n[jid] = (n[jid] ?? 0) + add;
-        }
-        return n;
-      });
+      applyImmediatePoolDisplayDeltas(snap);
     };
 
     const worker = async () => {
