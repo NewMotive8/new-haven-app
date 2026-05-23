@@ -561,6 +561,19 @@ function SandboxDemoPage() {
     at: string;
   }>(null);
 
+  // When auto-fallback fires, snap the carousel to the tile that actually
+  // received the contribution so the user sees the number move.
+  useEffect(() => {
+    if (!fallbackUsed) return;
+    const wantedId =
+      fallbackUsed.targetKind === "group"
+        ? `g${fallbackUsed.targetId}`
+        : `j${fallbackUsed.targetId}`;
+    const idx = displayPools.findIndex((dp) => dp.id === wantedId);
+    if (idx >= 0) setActiveIndex(idx);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fallbackUsed]);
+
   const activeGroupsList = useMemo(
     () => groups.filter((g) => g.status === "active"),
     [groups],
