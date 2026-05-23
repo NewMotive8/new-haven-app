@@ -2,9 +2,10 @@ export const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers":
-    "Content-Type, Authorization, brandId, x-brand-id, X-Requested-With, X-Internal-Service-Secret",
+    "Content-Type, Authorization, brandId, x-brand-id, X-Requested-With, X-Internal-Service-Secret, X-Operator-Signature",
   "Access-Control-Max-Age": "86400",
 } as const;
+
 
 export function json(data: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(data), {
@@ -92,3 +93,83 @@ export function requireInternalSecret(request: Request): Response | null {
   return null;
 }
 
+
+// ---------------------------------------------------------------------------
+// HMAC-SHA256 operator signature verification (optional, brand-scoped).
+//
+// When the caller sets `X-Operator-Signature: <hex>`, we recompute the digest
+// over the raw request body using a per-brand secret read from
+// `process.env.OPERATOR_HMAC_SECRET_<brandId>` (falls back to
+// `OPERATOR_HMAC_SECRET_DEFAULT`). Returns a 403 Response on mismatch / missing
+// secret, or `null` when validation passes or the header is absent.
+// ---------------------------------------------------------------------------
+
+function constantTimeEqualHex(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+function bufToHex(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let out = "";
+  for (let i = 0; i < bytes.length; i++) {
+    out += bytes[i].toString(16).padStart(2, "0");
+  }
+  return out;
+}
+
+export async function verifyOperatorSignature(
+  request: Request,
+  rawBody: string,
+  brandId: string | number,
+): Promise<Response | null> {
+  const provided = request.headers.get("x-operator-signature");
+  if (!provided) return null; // optional — no header, no check
+
+  const perBrand = process.env[`OPERATOR_HMAC_SECRET_${String(brandId)}`];
+  const secret = perBrand || process.env.OPERATOR_HMAC_SECRET_DEFAULT;
+  if (!secret) {
+    return json(
+      {
+        error: "Forbidden",
+        code: "OPERATOR_HMAC_SECRET_NOT_CONFIGURED",
+        message:
+          "Operator signature provided but no HMAC secret is configured for this brand.",
+        status: 403,
+      },
+      { status: 403 },
+    );
+  }
+
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sigBuf = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(rawBody),
+  );
+  const expected = bufToHex(sigBuf);
+  const cleanProvided = provided.toLowerCase().replace(/^sha256=/, "").trim();
+
+  if (!constantTimeEqualHex(cleanProvided, expected)) {
+    return json(
+      {
+        error: "Forbidden",
+        code: "OPERATOR_SIGNATURE_INVALID",
+        message: "X-Operator-Signature did not match the expected HMAC digest.",
+        status: 403,
+      },
+      { status: 403 },
+    );
+  }
+  return null;
+}
