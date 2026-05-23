@@ -295,10 +295,41 @@ function SandboxDemoPage() {
   const [batchProgress, setBatchProgress] = useState(0);
   const cancelRef = useRef(false);
   const batchRunningRef = useRef(false);
+  const localDisplayFloorsRef = useRef<Record<number, number>>({});
 
   const [batchStats, setBatchStats] = useState<BatchStats | null>(null);
   const [showQaSuite, setShowQaSuite] = useState(false);
   const widgetHostRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    localDisplayFloorsRef.current = {};
+    setOptIns({});
+    setPendingOptIn(null);
+  }, [brandId]);
+
+  const applyImmediatePoolDisplayDeltas = useCallback(
+    (deltas: Record<number, number>) => {
+      const entries = Object.entries(deltas).filter(([, add]) => Number.isFinite(add));
+      if (entries.length === 0) return;
+
+      setPoolDisplays((prev) => {
+        const next = { ...prev };
+        for (const [rawId, rawAdd] of entries) {
+          const id = Number(rawId);
+          const add = Number(rawAdd);
+          const base = next[id] ?? pools.find((p) => p.id === id)?.poolBalance ?? 0;
+          const bumped = base + add;
+          next[id] = bumped;
+          localDisplayFloorsRef.current[id] = Math.max(
+            localDisplayFloorsRef.current[id] ?? Number.NEGATIVE_INFINITY,
+            bumped,
+          );
+        }
+        return next;
+      });
+    },
+    [pools],
+  );
 
   // ── Brand id bootstrap ───────────────────────────────────────────────────
   useEffect(() => {
@@ -414,23 +445,19 @@ function SandboxDemoPage() {
         setPoolDisplays((prev) => {
           const next: Record<number, number> = { ...prev };
           for (const jp of enabled) {
-            // While a batch is in flight, keep the locally-driven value to
-            // avoid flicker/race with in-flight deltas. Otherwise always
-            // sync to the canonical server balance.
-            if (batchRunningRef.current && next[jp.id] != null) continue;
-            next[jp.id] = jp.poolBalance;
-          }
-          return next;
-        });
-
-        setOptIns((prev) => {
-          const next: Record<number, boolean> = { ...prev };
-          for (const jp of enabled) {
-            if (next[jp.id] == null) {
-              // Default: opted-in for newly discovered jackpots so the
-              // contribution chip + tracker animate immediately on first spin.
-              next[jp.id] = true;
+            const localFloor = localDisplayFloorsRef.current[jp.id];
+            const serverBalance = jp.poolBalance;
+            if (localFloor != null && serverBalance >= localFloor) {
+              delete localDisplayFloorsRef.current[jp.id];
+              next[jp.id] = serverBalance;
+              continue;
             }
+            if (localFloor != null) {
+              next[jp.id] = Math.max(next[jp.id] ?? 0, localFloor);
+              continue;
+            }
+            if (batchRunningRef.current && next[jp.id] != null) continue;
+            next[jp.id] = serverBalance;
           }
           return next;
         });
@@ -705,7 +732,7 @@ function SandboxDemoPage() {
           totalContribution: json.totalContribution ?? 0,
           processedAt: new Date().toISOString(),
         });
-        setPoolDisplays((d) => ({ ...d, [activePool.id]: (d[activePool.id] ?? 0) + poolAdd }));
+        applyImmediatePoolDisplayDeltas({ [activePool.id]: poolAdd });
         bumpTracker(w, poolAdd, seedAdd, houseAdd);
         await persistPoolGrowth(activePool.id, poolAdd);
 
@@ -948,19 +975,30 @@ function SandboxDemoPage() {
           totalContribution: aggPool + aggSeed + aggHouse,
           processedAt: new Date().toISOString(),
         });
-        setPoolDisplays((d) => {
-          const next = { ...d };
-          for (const [id, add] of Object.entries(poolDeltas)) {
-            next[Number(id)] = (next[Number(id)] ?? 0) + add;
+        const immediatePoolDeltas: Record<number, number> = { ...poolDeltas };
+        const activeTile = displayPools[activeIndex] ?? activeDisplay;
+        if (activeTile?.kind === "single") {
+          const activeId = activeTile.jackpot.id;
+          if (immediatePoolDeltas[activeId] == null) immediatePoolDeltas[activeId] = 0;
+        } else if (activeTile?.kind === "group") {
+          for (const tier of activeTile.tiers) {
+            if (optIns[tier.id] && immediatePoolDeltas[tier.id] == null) {
+              immediatePoolDeltas[tier.id] = 0;
+            }
           }
-          return next;
-        });
+        }
+        for (const jp of pools) {
+          if (optIns[jp.id] && immediatePoolDeltas[jp.id] == null) {
+            immediatePoolDeltas[jp.id] = 0;
+          }
+        }
+        applyImmediatePoolDisplayDeltas(immediatePoolDeltas);
 
         // Auto-focus priority chain (respects what the user is watching):
         //  1. If the currently active tile got any bump, stay put.
         //  2. Else prefer an opted-in bumped jackpot (largest delta wins).
         //  3. Else fall back to the absolute largest-delta bumped tile.
-        const bumped = Object.entries(poolDeltas)
+        const bumped = Object.entries(immediatePoolDeltas)
           .filter(([, v]) => v > 0)
           .map(([id, v]) => ({ id: Number(id), delta: v }))
           .sort((a, b) => b.delta - a.delta);
@@ -1065,14 +1103,7 @@ function SandboxDemoPage() {
       if (ids.length === 0) return;
       const snap = { ...pendingDeltas };
       for (const k of ids) delete pendingDeltas[Number(k)];
-      setPoolDisplays((d) => {
-        const n = { ...d };
-        for (const [id, add] of Object.entries(snap)) {
-          const jid = Number(id);
-          n[jid] = (n[jid] ?? 0) + add;
-        }
-        return n;
-      });
+      applyImmediatePoolDisplayDeltas(snap);
     };
 
     const worker = async () => {
