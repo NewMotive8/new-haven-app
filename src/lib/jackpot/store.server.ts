@@ -1121,3 +1121,91 @@ export async function cloneJackpot(
     volatility: (src as any).volatility,
   });
 }
+
+// ===========================================================================
+// Webhook gateway helpers — idempotency pre-check + gameId→group resolution.
+// ===========================================================================
+
+/**
+ * Authoritative idempotency lookup. Returns the prior `jackpot_transactions`
+ * response payload if a row already exists for (brandId, transactionId).
+ */
+export async function findExistingTransaction(
+  brandId: string | number,
+  transactionId: string,
+): Promise<{ response: Record<string, unknown> } | null> {
+  const { data, error } = await supabaseAdmin
+    .from("jackpot_transactions")
+    .select("response")
+    .eq("brand_id", toBrandNum(brandId))
+    .eq("transaction_id", transactionId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  return { response: (data as any).response as Record<string, unknown> };
+}
+
+/**
+ * Resolve a routing target for an incoming bet event. Priority:
+ *   1. explicit `groupId` (simulator / sandbox)
+ *   2. explicit `jackpotId` → owning group_id
+ *   3. `gameId` → most-recently-activated `jackpot_groups` row whose
+ *      `assigned_game_ids` contains a matching `games.id` for this brand.
+ *
+ * Returns `{ groupId }` on success, or null when no active group routes
+ * the requested game.
+ */
+export async function resolveGroupForBet(
+  brandId: string | number,
+  body: {
+    groupId?: number | null;
+    jackpotId?: number | null;
+    gameId?: string | null;
+  },
+): Promise<{ groupId: number } | null> {
+  if (body.groupId != null) return { groupId: Number(body.groupId) };
+
+  const brand = toBrandNum(brandId);
+
+  if (body.jackpotId != null) {
+    const { data, error } = await supabaseAdmin
+      .from("jackpots")
+      .select("group_id, brand_id")
+      .eq("id", Number(body.jackpotId))
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) return null;
+    if (Number((data as any).brand_id) !== brand) return null;
+    const gid = (data as any).group_id;
+    if (gid == null) return null;
+    return { groupId: Number(gid) };
+  }
+
+  if (body.gameId) {
+    // Map external operator game id → internal games.id, then look for the
+    // most-recently-activated active group that includes it.
+    const { data: gameRow } = await supabaseAdmin
+      .from("games")
+      .select("id")
+      .eq("operator_game_id", body.gameId)
+      .eq("enabled", true)
+      .maybeSingle();
+    if (!gameRow) return null;
+    const gameNumericId = Number((gameRow as any).id);
+
+    const { data: groupRow, error: gErr } = await supabaseAdmin
+      .from("jackpot_groups" as any)
+      .select("id, activated_at")
+      .eq("brand_id", brand)
+      .eq("status", "active")
+      .contains("assigned_game_ids", [gameNumericId])
+      .order("activated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (gErr) throw new Error(gErr.message);
+    if (!groupRow) return null;
+    return { groupId: Number((groupRow as any).id) };
+  }
+
+  return null;
+}
