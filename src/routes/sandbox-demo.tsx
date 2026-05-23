@@ -931,6 +931,10 @@ function SandboxDemoPage() {
           }
           return next;
         });
+        // Persist each per-jackpot bump so the 2s poll doesn't snap tiles back.
+        for (const [id, add] of Object.entries(poolDeltas)) {
+          if (add > 0) void persistPoolGrowth(Number(id), add);
+        }
 
         // Auto-focus priority chain (respects what the user is watching):
         //  1. If the currently active tile got any bump, stay put.
