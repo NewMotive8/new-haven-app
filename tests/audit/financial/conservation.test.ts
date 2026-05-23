@@ -8,7 +8,7 @@
  * Pillar 2: Per-bet contribution exactness + apply_jackpot_topup audit log.
  * Pillar 3: Atomicity at the gateway boundary — failed requests write nothing.
  */
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import {
   AUDIT_BRAND_ID,
   authHeaders,
