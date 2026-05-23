@@ -379,11 +379,17 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             win,
           };
 
-          // Atomic DB write — pool deltas + transaction row in one tx.
+          // Atomic DB write — pool deltas + win settlement + transaction row
+          // committed together inside `apply_group_bet` (SELECT ... FOR UPDATE
+          // row-lock + clamp + decrement + ledger insert).
           const poolDeltas = perJackpot.map((e) => ({
             jackpotId: e.jackpotId,
             delta: e.contribution.pool,
           }));
+          const winJackpotId =
+            win && typeof win.jackpotId === "number" ? win.jackpotId : null;
+          const winAmountRequested =
+            win && typeof win.amount === "number" ? win.amount : 0;
           let isReplay = false;
           try {
             const rec = await recordGroupTransaction({
@@ -393,6 +399,9 @@ export const Route = createFileRoute("/api/v1/event/bet")({
               totals,
               response,
               poolDeltas,
+              winJackpotId,
+              winAmount: winAmountRequested,
+              playerId: body.playerId ?? null,
             });
             isReplay = rec.isReplay;
             if (isReplay && rec.row?.response) {
@@ -403,6 +412,14 @@ export const Route = createFileRoute("/api/v1/event/bet")({
                 },
                 { headers: { "X-Idempotent-Replay": "true" } },
               );
+            }
+            // GLI-12: trust the DB-clamped payout as the authoritative
+            // win amount in the HTTP response (the pool may have been
+            // smaller than the requested winAmount).
+            if (win && rec.win && typeof rec.win.amount !== "undefined") {
+              const settledAmount = Number(rec.win.amount) || 0;
+              win.amount = settledAmount;
+              (response as Record<string, unknown>).win = win;
             }
           } catch (e: any) {
             return errorJson(
