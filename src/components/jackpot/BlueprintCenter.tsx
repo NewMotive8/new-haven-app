@@ -280,6 +280,7 @@ function BlueprintCardView({
 }) {
   const vibeClass = VIBE_STYLES[bp.vibe] ?? "bg-neutral-700/30 text-neutral-200";
   const KindIcon = bp.kind === "multi" ? Layers : Flame;
+  const funding = FUNDING_BADGE[bp.fundingType];
   return (
     <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4 space-y-3">
       <div className="flex items-start justify-between gap-3">
@@ -291,7 +292,10 @@ function BlueprintCardView({
           <h3 className="text-base font-semibold text-white truncate">{bp.name}</h3>
           <p className="text-xs text-neutral-400 leading-relaxed">{bp.objective}</p>
         </div>
-        <Badge className={`shrink-0 border ${vibeClass}`}>{bp.vibe}</Badge>
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <Badge className={`border font-semibold ${funding.cls}`}>{funding.label}</Badge>
+          <Badge className={`border ${vibeClass}`}>{bp.vibe}</Badge>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-1.5">
