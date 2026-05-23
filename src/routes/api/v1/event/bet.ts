@@ -730,8 +730,10 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             house: ledger.totals.house,
             totalContribution: ledger.totalContribution,
             tierBreakdown: ledger.entries,
+            attributes,
             win,
           };
+
           appendAudit({
             loggedAt: new Date().toISOString(),
             transactionId: body.transactionId,
