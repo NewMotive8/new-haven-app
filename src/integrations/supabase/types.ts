@@ -317,6 +317,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      apply_jackpot_topup: {
+        Args: { p_amount: number; p_is_seed: boolean; p_jackpot_id: number }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
