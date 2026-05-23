@@ -1549,9 +1549,13 @@ function SandboxDemoPage() {
             </div>
             <div className="bg-slate-950/60 border border-slate-800 rounded p-3">
               <div className="text-xs uppercase text-slate-500">Visible Pool</div>
-              <div className="font-semibold truncate">{activePool?.name ?? "—"}</div>
+              <div className="font-semibold truncate">{activePool?.name ?? (hasNoEnabledPools ? "Visual Fallback Tile" : "—")}</div>
               <div className="text-xs text-slate-500 tabular-nums">
-                {activePool ? fmt(poolDisplays[activePool.id] ?? activePool.poolBalance) : "—"}
+                {activePool
+                  ? fmtPrecise(poolDisplays[activePool.id] ?? activePool.poolBalance)
+                  : hasNoEnabledPools
+                    ? fmtPrecise(tracker.cumPool)
+                    : "—"}
               </div>
             </div>
           </div>
@@ -1825,7 +1829,7 @@ function SandboxDemoPage() {
 
           <button
             onClick={handleSpin}
-            disabled={pools.length === 0 || spinning}
+            disabled={spinning}
             className="w-full py-4 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-700 disabled:cursor-not-allowed text-slate-950 font-bold text-lg transition"
           >
             {spinning ? "Spinning…" : `Trigger Game Spin (${fmt(wager)})`}
