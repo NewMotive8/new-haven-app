@@ -702,7 +702,7 @@ function SandboxDemoPage() {
           });
           throw new Error(
             `Bet HTTP ${res.status}${json.code ? ` (${json.code})` : ""}${
-              json.message ? `: ${json.message}` : ""
+              json.message || json.error ? `: ${json.message ?? json.error}` : ""
             }`,
           );
         }
