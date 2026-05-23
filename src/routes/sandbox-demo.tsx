@@ -524,6 +524,7 @@ function SandboxDemoPage() {
 
 
 
+  const hasNoEnabledPools = pools.length === 0;
   const activeDisplay: DisplayPool | null = displayPools[activeIndex] ?? null;
   const activePool: Jackpot | null =
     activeDisplay?.kind === "single" ? activeDisplay.jackpot : null;
@@ -647,7 +648,7 @@ function SandboxDemoPage() {
 
   // ── Trigger spin ──────────────────────────────────────────────────────────
   const handleSpin = async () => {
-    if (pools.length === 0 || spinning) return;
+    if (spinning) return;
     const w = Number(wager);
     if (!Number.isFinite(w) || w <= 0) {
       setError("Wager must be a positive number");
@@ -657,6 +658,24 @@ function SandboxDemoPage() {
     setError(null);
 
     try {
+      if (hasNoEnabledPools) {
+        const poolAdd = Math.trunc(w * 0.0005 * 1_000_000) / 1_000_000;
+        const seedAdd = Math.trunc(w * 0.00035 * 1_000_000) / 1_000_000;
+        const houseAdd = Math.trunc(w * 0.00015 * 1_000_000) / 1_000_000;
+        setLastSplit({
+          pool: poolAdd,
+          seed: seedAdd,
+          house: houseAdd,
+          totalContribution: poolAdd + seedAdd + houseAdd,
+          processedAt: new Date().toISOString(),
+        });
+        bumpTracker(w, poolAdd, seedAdd, houseAdd);
+        toast.warning("Visual-only sandbox fallback", {
+          description: `No enabled pools are configured for brand ${brandId}, so this spin is rendered locally for QA only.`,
+        });
+        return;
+      }
+
       if (forceWin && activePool) {
         // Force-win flow remains single-pool against the currently visible pool.
         const body = buildConfigBody(activePool);
@@ -1337,7 +1356,11 @@ function SandboxDemoPage() {
                     </button>
                   )}
                   <div id="jooba-widget-current-amount" className="jooba-widget-current-amount">
-                    {activeDisplay ? fmt(activeDisplay.balance) : texts.loading}
+                    {activeDisplay
+                      ? fmtPrecise(activeDisplay.balance)
+                      : hasNoEnabledPools
+                        ? fmtPrecise(tracker.cumPool)
+                        : texts.loading}
                   </div>
                   {multi ? (
                     <button
@@ -1358,7 +1381,26 @@ function SandboxDemoPage() {
                 {/* Body: carousel track */}
                 <div id="jooba-widget-body" className="jooba-widget-body">
                   {displayPools.length === 0 ? (
-                    <div className="jooba-info-label">Awaiting jackpot…</div>
+                    <div className="jooba-slide">
+                      <div className="jooba-coin" aria-hidden>
+                        <span>€</span>
+                      </div>
+                      <div className="jooba-jackpot-name">Visual Fallback Tile</div>
+                      <div className="jooba-badge jooba-badge-split">NO ENABLED POOLS</div>
+                      <div className="jooba-tier-list">
+                        <div className="jooba-tier-row">
+                          <span className="jooba-tier-name">Rendered Pool</span>
+                          <span className="jooba-tier-amount">{fmtPrecise(tracker.cumPool)}</span>
+                        </div>
+                        <div className="jooba-tier-row">
+                          <span className="jooba-tier-name">Rendered Spins</span>
+                          <span className="jooba-tier-amount">{tracker.spins}</span>
+                        </div>
+                      </div>
+                      <div className="jooba-info-label">
+                        Visual-only sandbox output — configure an enabled jackpot or active group for live routing.
+                      </div>
+                    </div>
                   ) : (
                     <>
                       <div className="jooba-carousel">
@@ -1383,7 +1425,7 @@ function SandboxDemoPage() {
                                       <div className="jooba-tier-row" key={t.id}>
                                         <span className="jooba-tier-name">{t.name}</span>
                                         <span className="jooba-tier-amount">
-                                          {fmt(poolDisplays[t.id] ?? t.poolBalance)}
+                                          {fmtPrecise(poolDisplays[t.id] ?? t.poolBalance)}
                                         </span>
                                       </div>
                                     ))}
@@ -1412,7 +1454,7 @@ function SandboxDemoPage() {
                                 <div className="jooba-tier-row">
                                   <span className="jooba-tier-name">Current Pool</span>
                                   <span className="jooba-tier-amount">
-                                    {fmt(poolDisplays[p.id] ?? p.poolBalance)}
+                                    {fmtPrecise(poolDisplays[p.id] ?? p.poolBalance)}
                                   </span>
                                 </div>
                               </div>
