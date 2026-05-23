@@ -139,7 +139,7 @@ function SandboxBanner() {
       }}
     >
       <span aria-hidden>⚠</span>
-      TEST SANDBOX — Non-production environment. Data here does not affect live operations.
+      STAGING ENVIRONMENT. Data here does not affect live operations
       <span aria-hidden>⚠</span>
     </div>
   );
