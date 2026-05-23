@@ -236,6 +236,7 @@ export type AuditEntry = {
   rngSource: "external" | "local";
   contribution: AuditSlice;
   totalContribution: number;
+  attributes: Record<string, unknown> | null;
   perJackpot:
     | Array<{
         jackpotId: number;
@@ -247,6 +248,7 @@ export type AuditEntry = {
     | null;
   win: Record<string, unknown> | null;
 };
+
 
 export const jackpot_ledger_logs: AuditEntry[] = [];
 
