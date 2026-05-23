@@ -926,18 +926,33 @@ function SandboxDemoPage() {
           return next;
         });
 
-        // Auto-focus the carousel on the tile that received the largest bump,
-        // so the user sees the animation on the visible tile.
-        const bumpedId = Object.entries(poolDeltas)
+        // Auto-focus priority chain (respects what the user is watching):
+        //  1. If the currently active tile got any bump, stay put.
+        //  2. Else prefer an opted-in bumped jackpot (largest delta wins).
+        //  3. Else fall back to the absolute largest-delta bumped tile.
+        const bumped = Object.entries(poolDeltas)
           .filter(([, v]) => v > 0)
-          .sort((a, b) => b[1] - a[1])[0]?.[0];
-        if (bumpedId != null) {
-          const target = Number(bumpedId);
-          const foundIdx = displayPools.findIndex((dp) =>
+          .map(([id, v]) => ({ id: Number(id), delta: v }))
+          .sort((a, b) => b.delta - a.delta);
+
+        if (bumped.length > 0) {
+          const tileMatches = (dp: (typeof displayPools)[number], target: number) =>
             dp.kind === "single"
               ? dp.jackpot.id === target
-              : dp.tiers.some((t) => t.id === target),
-          );
+              : dp.tiers.some((t) => t.id === target);
+
+          const activeTile = displayPools[activeIndex];
+          const activeBumped =
+            activeTile != null &&
+            bumped.some((b) => tileMatches(activeTile, b.id));
+
+          let foundIdx = -1;
+          if (!activeBumped) {
+            const optedInBump = bumped.find((b) => optIns[b.id]);
+            const pick = optedInBump ?? bumped[0];
+            foundIdx = displayPools.findIndex((dp) => tileMatches(dp, pick.id));
+          }
+
           if (foundIdx >= 0 && foundIdx !== activeIndex) {
             setActiveIndex(foundIdx);
           }
