@@ -853,10 +853,28 @@ function SandboxDemoPage() {
 
 
 
-  const triggerCelebration = () => {
+  const triggerCelebration = (info?: { amount?: number; jackpotName?: string }) => {
+    if (celebrationLockedRef.current) return;
+    celebrationLockedRef.current = true;
+    setLastWinInfo(info ?? null);
     setCelebrating(true);
-    setTimeout(() => setCelebrating(false), 4500);
   };
+
+  const closeCelebration = useCallback(() => {
+    setCelebrating(false);
+    setLastWinInfo(null);
+    setLastCommunity(null);
+    celebrationLockedRef.current = false;
+  }, []);
+
+  useEffect(() => {
+    if (!celebrating) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeCelebration();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [celebrating, closeCelebration]);
 
   // ── Opt-in/out handler with additive compliance interceptor ──────────────
   const handleOptToggle = () => {
