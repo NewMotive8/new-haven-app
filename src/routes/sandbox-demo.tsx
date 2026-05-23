@@ -819,17 +819,21 @@ function SandboxDemoPage() {
         setLastRngSource(json.rngSource ?? null);
         const per = json.perJackpot ?? [];
 
-        // Aggregate only the slices for pools the user is currently opted into.
+        // Tile displays reflect EVERY pool the server contributed to, so the
+        // visible tile always animates on each spin. The Allocation Tracker
+        // (Σ opted-in pools) keeps its opted-in-only semantics below.
         let aggPool = 0;
         let aggSeed = 0;
         let aggHouse = 0;
         const poolDeltas: Record<number, number> = {};
         for (const e of per) {
+          // Always paint the tile for any pool the server touched.
+          poolDeltas[e.jackpotId] = (poolDeltas[e.jackpotId] ?? 0) + e.contribution.pool;
+          // Tracker only counts opted-in slices.
           if (!optIns[e.jackpotId]) continue;
           aggPool += e.contribution.pool;
           aggSeed += e.contribution.seed;
           aggHouse += e.contribution.house;
-          poolDeltas[e.jackpotId] = (poolDeltas[e.jackpotId] ?? 0) + e.contribution.pool;
         }
 
         setLastSplit({
