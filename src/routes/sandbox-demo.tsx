@@ -893,24 +893,48 @@ function SandboxDemoPage() {
           const aggregatePool = json.contribution?.pool ?? 0;
           const aggregateSeed = json.contribution?.seed ?? 0;
           const aggregateHouse = json.contribution?.house ?? 0;
-          const explicitJackpotId =
-            typeof payload.jackpotId === "number"
-              ? payload.jackpotId
-              : activeDisplay?.kind === "single"
-                ? activeDisplay.jackpot.id
-                : fallbackTarget?.kind === "jackpot"
-                  ? fallbackTarget.id
-                  : null;
 
-          if (typeof explicitJackpotId === "number" && aggregatePool !== 0) {
-            poolDeltas[explicitJackpotId] = (poolDeltas[explicitJackpotId] ?? 0) + aggregatePool;
+          // Resolve a visible target so the aggregate bump always lands on
+          // a tile the user can see — including grouped tiles, which the
+          // previous logic silently dropped.
+          let targetJackpotIds: number[] = [];
+          if (typeof payload.jackpotId === "number") {
+            targetJackpotIds = [payload.jackpotId];
+          } else if (typeof payload.groupId === "number") {
+            const grpTile = displayPools.find(
+              (dp) => dp.kind === "group" && dp.group.id === payload.groupId,
+            );
+            if (grpTile && grpTile.kind === "group") {
+              targetJackpotIds = grpTile.tiers.map((t) => t.id);
+            }
+          } else if (activeDisplay?.kind === "single") {
+            targetJackpotIds = [activeDisplay.jackpot.id];
+          } else if (activeDisplay?.kind === "group") {
+            targetJackpotIds = activeDisplay.tiers.map((t) => t.id);
+          } else if (fallbackTarget?.kind === "jackpot") {
+            targetJackpotIds = [fallbackTarget.id];
+          } else if (fallbackTarget?.kind === "group") {
+            const grpTile = displayPools.find(
+              (dp) => dp.kind === "group" && dp.group.id === fallbackTarget.id,
+            );
+            if (grpTile && grpTile.kind === "group") {
+              targetJackpotIds = grpTile.tiers.map((t) => t.id);
+            }
+          }
+
+          if (targetJackpotIds.length > 0 && aggregatePool !== 0) {
+            const share = aggregatePool / targetJackpotIds.length;
+            for (const tid of targetJackpotIds) {
+              poolDeltas[tid] = (poolDeltas[tid] ?? 0) + share;
+            }
           }
 
           // Always reflect full aggregate in the chip, regardless of opt-in.
           aggPool += aggregatePool;
           aggSeed += aggregateSeed;
           aggHouse += aggregateHouse;
-          if (typeof explicitJackpotId === "number" && optIns[explicitJackpotId]) {
+          const anyOptedIn = targetJackpotIds.some((tid) => optIns[tid]);
+          if (anyOptedIn) {
             trackerPool += aggregatePool;
             trackerSeed += aggregateSeed;
             trackerHouse += aggregateHouse;
@@ -931,10 +955,6 @@ function SandboxDemoPage() {
           }
           return next;
         });
-        // Persist each per-jackpot bump so the 2s poll doesn't snap tiles back.
-        for (const [id, add] of Object.entries(poolDeltas)) {
-          if (add > 0) void persistPoolGrowth(Number(id), add);
-        }
 
         // Auto-focus priority chain (respects what the user is watching):
         //  1. If the currently active tile got any bump, stay put.
@@ -975,11 +995,14 @@ function SandboxDemoPage() {
 
         bumpTracker(w, trackerPool, trackerSeed, trackerHouse);
 
+        // Single persistence pass — one POST per affected jackpot so the
+        // 2s poll resyncs to the new server-side balance without doubling.
         await Promise.all(
-          Object.entries(poolDeltas).map(([id, add]) =>
-            persistPoolGrowth(Number(id), add),
-          ),
+          Object.entries(poolDeltas)
+            .filter(([, add]) => add > 0)
+            .map(([id, add]) => persistPoolGrowth(Number(id), add)),
         );
+
 
         // Surface server-side win (incl. community breakdown) if returned.
         if (json.win && json.win.isCommunity) {

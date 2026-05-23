@@ -1,31 +1,27 @@
-## Diagnosis
+## Goal
+Make the visible jackpot tile respond correctly when a €50 spin contributes to it, without changing contribution math, opt-in defaults, or unrelated routing behavior.
 
-The numbers do briefly update — but a 2-second background poll (`tick` at line 444) re-fetches `/api/v1/jackpots` and overwrites `poolDisplays[id]` with the server's canonical `poolBalance` (line 421). On the multi-pool spin path, **we never tell the server about the bump**, so the next poll snaps every tile back to its pre-spin value. End result: visually nothing changes.
+## What I’ll change
+1. Tighten the multi-pool spin response handling in `src/routes/sandbox-demo.tsx` so grouped tiles still get a visible pool update when the bet API returns only aggregate contribution data.
+2. Keep the existing chip/tracker behavior intact while assigning the aggregate pool delta to the correct currently targeted tile when no `perJackpot` breakdown is returned.
+3. Remove the duplicate persistence call path so pool top-ups are sent once per affected jackpot instead of twice.
+4. Preserve the current anti-yank focus behavior and only let the carousel move when the currently watched tile did not receive the bump.
 
-Evidence:
-- Ledger network response confirms `perJackpot` deltas are arriving correctly (e.g. €50 spin → 2.50 / 1.75 / 0.75 across jackpots 15/16/17).
-- The single-pool branch (line 710) already calls `persistPoolGrowth(activePool.id, poolAdd)` for exactly this reason.
-- The multi-pool branch (lines 870–933) updates `poolDisplays` locally but never persists, so polling silently rolls it back.
+## Expected result
+- Spinning €50 on the currently visible tile makes that tile’s displayed amount move immediately.
+- Group tiles update their tier rows when the response is aggregate-only and routed to that group.
+- The 2-second poll no longer masks the change or causes inconsistent double top-up behavior.
 
-## Fix (one surgical change, frontend only)
+## Technical details
+- File: `src/routes/sandbox-demo.tsx`
+- Focus area: the multi-pool branch inside `handleSpin`, especially the `perJackpot` / aggregate fallback block and the subsequent persistence section.
+- Surgical implementation:
+  - If `json.perJackpot` is empty and the target is a grouped tile, distribute the aggregate pool bump to the active group’s visible tier(s) using the current visible routing target instead of dropping the delta.
+  - Keep `lastSplit` and tracker totals based on the server response exactly as they are now.
+  - Collapse the two `persistPoolGrowth` paths into a single post-update persistence pass.
+  - Leave contribution chip calculations, fallback routing, and opt-in discovery logic untouched.
 
-In `src/routes/sandbox-demo.tsx`, right after the `setPoolDisplays(...)` call inside the multi-pool branch (around line 933), mirror what the single-pool path does — fire `persistPoolGrowth` for every bumped jackpot id:
-
-```text
-for (const [id, add] of Object.entries(poolDeltas)) {
-  if (add > 0) void persistPoolGrowth(Number(id), add);
-}
-```
-
-`persistPoolGrowth` is already defined (line 624) as a fire-and-forget POST to `/api/v1/jackpots/topup`. Failures are swallowed so the spin UX is unaffected.
-
-## Out of scope
-- No change to the auto-focus priority chain.
-- No change to the contribution chip / tracker math.
-- No change to auto opt-in.
-- No backend / migration changes.
-
-## Verification
-1. Opt into Sandbox Pool, spin €50 → tile balance increases by €2.50 and **stays** at the new value across the next 2-second poll cycle.
-2. Spin again → balance keeps climbing instead of snapping back.
-3. Group tile ("Sandbox 50/35/15") shows all three tier rows incrementing per spin.
+## Validation
+- Spin €50 on a single tile: its displayed pool increases and stays increased across the next poll.
+- Spin €50 while viewing a grouped tile: at least one visible tier amount changes immediately and remains stable.
+- Confirm the carousel does not jump away from the tile being watched when that tile received the bump.
