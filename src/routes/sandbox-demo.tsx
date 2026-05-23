@@ -659,9 +659,9 @@ function SandboxDemoPage() {
 
     try {
       if (hasNoEnabledPools) {
-        const poolAdd = Math.trunc(w * 0.0005 * 1_000_000) / 1_000_000;
-        const seedAdd = Math.trunc(w * 0.00035 * 1_000_000) / 1_000_000;
-        const houseAdd = Math.trunc(w * 0.00015 * 1_000_000) / 1_000_000;
+        const poolAdd = Math.trunc(w * 0.05 * 1_000_000) / 1_000_000; // 50% of 10%
+        const seedAdd = Math.trunc(w * 0.035 * 1_000_000) / 1_000_000; // 35% of 10%
+        const houseAdd = Math.trunc(w * 0.015 * 1_000_000) / 1_000_000; // 15% of 10%
         setLastSplit({
           pool: poolAdd,
           seed: seedAdd,
