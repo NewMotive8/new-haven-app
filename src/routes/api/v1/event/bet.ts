@@ -245,12 +245,10 @@ export const Route = createFileRoute("/api/v1/event/bet")({
         }
 
         const wager = body.wager;
-        const rngSource: "external" | "local" =
-          typeof body.systemRngValue === "number" ? "external" : "local";
-        const rng: () => number =
-          typeof body.systemRngValue === "number"
-            ? () => body.systemRngValue!
-            : secureRandomFloat;
+        // GLI-12: secure server-side RNG only. `rngSource` retained as a
+        // constant for back-compat with downstream audit consumers.
+        const rngSource: "local" = "local";
+        const rng: () => number = secureRandomFloat;
 
         // -----------------------------------------------------------------
         // Phase 2 — relational jackpot-group fan-out branch.
