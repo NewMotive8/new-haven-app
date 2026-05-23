@@ -960,7 +960,9 @@ export async function recordGroupTransaction(payload: {
   winJackpotId?: number | null;
   winAmount?: number;
   playerId?: string | null;
+  attributes?: Record<string, unknown> | null;
 }): Promise<{
+
   row: any;
   isReplay: boolean;
   win: { id: number; amount: number; jackpotId: number; status: string } | null;
