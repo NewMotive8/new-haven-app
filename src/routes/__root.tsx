@@ -127,8 +127,7 @@ function SandboxBanner() {
         justifyContent: "center",
         gap: 10,
         padding: "8px 16px",
-        background:
-          "repeating-linear-gradient(45deg, #b45309 0 12px, #f59e0b 12px 24px)",
+        background: "#f59e0b",
         color: "#1a1100",
         fontWeight: 800,
         fontSize: 13,
