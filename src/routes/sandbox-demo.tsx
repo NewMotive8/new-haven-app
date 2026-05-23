@@ -427,8 +427,9 @@ function SandboxDemoPage() {
           const next: Record<number, boolean> = { ...prev };
           for (const jp of enabled) {
             if (next[jp.id] == null) {
-              // Default: opted-out for all jackpots; user must explicitly opt in.
-              next[jp.id] = false;
+              // Default: opted-in for newly discovered jackpots so the
+              // contribution chip + tracker animate immediately on first spin.
+              next[jp.id] = true;
             }
           }
           return next;
