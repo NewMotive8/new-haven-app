@@ -942,6 +942,12 @@ function SandboxDemoPage() {
         if (typeof sysRng === "number" && Number.isFinite(sysRng)) {
           payload.systemRngValue = Math.min(1, Math.max(0, sysRng));
         }
+        // Same auto-fallback as the single-spin path so batches never
+        // 404 when no active jackpot_group routes the gameId.
+        if (routeState.willFallback && fallbackTarget) {
+          if (fallbackTarget.kind === "group") payload.groupId = fallbackTarget.id;
+          else payload.jackpotId = fallbackTarget.id;
+        }
         const authHeaders: Record<string, string> = {};
         if (currentAuthMode === "authorized") {
           authHeaders["Authorization"] = `Bearer ${currentSecret}`;
