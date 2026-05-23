@@ -263,6 +263,8 @@ function SandboxDemoPage() {
     cumHouse: number;
   }>({ spins: 0, totalWager: 0, cumPool: 0, cumSeed: 0, cumHouse: 0 });
   const [celebrating, setCelebrating] = useState(false);
+  const [lastWinInfo, setLastWinInfo] = useState<{ amount?: number; jackpotName?: string } | null>(null);
+  const celebrationLockedRef = useRef(false);
   const [lastCommunity, setLastCommunity] = useState<CommunityPayoutBreakdown | null>(null);
   const [spinning, setSpinning] = useState(false);
   // ── S2S tester inputs (Phase 1 microservice contract) ────────────────────
@@ -677,10 +679,12 @@ function SandboxDemoPage() {
             communityMemberPayOut: json.win.communityMemberPayOut ?? 0,
             cappedDelta: json.win.cappedDelta ?? 0,
           });
-          triggerCelebration();
+          const winJpName = pools.find((p) => p.id === json.win!.jackpotId)?.name;
+          triggerCelebration({ amount: json.win.triggeringPayout ?? json.win.amount, jackpotName: winJpName });
         } else if (json.win) {
           setLastCommunity(null);
-          triggerCelebration();
+          const winJpName = pools.find((p) => p.id === json.win!.jackpotId)?.name;
+          triggerCelebration({ amount: json.win.amount, jackpotName: winJpName });
         }
       }
     } catch (e) {
@@ -818,6 +822,12 @@ function SandboxDemoPage() {
               if (typeof wjid === "number" && stats.perJackpot[wjid]) {
                 stats.perJackpot[wjid].hits++;
               }
+              if (!celebrationLockedRef.current) {
+                const jpName =
+                  (typeof wjid === "number" && stats.perJackpot[wjid]?.jackpotName) ||
+                  pools.find((p) => p.id === wjid)?.name;
+                triggerCelebration({ jackpotName: jpName });
+              }
             }
           } else {
             stats.blocked++;
@@ -851,10 +861,28 @@ function SandboxDemoPage() {
 
 
 
-  const triggerCelebration = () => {
+  const triggerCelebration = (info?: { amount?: number; jackpotName?: string }) => {
+    if (celebrationLockedRef.current) return;
+    celebrationLockedRef.current = true;
+    setLastWinInfo(info ?? null);
     setCelebrating(true);
-    setTimeout(() => setCelebrating(false), 4500);
   };
+
+  const closeCelebration = useCallback(() => {
+    setCelebrating(false);
+    setLastWinInfo(null);
+    setLastCommunity(null);
+    celebrationLockedRef.current = false;
+  }, []);
+
+  useEffect(() => {
+    if (!celebrating) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeCelebration();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [celebrating, closeCelebration]);
 
   // ── Opt-in/out handler with additive compliance interceptor ──────────────
   const handleOptToggle = () => {
@@ -1023,39 +1051,7 @@ function SandboxDemoPage() {
 
                 {/* Body: carousel track */}
                 <div id="jooba-widget-body" className="jooba-widget-body">
-                  {celebrating ? (
-                    <div className="jooba-celebration">
-                      <div
-                        className="jooba-win-message"
-                        dangerouslySetInnerHTML={{ __html: texts.winMessage }}
-                      />
-                      {lastCommunity && (
-                        <div className="mt-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-400/40 text-left text-xs text-emerald-100 max-w-[320px] mx-auto space-y-1">
-                          <div className="inline-block px-2 py-0.5 rounded-full bg-emerald-500 text-emerald-950 font-bold tracking-wider text-[10px] uppercase">
-                            Community Payout Triggered
-                          </div>
-                          <div>
-                            Triggering Winner Payout: <strong>{fmt(lastCommunity.triggeringPayout)}</strong>
-                          </div>
-                          <div>
-                            Community Split: <strong>{fmt(lastCommunity.communityPool)}</strong> distributed among{" "}
-                            <strong>{lastCommunity.communitySize}</strong> active community players{" "}
-                            (<strong>{fmt(lastCommunity.communityMemberPayOut)}</strong> each).
-                          </div>
-                          {lastCommunity.cappedDelta > 0 && (
-                            <div className="text-amber-300">
-                              Per-member cap applied — delta {fmt(lastCommunity.cappedDelta)} returned to house.
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      <div className="jooba-confetti">
-                        {Array.from({ length: 60 }).map((_, i) => (
-                          <span key={i} style={{ ["--i" as never]: i }} />
-                        ))}
-                      </div>
-                    </div>
-                  ) : displayPools.length === 0 ? (
+                  {displayPools.length === 0 ? (
                     <div className="jooba-info-label">Awaiting jackpot…</div>
                   ) : (
                     <>
@@ -1952,6 +1948,64 @@ function SandboxDemoPage() {
           </div>
         </div>
       )}
+
+      {celebrating && (
+        <div
+          className="jooba-fs-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Jackpot win"
+          onClick={closeCelebration}
+        >
+          <div className="jooba-fs-confetti" aria-hidden>
+            {Array.from({ length: 120 }).map((_, i) => (
+              <span key={i} style={{ ["--i" as never]: i }} />
+            ))}
+          </div>
+          <div className="jooba-fs-panel" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="jooba-fs-close"
+              onClick={closeCelebration}
+              aria-label="Close win animation"
+            >
+              ×
+            </button>
+            <div className="jooba-fs-coin" aria-hidden>€</div>
+            <div
+              className="jooba-fs-title"
+              dangerouslySetInnerHTML={{ __html: texts.winMessage }}
+            />
+            {lastWinInfo?.jackpotName && (
+              <div className="jooba-fs-sub">{lastWinInfo.jackpotName}</div>
+            )}
+            {typeof lastWinInfo?.amount === "number" && lastWinInfo.amount > 0 && (
+              <div className="jooba-fs-amount">{fmt(lastWinInfo.amount)}</div>
+            )}
+            {lastCommunity && (
+              <div className="jooba-fs-community">
+                <div className="jooba-fs-community-badge">Community Payout Triggered</div>
+                <div>
+                  Triggering Winner Payout: <strong>{fmt(lastCommunity.triggeringPayout)}</strong>
+                </div>
+                <div>
+                  Community Split: <strong>{fmt(lastCommunity.communityPool)}</strong> across{" "}
+                  <strong>{lastCommunity.communitySize}</strong> players (
+                  <strong>{fmt(lastCommunity.communityMemberPayOut)}</strong> each).
+                </div>
+                {lastCommunity.cappedDelta > 0 && (
+                  <div className="jooba-fs-community-cap">
+                    Per-member cap applied — delta {fmt(lastCommunity.cappedDelta)} returned to house.
+                  </div>
+                )}
+              </div>
+            )}
+            <button type="button" className="jooba-fs-cta" onClick={closeCelebration}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2165,4 +2219,113 @@ const confettiCss = `
     opacity: 0;
   }
 }
+
+/* ── Full-screen jackpot win overlay ─────────────────────────────────── */
+.jooba-fs-backdrop {
+  position: fixed; inset: 0; z-index: 9999;
+  background: radial-gradient(ellipse at center, rgba(76,29,149,.85) 0%, rgba(2,6,23,.94) 70%);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; backdrop-filter: blur(6px);
+  animation: jooba-fade-in 220ms ease;
+}
+.jooba-fs-confetti {
+  position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+}
+.jooba-fs-confetti span {
+  position: absolute; top: 50%; left: 50%;
+  width: 10px; height: 18px; border-radius: 2px;
+  background: hsl(calc(var(--i) * 30deg), 95%, 62%);
+  transform-origin: center;
+  animation: jooba-fs-burst 2.4s ease-out infinite;
+  animation-delay: calc(var(--i) * 18ms);
+  box-shadow: 0 0 8px rgba(255,255,255,.4);
+}
+@keyframes jooba-fs-burst {
+  0%   { transform: translate(-50%,-50%) rotate(0) translateY(0) scale(1); opacity: 1; }
+  100% {
+    transform:
+      translate(-50%,-50%)
+      rotate(calc(var(--i) * 17deg))
+      translateY(calc(-40vh - (var(--i) * 1.5px)))
+      rotate(900deg) scale(.5);
+    opacity: 0;
+  }
+}
+.jooba-fs-panel {
+  position: relative; z-index: 1;
+  background: linear-gradient(160deg, #1e1b4b 0%, #0f172a 100%);
+  border: 2px solid #facc15;
+  border-radius: 20px;
+  padding: 40px 36px 28px;
+  max-width: 520px; width: 100%;
+  text-align: center;
+  box-shadow:
+    0 40px 100px rgba(0,0,0,.7),
+    0 0 80px rgba(250,204,21,.35),
+    inset 0 1px 0 rgba(255,255,255,.08);
+  animation: jooba-modal-in 320ms cubic-bezier(.2,.9,.3,1.3);
+}
+.jooba-fs-close {
+  position: absolute; top: 12px; right: 14px;
+  width: 36px; height: 36px; border-radius: 999px;
+  background: rgba(255,255,255,.08); color: #fde047;
+  border: 1px solid rgba(250,204,21,.4);
+  font-size: 22px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .2s, transform .2s;
+}
+.jooba-fs-close:hover { background: rgba(250,204,21,.2); transform: scale(1.08); }
+.jooba-fs-coin {
+  width: 92px; height: 92px; margin: 0 auto 16px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 30%, #fef3c7, #f59e0b 60%, #b45309);
+  color: #78350f; font-size: 52px; font-weight: 900;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 10px 30px rgba(245,158,11,.5), inset 0 -6px 12px rgba(0,0,0,.2);
+  animation: jooba-coin-spin 2s ease-in-out infinite;
+}
+@keyframes jooba-coin-spin {
+  0%, 100% { transform: rotateY(0deg) scale(1); }
+  50%      { transform: rotateY(180deg) scale(1.06); }
+}
+.jooba-fs-title {
+  font-size: 32px; font-weight: 900; line-height: 1.15;
+  color: #fde047; text-shadow: 0 0 24px rgba(250,204,21,.7);
+  margin-bottom: 8px;
+  animation: jooba-pop .6s ease-out;
+}
+.jooba-fs-sub {
+  font-size: 13px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: #f9a8d4; margin-bottom: 14px;
+}
+.jooba-fs-amount {
+  font-size: 44px; font-weight: 900; color: #fff;
+  font-variant-numeric: tabular-nums; margin: 8px 0 18px;
+  text-shadow: 0 0 30px rgba(255,255,255,.4);
+  animation: jooba-pop .8s ease-out;
+}
+.jooba-fs-community {
+  text-align: left; font-size: 12px; color: #d1fae5;
+  background: rgba(16,185,129,.12); border: 1px solid rgba(52,211,153,.45);
+  border-radius: 12px; padding: 12px 14px; margin: 6px 0 18px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.jooba-fs-community-badge {
+  align-self: flex-start;
+  font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+  background: #10b981; color: #022c22;
+  padding: 3px 8px; border-radius: 999px; margin-bottom: 4px;
+}
+.jooba-fs-community strong { color: #fde047; }
+.jooba-fs-community-cap { color: #fcd34d; }
+.jooba-fs-cta {
+  margin-top: 6px;
+  background: linear-gradient(135deg, #facc15, #f59e0b);
+  color: #1e293b; font-weight: 800; letter-spacing: .04em;
+  padding: 10px 28px; border: none; border-radius: 999px;
+  cursor: pointer; font-size: 14px;
+  box-shadow: 0 6px 20px rgba(245,158,11,.5);
+  transition: transform .15s, box-shadow .15s;
+}
+.jooba-fs-cta:hover { transform: translateY(-1px); box-shadow: 0 8px 28px rgba(245,158,11,.7); }
 `;
