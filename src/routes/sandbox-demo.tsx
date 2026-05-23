@@ -844,13 +844,39 @@ function SandboxDemoPage() {
         let aggHouse = 0;
         const poolDeltas: Record<number, number> = {};
         for (const e of per) {
-          // Always paint the tile for any pool the server touched.
           poolDeltas[e.jackpotId] = (poolDeltas[e.jackpotId] ?? 0) + e.contribution.pool;
-          // Tracker only counts opted-in slices.
           if (!optIns[e.jackpotId]) continue;
           aggPool += e.contribution.pool;
           aggSeed += e.contribution.seed;
           aggHouse += e.contribution.house;
+        }
+
+        // Some bet responses still come back in aggregate-only form (no
+        // perJackpot array). In that case, assign the pool delta to the
+        // explicit jackpot target when one is known so the visible tile still
+        // responds in the sandbox.
+        if (per.length === 0) {
+          const aggregatePool = json.contribution?.pool ?? 0;
+          const aggregateSeed = json.contribution?.seed ?? 0;
+          const aggregateHouse = json.contribution?.house ?? 0;
+          const explicitJackpotId =
+            typeof payload.jackpotId === "number"
+              ? payload.jackpotId
+              : activeDisplay?.kind === "single"
+                ? activeDisplay.jackpot.id
+                : fallbackTarget?.kind === "jackpot"
+                  ? fallbackTarget.id
+                  : null;
+
+          if (typeof explicitJackpotId === "number" && aggregatePool !== 0) {
+            poolDeltas[explicitJackpotId] = (poolDeltas[explicitJackpotId] ?? 0) + aggregatePool;
+          }
+
+          if (typeof explicitJackpotId === "number" && optIns[explicitJackpotId]) {
+            aggPool += aggregatePool;
+            aggSeed += aggregateSeed;
+            aggHouse += aggregateHouse;
+          }
         }
 
         setLastSplit({
@@ -1382,7 +1408,15 @@ function SandboxDemoPage() {
                                 >
                                   {rule === "additive" ? "ADDITIVE" : "SPLIT"}
                                 </div>
-                                <div className="jooba-info-label">
+                              <div className="jooba-tier-list">
+                                <div className="jooba-tier-row">
+                                  <span className="jooba-tier-name">Current Pool</span>
+                                  <span className="jooba-tier-amount">
+                                    {fmt(poolDisplays[p.id] ?? p.poolBalance)}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="jooba-info-label">
                                   {inIt ? texts.userInLabel : texts.userOutLabel}
                                 </div>
                               </div>
