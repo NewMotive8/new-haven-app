@@ -73,7 +73,7 @@ export const Route = createFileRoute("/api/public/_audit/seed")({
               provider: "audit",
               operator_game_id: gameId,
               enabled: true,
-            })
+            } as any)
             .select("id")
             .single();
           if (insGame.error || !insGame.data) {
