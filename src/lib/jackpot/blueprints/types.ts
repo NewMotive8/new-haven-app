@@ -16,11 +16,20 @@ export type Vibe =
   | "Weekend Rush"
   | "Coin Escape";
 
+/**
+ * Funding model of a blueprint.
+ * - MARKETING_FUNDED: Operator-backed promotional pool. 0% player wager skim.
+ * - PLAYER_CONTRIBUTION: Progressive funded by a % of player turnover.
+ */
+export type FundingType = "MARKETING_FUNDED" | "PLAYER_CONTRIBUTION";
+
 export interface BlueprintMeta {
   id: string;
   name: string;
   tier: TrafficTier;
   vibe: Vibe;
+  /** Funding model — drives badge styling and wizard defaults. */
+  fundingType: FundingType;
   objective: string;
   targetGameTypes: string[];
 }

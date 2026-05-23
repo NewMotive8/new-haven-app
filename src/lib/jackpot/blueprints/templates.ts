@@ -56,6 +56,7 @@ function baseSingle(
 // ───────── CLASSIC (Drop Pace Model) ─────────
 const classicHigh: SingleBlueprint = {
   id: "classic-high-premium",
+  fundingType: "PLAYER_CONTRIBUTION",
   name: "High-Traffic Premium Classic",
   tier: "high",
   vibe: "Marathon",
@@ -78,6 +79,7 @@ const classicHigh: SingleBlueprint = {
 
 const classicMid: SingleBlueprint = {
   id: "classic-mid-engagement",
+  fundingType: "PLAYER_CONTRIBUTION",
   name: "Mid-Traffic Engagement Classic",
   tier: "medium",
   vibe: "Daily Driver",
@@ -100,6 +102,7 @@ const classicMid: SingleBlueprint = {
 
 const classicSmall: SingleBlueprint = {
   id: "classic-small-loyalty",
+  fundingType: "MARKETING_FUNDED",
   name: "Small-Traffic Loyalty Booster",
   tier: "small",
   vibe: "Loyalty Booster",
@@ -123,6 +126,7 @@ const classicSmall: SingleBlueprint = {
 // ───────── MUST-DROP (Hype Curve Model) ─────────
 const mustDropHigh: SingleBlueprint = {
   id: "mustdrop-high-grand",
+  fundingType: "PLAYER_CONTRIBUTION",
   name: "High-Traffic Grand Must-Drop",
   tier: "high",
   vibe: "Cap Hunter",
@@ -146,6 +150,7 @@ const mustDropHigh: SingleBlueprint = {
 
 const mustDropMid: SingleBlueprint = {
   id: "mustdrop-mid-daily",
+  fundingType: "PLAYER_CONTRIBUTION",
   name: "Mid-Traffic Daily Cap Hunter",
   tier: "medium",
   vibe: "Cap Hunter",
@@ -169,6 +174,7 @@ const mustDropMid: SingleBlueprint = {
 
 const mustDropSmall: SingleBlueprint = {
   id: "mustdrop-small-mini",
+  fundingType: "MARKETING_FUNDED",
   name: "Small-Traffic Mini Coin Escape",
   tier: "small",
   vibe: "Coin Escape",
@@ -225,6 +231,7 @@ function happyHour(
 
 const happyHigh: SingleBlueprint = {
   id: "happy-high-friday",
+  fundingType: "PLAYER_CONTRIBUTION",
   name: "High-Traffic Friday Rush Hour",
   tier: "high",
   vibe: "Weekend Rush",
@@ -254,6 +261,7 @@ const happyHigh: SingleBlueprint = {
 
 const happyMid: SingleBlueprint = {
   id: "happy-mid-power-hour",
+  fundingType: "PLAYER_CONTRIBUTION",
   name: "Mid-Traffic Afternoon Power Hour",
   tier: "medium",
   vibe: "Power Hour",
@@ -287,6 +295,7 @@ const happyMid: SingleBlueprint = {
 
 const happySmall: SingleBlueprint = {
   id: "happy-small-token-saturday",
+  fundingType: "MARKETING_FUNDED",
   name: "Small-Traffic Token Saturday",
   tier: "small",
   vibe: "Time-Boxed",
@@ -317,6 +326,7 @@ const happySmall: SingleBlueprint = {
 // ───────── MULTI-LEVEL (Group Model) ─────────
 const multiHigh: MultiBlueprint = {
   id: "multi-high-mega-network",
+  fundingType: "PLAYER_CONTRIBUTION",
   name: "High-Traffic Mega Network Progressive",
   tier: "high",
   vibe: "Network Mega",
@@ -335,6 +345,7 @@ const multiHigh: MultiBlueprint = {
 
 const multiMid: MultiBlueprint = {
   id: "multi-mid-action-grid",
+  fundingType: "PLAYER_CONTRIBUTION",
   name: "Mid-Traffic Action Core Grid",
   tier: "medium",
   vibe: "Action-Packed",
@@ -351,6 +362,7 @@ const multiMid: MultiBlueprint = {
 
 const multiSmall: MultiBlueprint = {
   id: "multi-small-community-split",
+  fundingType: "MARKETING_FUNDED",
   name: "Small-Traffic Community Token Split",
   tier: "small",
   vibe: "Community Spark",
