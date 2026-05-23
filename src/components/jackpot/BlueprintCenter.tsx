@@ -29,7 +29,39 @@ import {
   type SingleBlueprint,
   type MultiBlueprint,
   type TrafficTier,
+  type FundingType,
 } from "@/lib/jackpot/blueprints";
+
+type FundingFilter = "all" | FundingType;
+
+const FUNDING_BADGE: Record<FundingType, { label: string; cls: string }> = {
+  MARKETING_FUNDED: {
+    label: "Marketing Funded",
+    cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/50",
+  },
+  PLAYER_CONTRIBUTION: {
+    label: "Player Contribution",
+    cls: "bg-amber-500/15 text-amber-300 border-amber-500/50",
+  },
+};
+
+/**
+ * For MARKETING_FUNDED templates, zero out the player skim & operator share
+ * so the wizard opens with a pure promotional pool funded by the seed only.
+ */
+function applyFundingDefaults(payload: SingleBlueprint["payload"], ft: FundingType): SingleBlueprint["payload"] {
+  if (ft !== "MARKETING_FUNDED") return payload;
+  return {
+    ...payload,
+    playerContribution: 0,
+    operatorContribution: 0,
+    seedPlayerContribution: 0,
+    seedOperatorContribution: 0,
+    poolPercentageValue: 0,
+    seedPercentageValue: 0,
+    operatorShare: 0,
+  };
+}
 
 export type BlueprintHost = "simulator" | "wizard";
 
