@@ -4,6 +4,45 @@ import type { JackpotDTO, JackpotConfigDTO, TopupDTO } from "./types";
 // PostgreSQL-backed store. Replaces the previous in-memory mock.
 // All functions are async; callers must `await`.
 
+/**
+ * Append a single immutable audit entry. Failures are surfaced so the caller
+ * decides whether to fail the whole administrative action; we never silently
+ * swallow audit-write errors (GLI-12).
+ */
+export interface AdminAuditContext {
+  actorUserId?: string | null;
+  brandId?: number | null;
+  requestId?: string | null;
+  ip?: string | null;
+}
+
+export async function writeAdminAudit(entry: {
+  action: string;
+  targetType: string;
+  targetId: string | number | null;
+  before?: unknown;
+  after?: unknown;
+  delta?: unknown;
+  context?: AdminAuditContext;
+}): Promise<void> {
+  const ctx = entry.context ?? {};
+  const { error } = await supabaseAdmin
+    .from("admin_audit_log")
+    .insert({
+      actor_user_id: ctx.actorUserId ?? null,
+      brand_id: ctx.brandId ?? null,
+      action: entry.action,
+      target_type: entry.targetType,
+      target_id: entry.targetId == null ? null : String(entry.targetId),
+      before_state: (entry.before ?? null) as any,
+      after_state: (entry.after ?? null) as any,
+      delta: (entry.delta ?? null) as any,
+      request_id: ctx.requestId ?? null,
+      ip: ctx.ip ?? null,
+    });
+  if (error) throw new Error(`admin_audit_log insert failed: ${error.message}`);
+}
+
 type JackpotRow = {
   id: number;
   name: string;
