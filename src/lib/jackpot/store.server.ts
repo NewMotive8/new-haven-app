@@ -250,6 +250,7 @@ export async function updateJackpot(
   brandId: string,
   id: number,
   dto: Partial<JackpotDTO> & { triggerProbability?: number },
+  auditCtx?: AdminAuditContext,
 ): Promise<JackpotDTO | undefined> {
   const existing = await getJackpot(brandId, id);
   if (!existing) return undefined;
@@ -289,15 +290,40 @@ export async function updateJackpot(
     if (error) throw new Error(error.message);
   }
 
-  return getJackpot(brandId, id);
+  const after = await getJackpot(brandId, id);
+
+  // GLI-12: append-only audit row for every successful admin mutation.
+  await writeAdminAudit({
+    action: "jackpot_update",
+    targetType: "jackpot",
+    targetId: id,
+    before: existing,
+    after,
+    delta: dto,
+    context: { brandId: Number(brandId), ...(auditCtx ?? {}) },
+  });
+
+  return after;
 }
 
-export async function deleteJackpot(brandId: string, id: number): Promise<boolean> {
+export async function deleteJackpot(
+  brandId: string,
+  id: number,
+  auditCtx?: AdminAuditContext,
+): Promise<boolean> {
   const existing = await getJackpot(brandId, id);
   if (!existing) return false;
   await assertJackpotEditable(brandId, id);
   const { error } = await supabaseAdmin.from("jackpots").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  await writeAdminAudit({
+    action: "jackpot_delete",
+    targetType: "jackpot",
+    targetId: id,
+    before: existing,
+    after: null,
+    context: { brandId: Number(brandId), ...(auditCtx ?? {}) },
+  });
   return true;
 }
 
@@ -306,18 +332,19 @@ export async function setEnabled(
   brandId: string,
   id: number,
   enabled: boolean,
+  auditCtx?: AdminAuditContext,
 ): Promise<JackpotDTO | undefined> {
-  return updateJackpot(brandId, id, { enabled });
+  return updateJackpot(brandId, id, { enabled }, auditCtx);
 }
 
 export async function applyTopup(
   brandId: string,
   dto: TopupDTO,
+  auditCtx?: AdminAuditContext,
 ): Promise<JackpotDTO | undefined> {
   // Concurrency-safe: existence check is followed by an atomic SQL
-  // increment (`apply_jackpot_topup` Postgres function) instead of a
-  // JS read-modify-write. Two simultaneous top-ups can no longer
-  // clobber each other's balance.
+  // increment (`apply_jackpot_topup` Postgres function) which also writes
+  // the immutable audit row in the same transaction.
   const existing = await getJackpot(brandId, dto.jackpotId);
   if (!existing) return undefined;
   const amount = Number(dto.amount) || 0;
@@ -325,6 +352,9 @@ export async function applyTopup(
     p_jackpot_id: dto.jackpotId,
     p_amount: amount,
     p_is_seed: !!dto.isSeed,
+    p_actor_user_id: auditCtx?.actorUserId ?? null,
+    p_brand_id: Number(brandId),
+    p_request_id: auditCtx?.requestId ?? dto.backofficeUser ?? null,
   });
   if (error) throw new Error(error.message);
   return getJackpot(brandId, dto.jackpotId);
