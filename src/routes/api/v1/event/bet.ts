@@ -379,6 +379,10 @@ export const Route = createFileRoute("/api/v1/event/bet")({
         const body: BetEventBody = parsed.data;
         // Normalize wager (B2B prefers `wagerAmount`, legacy callers use `wager`).
         const wager: number = (body.wagerAmount ?? body.wager) as number;
+        // Open-ended metadata bag (sportsbook/casino/device/etc.). Echoed in
+        // every response envelope and persisted into jackpot_transactions.
+        const attributes: Record<string, unknown> | null = body.attributes ?? null;
+
 
         // -----------------------------------------------------------------
         // Idempotency filter — fast in-memory cache + authoritative DB check
