@@ -7,6 +7,7 @@ const PayloadSchema = z.object({
   wager: z.number().positive(),
   gameId: z.string().min(1),
   category: z.string().optional(),
+  provider: z.string().optional(),
   jackpotId: z.number().int().positive(),
   clientTimestamp: z.string().min(1),
   clientTimezone: z.string().min(1),
