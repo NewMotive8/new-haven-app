@@ -110,12 +110,16 @@ export function QaOverlay({
   brandId,
   initialGameId,
   initialCategory,
+  initialProvider = "",
+  initialName,
   onClose,
 }: {
   open: boolean;
   brandId: string;
   initialGameId: string;
   initialCategory: string;
+  initialProvider?: string;
+  initialName?: string;
   onClose: () => void;
 }) {
   const [jackpots, setJackpots] = useState<Jackpot[]>([]);
@@ -123,6 +127,7 @@ export function QaOverlay({
 
   const [gameId, setGameId] = useState(initialGameId);
   const [category, setCategory] = useState(initialCategory);
+  const [provider, setProvider] = useState(initialProvider);
   const [wager, setWager] = useState(1);
   const [tm, setTm] = useState<TimeMachineValue>(() => defaultTimeMachine());
   const [widgetStyle, setWidgetStyle] = useState<WidgetStyleKey>("slate");
