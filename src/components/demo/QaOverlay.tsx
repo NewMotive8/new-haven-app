@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { TimeMachine, buildIsoTimestamp, defaultTimeMachine, type TimeMachineValue } from "./TimeMachine";
 import { WinCelebration, type WinAnimationVariant, type WinInfo } from "./WinCelebration";
+import { placeDemoBet } from "@/lib/demo/bet.functions";
+
 
 type Jackpot = {
   id: number;
