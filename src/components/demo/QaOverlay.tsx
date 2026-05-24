@@ -211,6 +211,11 @@ export function QaOverlay({
     }
   }, [selectedJp]);
 
+  // Reset opt-in whenever the resolved jackpot changes (switching games / windows)
+  useEffect(() => {
+    setOptedIn(false);
+  }, [selectedJp?.id]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
