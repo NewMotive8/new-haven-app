@@ -1,70 +1,30 @@
 ## Goal
+When the jackpot is won, the widget counter should drop and animate back up from the new seed instead of being held at the pre-win value by the local "no backward movement" guard.
 
-Remove the **"Percentage of Wager – Pool Contribution Amount"** UI input and excise the legacy `poolPercentageValue` field from the stack. The v2 Contribution Weight split (Total Contribution × Pool weight) becomes the sole source of the pool's contribution rate.
+## Where the bug lives
+The floor logic only exists in `src/components/demo/QaOverlay.tsx` (`displayFloorRef` + `displayBalance`). `src/routes/demo.tsx` doesn't have its own widget display state, so no change is needed there — the request to edit `demo.tsx` is a no-op in this codebase.
 
-## The API-safety crux
+The bet response (`src/lib/demo/bet.functions.ts`) does not include a `reseed_amount` field. After a win, the backend resets the jackpot and the existing 2-second poll of `/api/v1/jackpots` returns the new seeded `poolBalance`. Today, the floor is set to the previous pool + contribution on every spin (including the winning one), so even when the poll returns the lower reseed value, the existing effect clamps `displayBalance` up to the stale floor.
 
-Unlike the seed field we just removed, `poolPercentageValue` is the **only thing currently feeding `contributionRate`** — a real top-level API/DB column (`jackpots.contribution_percentage`). Removing it naively would zero out that column. Fix: re-derive `contributionRate` from the v2 split inside `build-create-body.ts`.
+## Change (single file: `src/components/demo/QaOverlay.tsx`)
 
-### Derivation rule (replacement for `build-create-body.ts` L88)
+In `handleSpin`, inside the existing `if (json.win) { ... }` branch:
 
-```text
-if totalContributionType === 'percentage':
-    contributionRate = (totalContributionAmount × poolWeight) / 10000
-        // e.g. total 3% of wager, poolWeight 60 → 0.018 (1.8%)
+1. Clear `displayFloorRef.current = null` so subsequent polls are not clamped.
+2. Immediately set `displayBalance` to the reseed baseline. Source of the baseline, in order of preference:
+   - the resolved jackpot's `seedAmount` (already on `selectedJp`), since the server reseeds to that on a win.
+3. Do not apply the existing "pool += contribution" bump for the winning spin — skip the `setDisplayBalance(prev => base + poolAdd)` block when `json.win` is present, so the counter doesn't briefly tick up before resetting.
 
-if totalContributionType === 'fixed':
-    contributionRate = 0
-        // a fixed currency total has no meaningful per-wager rate;
-        // the engine reads the fixed amount from config.engineV2 +
-        // config.pool.contributionAmount, which already happens today.
-```
+The floor-clamping `useEffect` keyed on `selectedJp` already handles the case where the next poll's `poolBalance` is below the (now-null) floor: with the floor cleared, it will accept the lower value directly and the widget will visibly drop to the seed. Any "animate up from seed" behavior is just the natural effect of contributions accumulating on subsequent spins / polls — no new animation code is added.
 
-The simulation/math engine path is unaffected: in split mode `payload-to-config.ts` already builds pool/seed contributions from `totalContributionAmount × weights`, never reading `poolPercentageValue`. The `contributionRate` column is essentially a reporting/summary value plus the legacy engine input used by `store.server.ts:415` for non-split jackpots.
+## Out of scope
+- No change to `src/lib/demo/bet.functions.ts`, `src/routes/demo.tsx`, `src/lib/jackpot/*`, or any API contract.
+- No change to backend reseed logic; we rely on the existing poll to surface the new pool balance.
+- Win celebration UI (`WinCelebration`) is unchanged.
 
-## Files to edit
-
-1. **`src/components/jackpot/JackpotCreationForm.tsx`**
-   - Remove `poolPercentageValue: number;` from `JackpotSavePayload` (L193).
-   - Remove `const [poolPercentageValue, setPoolPercentageValue]` state (L381).
-   - Remove `poolPercentageValue: poolPercentageValue[0]` from payload object (L744).
-   - Delete the 3 `<BrightLabel … Percentage of Wager Pool Contribution Amount>` blocks plus their `<PercentageInput value={poolPercentageValue[0]}>` siblings (Classic L2137‑2150, Must‑Drop L3069‑3082, Frequency L4147‑4160).
-
-2. **`src/lib/jackpot/build-create-body.ts`**
-   - Drop `poolPercentageValue: p.poolPercentageValue` from the `pool` block (L17).
-   - Replace L88 with the derivation rule above.
-
-3. **`src/lib/jackpot/payload-to-config.ts`**
-   - L94: legacy branch becomes `const poolContributionAmount = jSplit ? jPoolAmt : 0;` (mirrors what we did for seed).
-
-4. **`src/lib/jackpot/dto-to-payload.ts`**
-   - Drop L56 (`poolPercentageValue: …`).
-
-5. **`src/lib/jackpot/blueprints/templates.ts`** — strip all 9 `poolPercentageValue:` entries.
-
-6. **`src/components/jackpot/BlueprintCenter.tsx`** — strip L67.
-
-## Where the parameter now comes from
-
-| Concern | Old source | New source |
-|---|---|---|
-| UI input for operator | Standalone "Percentage of Wager" field | Total Contribution input + Pool row in the Contribution Weight table |
-| `contributionRate` (API/DB column) | `poolPercentageValue / 100` | Derived from `totalContributionAmount × poolWeight / 10000` (percentage mode) or `0` (fixed mode) |
-| Math engine pool contribution | `poolPercentageValue` via legacy branch | Already sourced from split (`totalContributionAmount × poolWeight / 100`) |
-| Re-opening saved jackpots | `dto.contributionRate × 100` rehydrated as legacy field | Saved `engineV2.totalContributionAmount` + `poolWeight` rehydrated into the split inputs (already wired) |
-
-## API contract / DB
-
-- `contributionRate` field on the API body: **still present**, derivation changed.
-- `jackpots.contribution_percentage` column: **still populated** on insert/update.
-- `config.engineV2.poolWeight` / `totalContributionAmount`: **already persisted today**.
-- No migration needed. No endpoint signature change.
-
-## Verification after the edit
-
-1. TS strict build passes — every dangling reference is caught.
-2. `rg poolPercentageValue src/` returns zero matches.
-3. Open `/admin/jackpots/new` on Classic / Must‑Drop / Frequency — only the Contribution Weight table drives pool contribution. The standalone "Percentage of Wager Pool Contribution Amount" input is gone.
-4. Open `/admin/jackpots/new?editId=11` — form hydrates from the v2 split without console errors.
-5. Save a jackpot in split-percentage mode (e.g. total 3%, pool 60) — confirm payload sent to `POST /api/v1/jackpots` has `contributionRate: 0.018`.
-6. Save one in split-fixed mode — confirm `contributionRate: 0` and `config.engineV2.totalContributionAmount` carries the fixed value.
+## Technical detail
+Replace the current post-bet block:
+- Keep `setLastSplit(...)`.
+- Branch on `json.win`:
+  - Win path: `displayFloorRef.current = null;` then `setDisplayBalance(selectedJp.seedAmount);` then set `win` state as today.
+  - Non-win path: existing `if (poolAdd > 0) { ... }` floor-raising logic unchanged, plus existing toast.
