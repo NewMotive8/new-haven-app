@@ -289,7 +289,15 @@ export function QaOverlay({
       }
       setLastSplit({ pool: poolAdd, seed: seedAdd, house: houseAdd });
 
-      if (poolAdd > 0) {
+      if (json.win) {
+        // Jackpot won — clear the local floor and snap the widget to the
+        // reseed baseline so the next poll (or the immediate set below)
+        // visibly drops to the seed instead of being clamped up.
+        displayFloorRef.current = null;
+        if (selectedJp) {
+          setDisplayBalance(selectedJp.seedAmount);
+        }
+      } else if (poolAdd > 0) {
         setDisplayBalance((prev) => {
           const base = prev ?? selectedJp.poolBalance;
           const next = base + poolAdd;
@@ -299,6 +307,7 @@ export function QaOverlay({
       }
 
       if (json.win) {
+
         const winJpName = jackpots.find((j) => j.id === json.win!.jackpotId)?.name;
         setWin({
           jackpotName: winJpName,
