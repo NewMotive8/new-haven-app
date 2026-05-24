@@ -404,7 +404,7 @@ function SimulatorPage() {
                     cursor: savingDraft ? "wait" : "pointer",
                   }}
                 >
-                  {savingDraft ? "Saving…" : "Save as Draft"}
+                  {savingDraft ? "Saving…" : isEditing ? "Save changes as Draft" : "Save as Draft"}
                 </button>
                 <button
                   onClick={handleSave}
