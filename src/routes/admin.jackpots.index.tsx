@@ -55,6 +55,8 @@ interface JackpotGroupRow {
   name: string;
   status: GroupStatus;
   createdAt: string;
+  assignedCategories?: string[];
+  assignedGameIds?: number[];
 }
 
 type RowStatus = "active" | "draft" | "disabled";
@@ -69,7 +71,10 @@ interface UnifiedRow {
   poolBalance: number;
   createdAt: string;
   kind: RowKind;
+  categories: string[];
+  gameIds: number[];
 }
+
 
 function useJackpotsPage(brandId: number | undefined, page: number, size: number) {
   return useQuery<SpringPage<JackpotDTO>>({
@@ -129,6 +134,50 @@ function StatusBadge({ status }: { status: RowStatus }) {
   );
 }
 
+function AssignedCell({ categories, gameIds }: { categories: string[]; gameIds: number[] }) {
+  const total = categories.length + gameIds.length;
+  if (total === 0) {
+    return <span className="text-neutral-600">—</span>;
+  }
+  const MAX = 3;
+  const catShown = categories.slice(0, MAX);
+  const remainingSlots = Math.max(0, MAX - catShown.length);
+  const idsShown = gameIds.slice(0, remainingSlots);
+  const overflow = total - catShown.length - idsShown.length;
+  const tooltip = [
+    categories.length ? `Categories: ${categories.join(", ")}` : "",
+    gameIds.length ? `Game IDs: ${gameIds.join(", ")}` : "",
+  ].filter(Boolean).join("\n");
+  return (
+    <div
+      className="flex items-center gap-1.5 max-w-[260px] overflow-hidden whitespace-nowrap"
+      title={tooltip}
+    >
+      {catShown.map((c) => (
+        <span
+          key={`c-${c}`}
+          className="px-2 py-0.5 rounded-md text-[11px] font-medium border bg-blue-500/10 text-blue-300 border-blue-500/30 shrink-0"
+        >
+          {c}
+        </span>
+      ))}
+      {idsShown.map((id) => (
+        <span
+          key={`g-${id}`}
+          className="px-1.5 py-0.5 rounded-md text-[11px] font-mono border bg-neutral-800 text-neutral-300 border-neutral-700 shrink-0"
+        >
+          #{id}
+        </span>
+      ))}
+      {overflow > 0 && (
+        <span className="px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-neutral-700/60 text-neutral-300 shrink-0">
+          +{overflow} more
+        </span>
+      )}
+    </div>
+  );
+}
+
 function JackpotsPage() {
   const { brandId } = React.useContext(BrandContext);
   const queryClient = useQueryClient();
@@ -164,6 +213,8 @@ function JackpotsPage() {
         poolBalance: j.poolBalance ?? 0,
         createdAt: j.createdAt,
         kind: "single",
+        categories: j.assignedCategories ?? [],
+        gameIds: j.assignedGameIds ?? [],
       });
     }
     for (const g of groupsQuery.data ?? []) {
@@ -176,6 +227,8 @@ function JackpotsPage() {
         poolBalance: 0,
         createdAt: g.createdAt,
         kind: "group",
+        categories: g.assignedCategories ?? [],
+        gameIds: g.assignedGameIds ?? [],
       });
     }
     return out;
@@ -383,21 +436,23 @@ function JackpotsPage() {
                 <tr className="border-b border-neutral-700">
                   <th className="text-left px-6 py-4 text-sm font-medium text-neutral-400">Name</th>
                   <th className="text-left px-6 py-4 text-sm font-medium text-neutral-400">Type</th>
+                  <th className="text-left px-6 py-4 text-sm font-medium text-neutral-400">Games / Category</th>
                   <th className="text-left px-6 py-4 text-sm font-medium text-neutral-400">Status</th>
                   <th className="text-right px-6 py-4 text-sm font-medium text-neutral-400">Current Value</th>
                   <th className="text-left px-6 py-4 text-sm font-medium text-neutral-400">Created</th>
                   <th className="text-center px-6 py-4 text-sm font-medium text-neutral-400">Actions</th>
+
                 </tr>
               </thead>
               <tbody>
                 {(isLoading || groupsQuery.isLoading) && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-neutral-500">Loading…</td>
+                    <td colSpan={7} className="px-6 py-12 text-center text-neutral-500">Loading…</td>
                   </tr>
                 )}
                 {!isLoading && !groupsQuery.isLoading && filtered.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center">
+                    <td colSpan={7} className="px-6 py-12 text-center">
                       <div className="text-neutral-500">
                         <p className="text-lg">No jackpots found</p>
                         <p className="text-sm mt-1">Try adjusting your filters or search query</p>
@@ -419,6 +474,9 @@ function JackpotsPage() {
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-sm text-neutral-400">{r.typeLabel}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <AssignedCell categories={r.categories} gameIds={r.gameIds} />
                       </td>
                       <td className="px-6 py-4"><StatusBadge status={r.status} /></td>
                       <td className="px-6 py-4 text-right">
