@@ -227,6 +227,10 @@ export function QaOverlay({
 
   const handleSpin = async () => {
     if (spinning || !selectedJp) return;
+    if (!optedIn) {
+      setError("Opt in to spin.");
+      return;
+    }
     const w = Number(wager);
     if (!Number.isFinite(w) || w <= 0) {
       setError("Wager must be a positive number");
