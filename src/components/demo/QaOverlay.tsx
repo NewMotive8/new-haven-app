@@ -131,6 +131,7 @@ export function QaOverlay({
   const [error, setError] = useState<string | null>(null);
   const [lastSplit, setLastSplit] = useState<{ pool: number; seed: number; house: number } | null>(null);
   const [win, setWin] = useState<WinInfo | null>(null);
+  const [optedIn, setOptedIn] = useState(false);
 
   const [displayBalance, setDisplayBalance] = useState<number | null>(null);
   const displayFloorRef = useRef<number | null>(null);
