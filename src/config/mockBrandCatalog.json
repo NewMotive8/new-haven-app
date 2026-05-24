@@ -1,0 +1,16 @@
+{
+  "brand_1": [
+    { "gameId": "stellar-rush", "name": "Stellar Rush", "category": "Slots", "provider": "NetEnt" },
+    { "gameId": "blackjack-vip-3", "name": "Blackjack VIP 3", "category": "Table Games", "provider": "Evolution" },
+    { "gameId": "roulette-live-1", "name": "Immersive Roulette", "category": "Table Games", "provider": "Evolution" },
+    { "gameId": "sweet-bonanza-9", "name": "Sweet Bonanza Deluxe", "category": "Slots", "provider": "Pragmatic Play" },
+    { "gameId": "starburst-test", "name": "Starburst Classic", "category": "Slots", "provider": "NetEnt" },
+    { "gameId": "mega-moolah-test", "name": "Mega Fortune Spin", "category": "Slots", "provider": "Microgaming" },
+    { "gameId": "crazy-time-live", "name": "Crazy Time", "category": "Live Casino", "provider": "Evolution" },
+    { "gameId": "book-of-dead-5", "name": "Book of Dead", "category": "Slots", "provider": "Play'n GO" },
+    { "gameId": "baccarat-speed-a", "name": "Speed Baccarat A", "category": "Table Games", "provider": "Evolution" },
+    { "gameId": "gates-of-olympus-1", "name": "Gates of Olympus", "category": "Slots", "provider": "Pragmatic Play" },
+    { "gameId": "aviator-crash", "name": "Aviator", "category": "Crash Games", "provider": "Spribe" },
+    { "gameId": "gonzos-quest-x", "name": "Gonzo's Quest Megaways", "category": "Slots", "provider": "Red Tiger" }
+  ]
+}
