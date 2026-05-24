@@ -131,6 +131,7 @@ export function QaOverlay({
   const [error, setError] = useState<string | null>(null);
   const [lastSplit, setLastSplit] = useState<{ pool: number; seed: number; house: number } | null>(null);
   const [win, setWin] = useState<WinInfo | null>(null);
+  const [optedIn, setOptedIn] = useState(false);
 
   const [displayBalance, setDisplayBalance] = useState<number | null>(null);
   const displayFloorRef = useRef<number | null>(null);
@@ -210,6 +211,11 @@ export function QaOverlay({
     }
   }, [selectedJp]);
 
+  // Reset opt-in whenever the resolved jackpot changes (switching games / windows)
+  useEffect(() => {
+    setOptedIn(false);
+  }, [selectedJp?.id]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -221,6 +227,10 @@ export function QaOverlay({
 
   const handleSpin = async () => {
     if (spinning || !selectedJp) return;
+    if (!optedIn) {
+      setError("Opt in to spin.");
+      return;
+    }
     const w = Number(wager);
     if (!Number.isFinite(w) || w <= 0) {
       setError("Wager must be a positive number");
@@ -455,6 +465,15 @@ export function QaOverlay({
                       value={selectedJp ? `${selectedJp.name} (#${selectedJp.id})` : "—"}
                       className="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-emerald-300 text-sm font-mono"
                     />
+                    <span
+                      className={`mt-1 self-start text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full border ${
+                        optedIn
+                          ? "bg-emerald-950/60 border-emerald-700 text-emerald-300"
+                          : "bg-slate-950 border-slate-700 text-slate-400"
+                      }`}
+                    >
+                      {optedIn ? "You are opted in" : "You are opted out"}
+                    </span>
                   </label>
                   <label className="flex flex-col gap-1 text-xs text-slate-400">
                     Game ID
@@ -517,19 +536,44 @@ export function QaOverlay({
                   </div>
                 )}
 
-                <button
-                  type="button"
-                  onClick={handleSpin}
-                  disabled={spinning || !selectedJp}
-                  className="relative mt-2 self-end px-10 py-4 rounded-2xl font-black uppercase tracking-widest text-lg
-                             text-amber-950 disabled:opacity-50 disabled:cursor-not-allowed
-                             bg-gradient-to-b from-yellow-300 via-amber-400 to-amber-600
-                             shadow-[0_8px_0_#78350f,0_12px_24px_rgba(245,158,11,0.5)]
-                             hover:translate-y-0.5 hover:shadow-[0_6px_0_#78350f,0_10px_20px_rgba(245,158,11,0.5)]
-                             active:translate-y-1.5 active:shadow-[0_2px_0_#78350f] transition"
-                >
-                  {spinning ? "Spinning…" : `Spin €${Number(wager || 0).toFixed(2)}`}
-                </button>
+                <div className="mt-2 flex flex-wrap items-center justify-end gap-3">
+                  {optedIn ? (
+                    <button
+                      type="button"
+                      onClick={() => setOptedIn(false)}
+                      disabled={!selectedJp}
+                      className="px-5 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-sm font-semibold hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      Opt out
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setOptedIn(true)}
+                      disabled={!selectedJp}
+                      className="px-5 py-2.5 rounded-lg font-bold text-sm uppercase tracking-wider text-amber-950
+                                 bg-gradient-to-b from-yellow-300 via-amber-400 to-amber-600
+                                 shadow-[0_4px_0_#78350f] hover:translate-y-0.5 hover:shadow-[0_2px_0_#78350f]
+                                 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      Opt in Jackpot
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleSpin}
+                    disabled={spinning || !selectedJp || !optedIn}
+                    title={!optedIn ? "Opt in to spin." : undefined}
+                    className="relative px-10 py-4 rounded-2xl font-black uppercase tracking-widest text-lg
+                               text-amber-950 disabled:opacity-50 disabled:cursor-not-allowed
+                               bg-gradient-to-b from-yellow-300 via-amber-400 to-amber-600
+                               shadow-[0_8px_0_#78350f,0_12px_24px_rgba(245,158,11,0.5)]
+                               hover:translate-y-0.5 hover:shadow-[0_6px_0_#78350f,0_10px_20px_rgba(245,158,11,0.5)]
+                               active:translate-y-1.5 active:shadow-[0_2px_0_#78350f] transition"
+                  >
+                    {spinning ? "Spinning…" : `Spin €${Number(wager || 0).toFixed(2)}`}
+                  </button>
+                </div>
               </div>
             </div>
           )}
