@@ -50,6 +50,26 @@ export const placeDemoBet = createServerFn({ method: "POST" })
       body: JSON.stringify(betPayload),
     });
 
-    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    const body = (await res.json().catch(() => ({}))) as BetResponseBody;
     return { ok: res.ok, status: res.status, body };
   });
+
+type Contribution = { pool: number; seed: number; house: number };
+type BetResponseBody = {
+  contribution?: Contribution;
+  perJackpot?: Array<{ jackpotId: number; contribution: Contribution }>;
+  win?: {
+    jackpotId: number;
+    amount: number;
+    isCommunity?: boolean;
+    communitySize?: number;
+    communityMemberPayOut?: number;
+    triggeringPayout?: number;
+    communityPool?: number;
+    cappedDelta?: number;
+  } | null;
+  code?: string;
+  message?: string;
+  error?: string;
+};
+
