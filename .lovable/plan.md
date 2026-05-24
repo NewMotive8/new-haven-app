@@ -1,48 +1,70 @@
-## Root cause
+## Goal
 
-When you click "Edit" on an existing jackpot, the editor opens at `/admin/jackpots/new?editId=123`. The form (`JackpotCreationForm`) loads the existing config correctly, but its bottom **"Continue"** button does NOT call the parent's `onSave` (PUT) handler in `admin.jackpots.new.tsx`. Instead it:
+Remove the **"Percentage of Wager – Pool Contribution Amount"** UI input and excise the legacy `poolPercentageValue` field from the stack. The v2 Contribution Weight split (Total Contribution × Pool weight) becomes the sole source of the pool's contribution rate.
 
-1. Serializes the payload to `sessionStorage` under `jackpot:pendingPayload`
-2. Navigates to `/admin/simulator` (carrying the payload, but **not the editId**)
+## The API-safety crux
 
-The simulator page's "Save" button then unconditionally calls:
+Unlike the seed field we just removed, `poolPercentageValue` is the **only thing currently feeding `contributionRate`** — a real top-level API/DB column (`jackpots.contribution_percentage`). Removing it naively would zero out that column. Fix: re-derive `contributionRate` from the v2 split inside `build-create-body.ts`.
 
-```ts
-await axios.post("/api/v1/jackpots", body, …)   // src/routes/admin.simulator.tsx:129
+### Derivation rule (replacement for `build-create-body.ts` L88)
+
+```text
+if totalContributionType === 'percentage':
+    contributionRate = (totalContributionAmount × poolWeight) / 10000
+        // e.g. total 3% of wager, poolWeight 60 → 0.018 (1.8%)
+
+if totalContributionType === 'fixed':
+    contributionRate = 0
+        // a fixed currency total has no meaningful per-wager rate;
+        // the engine reads the fixed amount from config.engineV2 +
+        // config.pool.contributionAmount, which already happens today.
 ```
 
-So every save from the edit flow creates a brand-new record with the same name — the duplicate the user is seeing. The actual `PUT /api/v1/jackpots/:id` endpoint and the parent route's `handleSave` are correct; they're simply never invoked because the form short-circuits to the simulator.
+The simulation/math engine path is unaffected: in split mode `payload-to-config.ts` already builds pool/seed contributions from `totalContributionAmount × weights`, never reading `poolPercentageValue`. The `contributionRate` column is essentially a reporting/summary value plus the legacy engine input used by `store.server.ts:415` for non-split jackpots.
 
-Groups (`admin.jackpot-groups.$id.tsx`) already PATCH correctly and are unaffected, but we'll audit the user-visible "Save" flows in that page once more to confirm.
+## Files to edit
 
-## Fix (scope: form submission handlers + UI state only)
+1. **`src/components/jackpot/JackpotCreationForm.tsx`**
+   - Remove `poolPercentageValue: number;` from `JackpotSavePayload` (L193).
+   - Remove `const [poolPercentageValue, setPoolPercentageValue]` state (L381).
+   - Remove `poolPercentageValue: poolPercentageValue[0]` from payload object (L744).
+   - Delete the 3 `<BrightLabel … Percentage of Wager Pool Contribution Amount>` blocks plus their `<PercentageInput value={poolPercentageValue[0]}>` siblings (Classic L2137‑2150, Must‑Drop L3069‑3082, Frequency L4147‑4160).
 
-### 1. `src/components/jackpot/JackpotCreationForm.tsx`
-- Accept an optional `editId?: number` prop.
-- In `handleContinue`, include `editId` (when present) in:
-  - the `sessionStorage` payload (`jackpot:pendingPayload`)
-  - the router `state.jackpotConfig` carried into `/admin/simulator`
-- No other behavioral changes; "Continue" still goes to the simulator preview.
+2. **`src/lib/jackpot/build-create-body.ts`**
+   - Drop `poolPercentageValue: p.poolPercentageValue` from the `pool` block (L17).
+   - Replace L88 with the derivation rule above.
 
-### 2. `src/routes/admin.jackpots.new.tsx`
-- Pass `editId={isEditing ? editId : undefined}` to `<JackpotCreationForm>`.
+3. **`src/lib/jackpot/payload-to-config.ts`**
+   - L94: legacy branch becomes `const poolContributionAmount = jSplit ? jPoolAmt : 0;` (mirrors what we did for seed).
 
-### 3. `src/routes/admin.simulator.tsx` — the real fix
-- Read `editId` from the hydrated payload (state first, then sessionStorage fallback).
-- Keep it in a ref alongside `originalPayloadRef` so user edits in the JSON textarea don't lose it.
-- In `persistJackpot(asDraft)`:
-  - If `editId` is present → `axios.put('/api/v1/jackpots/{editId}', body, …)` and toast `"Jackpot updated"`.
-  - Else → existing `axios.post('/api/v1/jackpots', body, …)` for create / clone.
-- Always clear `sessionStorage['jackpot:pendingPayload']` after success so a subsequent "Create new" doesn't inherit the stale `editId`.
-- Update button labels: when editing, show "Save changes" / "Save changes as draft" instead of "Create" / "Save draft".
+4. **`src/lib/jackpot/dto-to-payload.ts`**
+   - Drop L56 (`poolPercentageValue: …`).
 
-### 4. `src/routes/admin.jackpots.index.tsx`
-- No code change needed — already navigates with `{ search: { editId: row.id } }`. After fix it will round-trip cleanly through the simulator.
+5. **`src/lib/jackpot/blueprints/templates.ts`** — strip all 9 `poolPercentageValue:` entries.
 
-### 5. Quick verification (no changes expected)
-- Re-read `admin.jackpot-groups.$id.tsx` `saveProfile()` → already PATCH on `group.id`. Confirm no other "Save" button on that page POSTs.
-- `updateJackpot` in `src/lib/jackpot/store.server.ts` does accept the partial DTO and patches in place — out of scope here (some fields are not yet persisted on update, but that's a separate "edits don't stick" issue, not the duplication bug).
+6. **`src/components/jackpot/BlueprintCenter.tsx`** — strip L67.
 
-## Expected result
+## Where the parameter now comes from
 
-Editing an existing jackpot → Continue → Simulator → Save now issues `PUT /api/v1/jackpots/:editId` and the dashboard refreshes the same row instead of spawning a duplicate. Creating a brand-new jackpot is unchanged. Group editing is unchanged (already correct).
+| Concern | Old source | New source |
+|---|---|---|
+| UI input for operator | Standalone "Percentage of Wager" field | Total Contribution input + Pool row in the Contribution Weight table |
+| `contributionRate` (API/DB column) | `poolPercentageValue / 100` | Derived from `totalContributionAmount × poolWeight / 10000` (percentage mode) or `0` (fixed mode) |
+| Math engine pool contribution | `poolPercentageValue` via legacy branch | Already sourced from split (`totalContributionAmount × poolWeight / 100`) |
+| Re-opening saved jackpots | `dto.contributionRate × 100` rehydrated as legacy field | Saved `engineV2.totalContributionAmount` + `poolWeight` rehydrated into the split inputs (already wired) |
+
+## API contract / DB
+
+- `contributionRate` field on the API body: **still present**, derivation changed.
+- `jackpots.contribution_percentage` column: **still populated** on insert/update.
+- `config.engineV2.poolWeight` / `totalContributionAmount`: **already persisted today**.
+- No migration needed. No endpoint signature change.
+
+## Verification after the edit
+
+1. TS strict build passes — every dangling reference is caught.
+2. `rg poolPercentageValue src/` returns zero matches.
+3. Open `/admin/jackpots/new` on Classic / Must‑Drop / Frequency — only the Contribution Weight table drives pool contribution. The standalone "Percentage of Wager Pool Contribution Amount" input is gone.
+4. Open `/admin/jackpots/new?editId=11` — form hydrates from the v2 split without console errors.
+5. Save a jackpot in split-percentage mode (e.g. total 3%, pool 60) — confirm payload sent to `POST /api/v1/jackpots` has `contributionRate: 0.018`.
+6. Save one in split-fixed mode — confirm `contributionRate: 0` and `config.engineV2.totalContributionAmount` carries the fixed value.

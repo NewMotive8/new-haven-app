@@ -190,7 +190,7 @@ export type JackpotSavePayload = {
   operatorContribution: number;
   seedPlayerContribution: number;
   seedOperatorContribution: number;
-  poolPercentageValue: number;
+  
   
   recurrenceType: RecurrenceType;
   weeklyDay: string;
@@ -378,7 +378,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
   const [operatorContribution, setOperatorContribution] = useState([initial?.operatorContribution ?? 100]);
   const [seedPlayerContribution, setSeedPlayerContribution] = useState([initial?.seedPlayerContribution ?? 100]);
   const [seedOperatorContribution, setSeedOperatorContribution] = useState([initial?.seedOperatorContribution ?? 0]);
-  const [poolPercentageValue, setPoolPercentageValue] = useState([initial?.poolPercentageValue ?? 3]);
+  
   
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isTemplate, setIsTemplate] = useState(initial?.isTemplate ?? false);
@@ -741,7 +741,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
       operatorContribution: operatorContribution[0],
       seedPlayerContribution: seedPlayerContribution[0],
       seedOperatorContribution: seedOperatorContribution[0],
-      poolPercentageValue: poolPercentageValue[0],
+      
       
       recurrenceType,
       weeklyDay,
@@ -2134,20 +2134,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
                               <div></div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-6">
-                              <div className="space-y-2">
-                                <BrightLabel htmlFor="pool-contribution">Percentage of Wager Pool Contribution Amount</BrightLabel>
-                                <PercentageInput
-                                  id="pool-contribution"
-                                  type="number"
-                                  placeholder="3"
-                                  value={poolPercentageValue[0]}
-                                  onChange={(e) => setPoolPercentageValue([parseFloat(e.target.value) || 0])}
-                                  className="bg-neutral-800 border-neutral-700"
-                                />
-                              </div>
-                              <div></div>
-                            </div>
+
+
 
                             <div className="grid grid-cols-2 gap-6">
                               <div className="space-y-2">
@@ -3053,20 +3041,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
                               <div></div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-6">
-                              <div className="space-y-2">
-                                <BrightLabel htmlFor="pool-contribution">Percentage of Wager Pool Contribution Amount</BrightLabel>
-                                <PercentageInput
-                                  id="pool-contribution"
-                                  type="number"
-                                  placeholder="3"
-                                  value={poolPercentageValue[0]}
-                                  onChange={(e) => setPoolPercentageValue([parseFloat(e.target.value) || 0])}
-                                  className="bg-neutral-800 border-neutral-700"
-                                />
-                              </div>
-                              <div></div>
-                            </div>
+
+
 
                             <div className="grid grid-cols-2 gap-6">
                               <div className="space-y-2">
@@ -4118,20 +4094,8 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
                               <div></div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-6">
-                              <div className="space-y-2">
-                                <BrightLabel htmlFor="frequency-pool-contribution">Percentage of Wager Pool Contribution Amount</BrightLabel>
-                                <PercentageInput
-                                  id="frequency-pool-contribution"
-                                  type="number"
-                                  placeholder="3"
-                                  value={poolPercentageValue[0]}
-                                  onChange={(e) => setPoolPercentageValue([parseFloat(e.target.value) || 0])}
-                                  className="bg-neutral-800 border-neutral-700"
-                                />
-                              </div>
-                              <div></div>
-                            </div>
+
+
 
                             <div className="grid grid-cols-2 gap-6">
                               <div className="space-y-2">

@@ -91,7 +91,7 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
     : payload.contributionType === "fixed"
       ? "FIXED"
       : "PERCENTAGE";
-  const poolContributionAmount = jSplit ? jPoolAmt : num(payload.poolPercentageValue, 0);
+  const poolContributionAmount = jSplit ? jPoolAmt : 0;
   const seedContributionType = jSplit
     ? jTotalType
     : payload.seedContributionType === "fixed"

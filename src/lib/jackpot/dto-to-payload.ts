@@ -53,7 +53,7 @@ export function dtoToPayload(dto: JackpotDTO): JackpotSavePayload {
     operatorContribution: Number(pool.operatorContribution ?? 100),
     seedPlayerContribution: Number(seed.seedPlayerContribution ?? 100),
     seedOperatorContribution: Number(seed.seedOperatorContribution ?? 0),
-    poolPercentageValue: Number(pool.poolPercentageValue ?? (Number(dto.contributionRate ?? 0) * 100)),
+    
     
     recurrenceType: (recurrence.recurrenceType ?? "single") as JackpotSavePayload["recurrenceType"],
     weeklyDay: recurrence.weeklyDay ?? "",
