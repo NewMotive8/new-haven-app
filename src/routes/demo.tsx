@@ -24,22 +24,22 @@ type Tile = {
 };
 
 const GAMES: Tile[] = [
-  { id: "stellar-rush", name: "Stellar Rush", category: "slots", gradient: "from-fuchsia-700 to-indigo-900", emoji: "✦" },
-  { id: "gold-rush-7", name: "Gold Rush 7s", category: "slots", gradient: "from-amber-500 to-orange-800", emoji: "7" },
-  { id: "neon-tigers", name: "Neon Tigers", category: "slots", gradient: "from-pink-600 to-purple-900", emoji: "🐅" },
-  { id: "fortune-dragon", name: "Fortune Dragon", category: "slots", gradient: "from-red-700 to-amber-900", emoji: "🐉" },
-  { id: "vegas-blackjack", name: "Vegas Blackjack", category: "table", gradient: "from-emerald-700 to-slate-900", emoji: "♠" },
-  { id: "european-roulette", name: "European Roulette", category: "table", gradient: "from-rose-700 to-slate-900", emoji: "⭕" },
-  { id: "baccarat-pro", name: "Baccarat Pro", category: "table", gradient: "from-cyan-700 to-slate-900", emoji: "♣" },
-  { id: "lightning-poker", name: "Lightning Poker", category: "table", gradient: "from-yellow-600 to-slate-900", emoji: "♦" },
-  { id: "live-mega-wheel", name: "Live Mega Wheel", category: "live", gradient: "from-violet-700 to-fuchsia-900", emoji: "🎡" },
-  { id: "live-monopoly", name: "Live Monopoly", category: "live", gradient: "from-lime-600 to-emerald-900", emoji: "🎲" },
-  { id: "crazy-time", name: "Crazy Time", category: "live", gradient: "from-orange-600 to-red-900", emoji: "⚡" },
-  { id: "dream-catcher", name: "Dream Catcher", category: "live", gradient: "from-sky-700 to-indigo-900", emoji: "🌙" },
-  { id: "buffalo-king", name: "Buffalo King", category: "slots", gradient: "from-amber-700 to-stone-900", emoji: "🦬" },
-  { id: "pirate-bounty", name: "Pirate Bounty", category: "slots", gradient: "from-teal-700 to-slate-900", emoji: "🏴" },
-  { id: "lucky-clover", name: "Lucky Clover", category: "slots", gradient: "from-green-600 to-emerald-900", emoji: "🍀" },
-  { id: "starlight-spin", name: "Starlight Spin", category: "slots", gradient: "from-indigo-700 to-purple-950", emoji: "★" },
+  { id: "stellar-rush", name: "Stellar Rush", category: "Slots", gradient: "from-fuchsia-700 to-indigo-900", emoji: "✦" },
+  { id: "gold-rush-7", name: "Gold Rush 7s", category: "Slots", gradient: "from-amber-500 to-orange-800", emoji: "7" },
+  { id: "neon-tigers", name: "Neon Tigers", category: "Slots", gradient: "from-pink-600 to-purple-900", emoji: "🐅" },
+  { id: "fortune-dragon", name: "Fortune Dragon", category: "Slots", gradient: "from-red-700 to-amber-900", emoji: "🐉" },
+  { id: "vegas-blackjack", name: "Vegas Blackjack", category: "Table Games", gradient: "from-emerald-700 to-slate-900", emoji: "♠" },
+  { id: "european-roulette", name: "European Roulette", category: "Table Games", gradient: "from-rose-700 to-slate-900", emoji: "⭕" },
+  { id: "baccarat-pro", name: "Baccarat Pro", category: "Table Games", gradient: "from-cyan-700 to-slate-900", emoji: "♣" },
+  { id: "lightning-poker", name: "Lightning Poker", category: "Table Games", gradient: "from-yellow-600 to-slate-900", emoji: "♦" },
+  { id: "live-mega-wheel", name: "Live Mega Wheel", category: "Live Casino", gradient: "from-violet-700 to-fuchsia-900", emoji: "🎡" },
+  { id: "live-monopoly", name: "Live Monopoly", category: "Live Casino", gradient: "from-lime-600 to-emerald-900", emoji: "🎲" },
+  { id: "crazy-time", name: "Crazy Time", category: "Live Casino", gradient: "from-orange-600 to-red-900", emoji: "⚡" },
+  { id: "dream-catcher", name: "Dream Catcher", category: "Live Casino", gradient: "from-sky-700 to-indigo-900", emoji: "🌙" },
+  { id: "buffalo-king", name: "Buffalo King", category: "Slots", gradient: "from-amber-700 to-stone-900", emoji: "🦬" },
+  { id: "pirate-bounty", name: "Pirate Bounty", category: "Slots", gradient: "from-teal-700 to-slate-900", emoji: "🏴" },
+  { id: "lucky-clover", name: "Lucky Clover", category: "Slots", gradient: "from-green-600 to-emerald-900", emoji: "🍀" },
+  { id: "starlight-spin", name: "Starlight Spin", category: "Slots", gradient: "from-indigo-700 to-purple-950", emoji: "★" },
 ];
 
 function DemoPage() {
