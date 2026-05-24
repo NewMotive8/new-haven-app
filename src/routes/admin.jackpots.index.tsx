@@ -169,6 +169,8 @@ function JackpotsPage() {
         poolBalance: j.poolBalance ?? 0,
         createdAt: j.createdAt,
         kind: "single",
+        categories: j.assignedCategories ?? [],
+        gameIds: j.assignedGameIds ?? [],
       });
     }
     for (const g of groupsQuery.data ?? []) {
