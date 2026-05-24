@@ -255,6 +255,7 @@ export function QaOverlay({
         wager: w,
         gameId: gameId.trim() || "demo-game",
         category: category.trim() || undefined,
+        provider: provider.trim() || undefined,
         jackpotId: selectedJp.id,
         clientTimestamp,
         clientTimezone: tm.timezone,
