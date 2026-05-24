@@ -81,6 +81,10 @@ function SimulatorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const originalPayloadRef = React.useRef<JackpotSavePayload | undefined>(hydratedPayload);
+  const editIdRef = React.useRef<number | undefined>(
+    typeof hydratedPayload?.editId === "number" ? hydratedPayload.editId : undefined,
+  );
+  const isEditing = editIdRef.current != null;
   const [initError, setInitError] = React.useState<string | null>(null);
   const initialConfig = React.useMemo<JackpotConfigDTO>(
     () => {
