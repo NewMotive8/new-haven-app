@@ -25,12 +25,15 @@ export const placeDemoBet = createServerFn({ method: "POST" })
     const secret = process.env.INTERNAL_SERVICE_SECRET;
     if (!secret) {
       return {
-        ok: false as const,
+        ok: false,
         status: 503,
-        code: "INTERNAL_SECRET_NOT_SET",
-        message: "INTERNAL_SERVICE_SECRET is not configured on this environment.",
+        body: {
+          code: "INTERNAL_SECRET_NOT_SET",
+          message: "INTERNAL_SERVICE_SECRET is not configured on this environment.",
+        } as BetResponseBody,
       };
     }
+
 
     const host = getRequestHost();
     const forwardedProto = getRequestHeader("x-forwarded-proto");
