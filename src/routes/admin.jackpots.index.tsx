@@ -447,12 +447,12 @@ function JackpotsPage() {
               <tbody>
                 {(isLoading || groupsQuery.isLoading) && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-neutral-500">Loading…</td>
+                    <td colSpan={7} className="px-6 py-12 text-center text-neutral-500">Loading…</td>
                   </tr>
                 )}
                 {!isLoading && !groupsQuery.isLoading && filtered.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center">
+                    <td colSpan={7} className="px-6 py-12 text-center">
                       <div className="text-neutral-500">
                         <p className="text-lg">No jackpots found</p>
                         <p className="text-sm mt-1">Try adjusting your filters or search query</p>
@@ -474,6 +474,9 @@ function JackpotsPage() {
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-sm text-neutral-400">{r.typeLabel}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <AssignedCell categories={r.categories} gameIds={r.gameIds} />
                       </td>
                       <td className="px-6 py-4"><StatusBadge status={r.status} /></td>
                       <td className="px-6 py-4 text-right">
