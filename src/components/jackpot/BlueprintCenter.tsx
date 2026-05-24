@@ -65,7 +65,6 @@ function applyFundingDefaults(payload: SingleBlueprint["payload"], ft: FundingTy
     seedPlayerContribution: 0,
     seedOperatorContribution: 0,
     poolPercentageValue: 0,
-    seedPercentageValue: 0,
     operatorShare: 0,
   };
 }
