@@ -110,12 +110,16 @@ export function QaOverlay({
   brandId,
   initialGameId,
   initialCategory,
+  initialProvider = "",
+  initialName,
   onClose,
 }: {
   open: boolean;
   brandId: string;
   initialGameId: string;
   initialCategory: string;
+  initialProvider?: string;
+  initialName?: string;
   onClose: () => void;
 }) {
   const [jackpots, setJackpots] = useState<Jackpot[]>([]);
@@ -123,6 +127,7 @@ export function QaOverlay({
 
   const [gameId, setGameId] = useState(initialGameId);
   const [category, setCategory] = useState(initialCategory);
+  const [provider, setProvider] = useState(initialProvider);
   const [wager, setWager] = useState(1);
   const [tm, setTm] = useState<TimeMachineValue>(() => defaultTimeMachine());
   const [widgetStyle, setWidgetStyle] = useState<WidgetStyleKey>("slate");
@@ -148,11 +153,12 @@ export function QaOverlay({
     if (!open) return;
     setGameId(initialGameId);
     setCategory(initialCategory);
+    setProvider(initialProvider);
     setError(null);
     setLastSplit(null);
     displayFloorRef.current = null;
     setDisplayBalance(null);
-  }, [open, initialGameId, initialCategory, brandId]);
+  }, [open, initialGameId, initialCategory, initialProvider, brandId]);
 
   useEffect(() => {
     if (!open || !brandId) return;
@@ -249,6 +255,7 @@ export function QaOverlay({
         wager: w,
         gameId: gameId.trim() || "demo-game",
         category: category.trim() || undefined,
+        provider: provider.trim() || undefined,
         jackpotId: selectedJp.id,
         clientTimestamp,
         clientTimezone: tm.timezone,
@@ -385,7 +392,9 @@ export function QaOverlay({
               <div className="text-[10px] uppercase tracking-widest text-emerald-400">
                 QA Configuration
               </div>
-              <h2 className="text-lg font-bold text-slate-100">Test Harness — {initialGameId}</h2>
+              <h2 className="text-lg font-bold text-slate-100">
+                Test Harness — {initialName?.trim() ? `${initialName} · ${initialGameId}` : initialGameId}
+              </h2>
             </div>
             <button
               type="button"
@@ -490,6 +499,16 @@ export function QaOverlay({
                       type="text"
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
+                      className="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-slate-100 text-sm"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs text-slate-400">
+                    Provider
+                    <input
+                      type="text"
+                      value={provider}
+                      onChange={(e) => setProvider(e.target.value)}
+                      placeholder="—"
                       className="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-slate-100 text-sm"
                     />
                   </label>
