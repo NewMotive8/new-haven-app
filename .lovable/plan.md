@@ -1,27 +1,36 @@
-## Goal
-Make the visible jackpot tile respond correctly when a €50 spin contributes to it, without changing contribution math, opt-in defaults, or unrelated routing behavior.
+## Problem
 
-## What I’ll change
-1. Tighten the multi-pool spin response handling in `src/routes/sandbox-demo.tsx` so grouped tiles still get a visible pool update when the bet API returns only aggregate contribution data.
-2. Keep the existing chip/tracker behavior intact while assigning the aggregate pool delta to the correct currently targeted tile when no `perJackpot` breakdown is returned.
-3. Remove the duplicate persistence call path so pool top-ups are sent once per affected jackpot instead of twice.
-4. Preserve the current anti-yank focus behavior and only let the carousel move when the currently watched tile did not receive the bump.
+`/demo` → QA Overlay → SPIN calls `POST /api/v1/event/bet` directly from the browser. That route is gated by `requireInternalSecret` (`src/lib/jackpot/http.ts`), which requires `Authorization: Bearer <INTERNAL_SERVICE_SECRET>` or `X-Internal-Service-Secret`. The browser sends no header → 403 `INTERNAL_HANDSHAKE_MISSING`.
 
-## Expected result
-- Spinning €50 on the currently visible tile makes that tile’s displayed amount move immediately.
-- Group tiles update their tier rows when the response is aggregate-only and routed to that group.
-- The 2-second poll no longer masks the change or causes inconsistent double top-up behavior.
+`INTERNAL_SERVICE_SECRET` is configured as a server-side runtime secret. **It must never be shipped to the client bundle** — that defeats the zero-trust gate and exposes the secret on the public preview/published URL. So "hard-code it in the page" is off the table.
 
-## Technical details
-- File: `src/routes/sandbox-demo.tsx`
-- Focus area: the multi-pool branch inside `handleSpin`, especially the `perJackpot` / aggregate fallback block and the subsequent persistence section.
-- Surgical implementation:
-  - If `json.perJackpot` is empty and the target is a grouped tile, distribute the aggregate pool bump to the active group’s visible tier(s) using the current visible routing target instead of dropping the delta.
-  - Keep `lastSplit` and tracker totals based on the server response exactly as they are now.
-  - Collapse the two `persistPoolGrowth` paths into a single post-update persistence pass.
-  - Leave contribution chip calculations, fallback routing, and opt-in discovery logic untouched.
+## Recommendation: Option A — Server-side proxy via `createServerFn`
 
-## Validation
-- Spin €50 on a single tile: its displayed pool increases and stays increased across the next poll.
-- Spin €50 while viewing a grouped tile: at least one visible tier amount changes immediately and remains stable.
-- Confirm the carousel does not jump away from the tile being watched when that tile received the bump.
+Create a TanStack server function `placeDemoBet` that runs in the worker, reads `process.env.INTERNAL_SERVICE_SECRET`, and forwards the payload to the existing bet route with the Bearer header attached. The `/demo` overlay calls the server fn instead of `fetch("/api/v1/event/bet")`.
+
+**Files:**
+- New: `src/lib/demo/bet.functions.ts`
+  - `placeDemoBet = createServerFn({ method: "POST" }).inputValidator(z.object({...bet payload...})).handler(async ({ data }) => { ... })`
+  - Handler builds an absolute URL via `getRequestHost()` + protocol, POSTs to `/api/v1/event/bet` with `Authorization: Bearer ${process.env.INTERNAL_SERVICE_SECRET}`, returns parsed JSON (or rethrows status/code/message so the UI keeps showing the same error envelope).
+- Edit: `src/components/demo/QaOverlay.tsx`
+  - Replace the `fetch("/api/v1/event/bet", ...)` block with `await placeDemoBet({ data: payload })` via `useServerFn`. Keep the existing response/error handling shape (`contribution`, `perJackpot`, `win`, `code`, `message`).
+- No edits to `src/lib/jackpot/*`, `src/routes/api/v1/event/bet.ts`, `src/routes/sandbox-demo.tsx`, or DB.
+
+**Why this is correct here:**
+- Secret stays on the server.
+- `/demo` keeps simulating a "real operator site" — the operator's backend (here: the server fn) holds the credential.
+- Zero impact on the engineering sandbox.
+
+## Option B — Secret input in the overlay (mirror sandbox-demo)
+
+Add a small "Internal Secret" text input + Auth Mode toggle to `QaOverlay`, persist to `sessionStorage`, and send it as `Authorization: Bearer …` from the browser on every spin. Same UX as `/sandbox-demo`.
+
+Trade-off: secret lives in the operator's browser session. Fine for an internal-only QA harness behind login; **not** appropriate if `/demo` is publicly reachable.
+
+## Option C — NOT recommended
+
+Hard-coding `INTERNAL_SERVICE_SECRET` in `QaOverlay.tsx` or wiring it via `VITE_*`. Vite inlines it into the public JS bundle → any visitor of the preview/published URL can read it and bypass the VPC gate from anywhere. Do not do this.
+
+## Question for you
+
+Pick A or B and I'll implement it in build mode. Default if you don't say: **A**.
