@@ -292,6 +292,8 @@ export type JackpotSavePayload = {
   previewWager?: number;
   /** When true, persist with enabled=false and tag config.isDraft=true. */
   isDraft?: boolean;
+  /** Carried through the simulator hand-off; presence flips Save to PUT. */
+  editId?: number;
   // ── Eligibility & Rules Engine — game/event targeting metadata.
   eligibility?: {
     vertical: 'casino' | 'sportsbook';
