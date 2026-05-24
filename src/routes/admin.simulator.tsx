@@ -81,6 +81,10 @@ function SimulatorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const originalPayloadRef = React.useRef<JackpotSavePayload | undefined>(hydratedPayload);
+  const editIdRef = React.useRef<number | undefined>(
+    typeof hydratedPayload?.editId === "number" ? hydratedPayload.editId : undefined,
+  );
+  const isEditing = editIdRef.current != null;
   const [initError, setInitError] = React.useState<string | null>(null);
   const initialConfig = React.useMemo<JackpotConfigDTO>(
     () => {
@@ -126,18 +130,27 @@ function SimulatorPage() {
     if (asDraft) setSavingDraft(true); else setSaving(true);
     try {
       const body = buildCreateBody({ ...payload, isDraft: asDraft });
-      await axios.post("/api/v1/jackpots", body, {
-        headers: { brandId: String(brandId), "Content-Type": "application/json" },
-      });
-      toast.success(asDraft ? "Draft saved" : "Jackpot created");
+      const editId = editIdRef.current;
+      if (editId != null) {
+        await axios.put(`/api/v1/jackpots/${editId}`, body, {
+          headers: { brandId: String(brandId), "Content-Type": "application/json" },
+        });
+        toast.success(asDraft ? "Draft updated" : "Jackpot updated");
+      } else {
+        await axios.post("/api/v1/jackpots", body, {
+          headers: { brandId: String(brandId), "Content-Type": "application/json" },
+        });
+        toast.success(asDraft ? "Draft saved" : "Jackpot created");
+      }
       try { sessionStorage.removeItem('jackpot:pendingPayload'); } catch { /* noop */ }
       navigate({ to: "/admin/jackpots" });
     } catch (err: unknown) {
       const msg =
-        (err as { response?: { data?: { message?: string } }; message?: string })
-          ?.response?.data?.message ??
+        (err as { response?: { data?: { error?: string; message?: string } }; message?: string })
+          ?.response?.data?.error ??
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         (err as { message?: string })?.message ??
-        (asDraft ? "Failed to save draft" : "Failed to create jackpot");
+        (asDraft ? "Failed to save draft" : "Failed to save jackpot");
       toast.error(msg);
     } finally {
       if (asDraft) setSavingDraft(false); else setSaving(false);
@@ -391,7 +404,7 @@ function SimulatorPage() {
                     cursor: savingDraft ? "wait" : "pointer",
                   }}
                 >
-                  {savingDraft ? "Saving…" : "Save as Draft"}
+                  {savingDraft ? "Saving…" : isEditing ? "Save changes as Draft" : "Save as Draft"}
                 </button>
                 <button
                   onClick={handleSave}
@@ -408,7 +421,7 @@ function SimulatorPage() {
                     cursor: saving ? "wait" : "pointer",
                   }}
                 >
-                  {saving ? "Saving…" : "Save Jackpot"}
+                  {saving ? "Saving…" : isEditing ? "Save Changes" : "Save Jackpot"}
                 </button>
               </div>
             )}

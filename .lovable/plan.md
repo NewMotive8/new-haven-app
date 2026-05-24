@@ -1,41 +1,48 @@
-## Goal
+## Root cause
 
-Add an Opt-in / Opt-out button to the per-game QA overlay on `/demo`, reusing the same pattern already shipped in `/sandbox-demo` (no new UX invented). Spin is gated behind opt-in, exactly like the player widget.
+When you click "Edit" on an existing jackpot, the editor opens at `/admin/jackpots/new?editId=123`. The form (`JackpotCreationForm`) loads the existing config correctly, but its bottom **"Continue"** button does NOT call the parent's `onSave` (PUT) handler in `admin.jackpots.new.tsx`. Instead it:
 
-## Scope (frontend only)
+1. Serializes the payload to `sessionStorage` under `jackpot:pendingPayload`
+2. Navigates to `/admin/simulator` (carrying the payload, but **not the editId**)
 
-File: `src/components/demo/QaOverlay.tsx`
+The simulator page's "Save" button then unconditionally calls:
 
-1. **Local state**
-   - Add `const [optedIn, setOptedIn] = useState(false);`
-   - Reset to `false` whenever `resolution.jackpot?.id` changes (switching games).
+```ts
+await axios.post("/api/v1/jackpots", body, …)   // src/routes/admin.simulator.tsx:129
+```
 
-2. **Button** (placed just above the existing Spin button, right column)
-   - When `!optedIn`: primary button labeled `Opt in Jackpot` (matches `texts.optInButton` from sandbox-demo).
-   - When `optedIn`: secondary button labeled `Opt out`.
-   - Disabled when `resolution.status !== "active"`.
-   - Same visual language as sandbox-demo (`jooba-btn` primary/secondary) — translate to Tailwind already used in the overlay (amber gradient for primary, slate border for secondary) so it fits the QA panel aesthetic.
+So every save from the edit flow creates a brand-new record with the same name — the duplicate the user is seeing. The actual `PUT /api/v1/jackpots/:id` endpoint and the parent route's `handleSave` are correct; they're simply never invoked because the form short-circuits to the simulator.
 
-3. **Status label** under the resolved jackpot input, mirroring sandbox-demo's `userInLabel` / `userOutLabel`:
-   - In: green pill "You are opted in"
-   - Out: slate pill "You are opted out"
+Groups (`admin.jackpot-groups.$id.tsx`) already PATCH correctly and are unaffected, but we'll audit the user-visible "Save" flows in that page once more to confirm.
 
-4. **Gate Spin**
-   - Disable the existing Spin button when `!optedIn` (in addition to its existing `!selectedJp` / `spinning` conditions).
-   - Tooltip / helper text: "Opt in to spin."
+## Fix (scope: form submission handlers + UI state only)
 
-## Backend / server-fn
+### 1. `src/components/jackpot/JackpotCreationForm.tsx`
+- Accept an optional `editId?: number` prop.
+- In `handleContinue`, include `editId` (when present) in:
+  - the `sessionStorage` payload (`jackpot:pendingPayload`)
+  - the router `state.jackpotConfig` carried into `/admin/simulator`
+- No other behavioral changes; "Continue" still goes to the simulator preview.
 
-No changes. `placeDemoBet` doesn't take an opt-in flag — opt-in is a client-side gate in `/sandbox-demo` too. The bet endpoint behavior stays identical.
+### 2. `src/routes/admin.jackpots.new.tsx`
+- Pass `editId={isEditing ? editId : undefined}` to `<JackpotCreationForm>`.
 
-## Out of scope
+### 3. `src/routes/admin.simulator.tsx` — the real fix
+- Read `editId` from the hydrated payload (state first, then sessionStorage fallback).
+- Keep it in a ref alongside `originalPayloadRef` so user edits in the JSON textarea don't lose it.
+- In `persistJackpot(asDraft)`:
+  - If `editId` is present → `axios.put('/api/v1/jackpots/{editId}', body, …)` and toast `"Jackpot updated"`.
+  - Else → existing `axios.post('/api/v1/jackpots', body, …)` for create / clone.
+- Always clear `sessionStorage['jackpot:pendingPayload']` after success so a subsequent "Create new" doesn't inherit the stale `editId`.
+- Update button labels: when editing, show "Save changes" / "Save changes as draft" instead of "Create" / "Save draft".
 
-- No new server functions, schema, or styles file.
-- No changes to `/sandbox-demo`.
-- No persistence across overlay reopen (sandbox-demo also resets per session).
+### 4. `src/routes/admin.jackpots.index.tsx`
+- No code change needed — already navigates with `{ search: { editId: row.id } }`. After fix it will round-trip cleanly through the simulator.
+
+### 5. Quick verification (no changes expected)
+- Re-read `admin.jackpot-groups.$id.tsx` `saveProfile()` → already PATCH on `group.id`. Confirm no other "Save" button on that page POSTs.
+- `updateJackpot` in `src/lib/jackpot/store.server.ts` does accept the partial DTO and patches in place — out of scope here (some fields are not yet persisted on update, but that's a separate "edits don't stick" issue, not the duplication bug).
 
 ## Expected result
 
-Opening the QA modal on a game routed to an active jackpot shows:
-- "You are opted out" + amber **Opt in Jackpot** button, Spin disabled.
-- After clicking opt-in: "You are opted in" + slate **Opt out** button, Spin enabled.
+Editing an existing jackpot → Continue → Simulator → Save now issues `PUT /api/v1/jackpots/:editId` and the dashboard refreshes the same row instead of spawning a duplicate. Creating a brand-new jackpot is unchanged. Group editing is unchanged (already correct).

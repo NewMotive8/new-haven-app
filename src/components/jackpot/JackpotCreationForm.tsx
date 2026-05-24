@@ -292,6 +292,8 @@ export type JackpotSavePayload = {
   previewWager?: number;
   /** When true, persist with enabled=false and tag config.isDraft=true. */
   isDraft?: boolean;
+  /** Carried through the simulator hand-off; presence flips Save to PUT. */
+  editId?: number;
   // ── Eligibility & Rules Engine — game/event targeting metadata.
   eligibility?: {
     vertical: 'casino' | 'sportsbook';
@@ -329,6 +331,9 @@ export interface JackpotCreationFormProps {
   initialDraft?: JackpotSavePayload;
   /** Customize the primary submit button label (e.g. "Save changes"). */
   saveLabel?: string;
+  /** When editing an existing jackpot, the DB id is forwarded through the
+   *  simulator hand-off so Save issues a PUT instead of a POST. */
+  editId?: number;
 }
 
 // Draft hydration / sanitization lives in @/lib/jackpot/hydrate-draft and is
@@ -336,7 +341,7 @@ export interface JackpotCreationFormProps {
 
 
 
-export function JackpotCreationForm({ onSave, submitting = false, onCancel, initialDraft, saveLabel: _saveLabel }: JackpotCreationFormProps) {
+export function JackpotCreationForm({ onSave, submitting = false, onCancel, initialDraft, saveLabel: _saveLabel, editId }: JackpotCreationFormProps) {
   const navigate = useNavigate();
   const incoming = useRouterState({
     select: (s) => s.location.state as { jackpotConfig?: JackpotSavePayload } | undefined,
@@ -840,14 +845,15 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
       }
     }
 
+    const payloadWithId = editId != null ? { ...payload, editId } : payload;
     try {
-      sessionStorage.setItem('jackpot:pendingPayload', JSON.stringify(payload));
+      sessionStorage.setItem('jackpot:pendingPayload', JSON.stringify(payloadWithId));
     } catch {
       /* sessionStorage unavailable — fall back to history state only */
     }
     navigate({
       to: '/admin/simulator',
-      state: (prev) => ({ ...prev, jackpotConfig: payload }) as never,
+      state: (prev) => ({ ...prev, jackpotConfig: payloadWithId }) as never,
     });
   }
 
