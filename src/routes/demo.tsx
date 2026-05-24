@@ -43,7 +43,7 @@ function DemoPage() {
     setActiveTile(null);
   };
 
-  const catalog = useMemo(() => getMockCatalog(brandId), [brandId]);
+  const games = useMemo(() => getMockCatalog(brandId), [brandId]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -51,7 +51,7 @@ function DemoPage() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
           <div>
             <div className="text-[10px] uppercase tracking-widest text-emerald-400">
-              Operator Harness · {catalog.name}
+              Operator Harness · Brand {brandId}
             </div>
             <h1 className="text-2xl font-black">QA Demo</h1>
           </div>
@@ -80,7 +80,7 @@ function DemoPage() {
         </p>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {catalog.games.map((g) => {
+          {games.map((g) => {
             const style = CATEGORY_STYLES[g.category] ?? DEFAULT_STYLE;
             return (
               <button
