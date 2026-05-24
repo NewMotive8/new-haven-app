@@ -97,7 +97,7 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
     : payload.seedContributionType === "fixed"
       ? "FIXED"
       : "PERCENTAGE";
-  const seedContributionAmount = jSplit ? jSeedAmt : num(payload.seedPercentageValue, 0);
+  const seedContributionAmount = jSplit ? jSeedAmt : 0;
 
   const reseed = num(payload.reseedingAmount, 0);
   const initialPool = num(payload.initialPoolAmount, 0);

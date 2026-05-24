@@ -20,7 +20,7 @@ export function buildTriggerCondition(p: JackpotSavePayload): Record<string, unk
     seed: {
       seedPlayerContribution: p.seedPlayerContribution,
       seedOperatorContribution: p.seedOperatorContribution,
-      seedPercentageValue: p.seedPercentageValue,
+      
     },
     recurrence: {
       recurrenceType: p.recurrenceType,

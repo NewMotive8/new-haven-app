@@ -379,7 +379,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
   const [seedPlayerContribution, setSeedPlayerContribution] = useState([initial?.seedPlayerContribution ?? 100]);
   const [seedOperatorContribution, setSeedOperatorContribution] = useState([initial?.seedOperatorContribution ?? 0]);
   const [poolPercentageValue, setPoolPercentageValue] = useState([initial?.poolPercentageValue ?? 3]);
-  const [seedPercentageValue, setSeedPercentageValue] = useState([initial?.seedPercentageValue ?? 0]);
+  
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isTemplate, setIsTemplate] = useState(initial?.isTemplate ?? false);
   const [selectedWidget, setSelectedWidget] = useState<string>(initial?.selectedWidget ?? 'jewels');
@@ -742,7 +742,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
       seedPlayerContribution: seedPlayerContribution[0],
       seedOperatorContribution: seedOperatorContribution[0],
       poolPercentageValue: poolPercentageValue[0],
-      seedPercentageValue: seedPercentageValue[0],
+      
       recurrenceType,
       weeklyDay,
       monthlyDay,
@@ -2380,20 +2380,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
 
                       {seedContributionType === 'percentage' ? (
                         <>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="seed-contribution">Percent Seed Contribution From Wager</BrightLabel>
-                              <PercentageInput
-                                id="seed-contribution"
-                                type="number"
-                                placeholder="0"
-                                value={seedPercentageValue[0]}
-                                onChange={(e) => setSeedPercentageValue([parseFloat(e.target.value) || 0])}
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
+
 
                           <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
@@ -3311,20 +3298,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
 
                       {seedContributionType === 'percentage' ? (
                         <>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="seed-contribution">Percent Seed Contribution From Wager</BrightLabel>
-                              <PercentageInput
-                                id="seed-contribution"
-                                type="number"
-                                placeholder="0"
-                                value={seedPercentageValue[0]}
-                                onChange={(e) => setSeedPercentageValue([parseFloat(e.target.value) || 0])}
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
+
 
                           <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
@@ -4389,20 +4363,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
 
                       {seedContributionType === 'percentage' ? (
                         <>
-                          <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                              <BrightLabel htmlFor="frequency-seed-contribution">Percent Seed Contribution From Wager</BrightLabel>
-                              <PercentageInput
-                                id="frequency-seed-contribution"
-                                type="number"
-                                placeholder="0"
-                                value={seedPercentageValue[0]}
-                                onChange={(e) => setSeedPercentageValue([parseFloat(e.target.value) || 0])}
-                                className="bg-neutral-800 border-neutral-700"
-                              />
-                            </div>
-                            <div></div>
-                          </div>
+
 
                           <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
