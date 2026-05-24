@@ -421,7 +421,7 @@ function SimulatorPage() {
                     cursor: saving ? "wait" : "pointer",
                   }}
                 >
-                  {saving ? "Saving…" : "Save Jackpot"}
+                  {saving ? "Saving…" : isEditing ? "Save Changes" : "Save Jackpot"}
                 </button>
               </div>
             )}
