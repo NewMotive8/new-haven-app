@@ -178,6 +178,7 @@ function NewJackpotPage() {
           submitting={submitting}
           onCancel={() => navigate({ to: "/admin/jackpots" })}
           initialDraft={initialDraft}
+          editId={isEditing ? editId : undefined}
           saveLabel={isEditing ? "Save changes" : undefined}
         />
       ) : (
