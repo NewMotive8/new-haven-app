@@ -843,14 +843,15 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
       }
     }
 
+    const payloadWithId = editId != null ? { ...payload, editId } : payload;
     try {
-      sessionStorage.setItem('jackpot:pendingPayload', JSON.stringify(payload));
+      sessionStorage.setItem('jackpot:pendingPayload', JSON.stringify(payloadWithId));
     } catch {
       /* sessionStorage unavailable — fall back to history state only */
     }
     navigate({
       to: '/admin/simulator',
-      state: (prev) => ({ ...prev, jackpotConfig: payload }) as never,
+      state: (prev) => ({ ...prev, jackpotConfig: payloadWithId }) as never,
     });
   }
 
