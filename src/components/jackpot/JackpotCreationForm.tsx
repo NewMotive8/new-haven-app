@@ -191,7 +191,7 @@ export type JackpotSavePayload = {
   seedPlayerContribution: number;
   seedOperatorContribution: number;
   poolPercentageValue: number;
-  seedPercentageValue: number;
+  
   recurrenceType: RecurrenceType;
   weeklyDay: string;
   monthlyDay: string;
