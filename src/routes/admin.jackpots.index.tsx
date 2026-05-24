@@ -436,10 +436,12 @@ function JackpotsPage() {
                 <tr className="border-b border-neutral-700">
                   <th className="text-left px-6 py-4 text-sm font-medium text-neutral-400">Name</th>
                   <th className="text-left px-6 py-4 text-sm font-medium text-neutral-400">Type</th>
+                  <th className="text-left px-6 py-4 text-sm font-medium text-neutral-400">Games / Category</th>
                   <th className="text-left px-6 py-4 text-sm font-medium text-neutral-400">Status</th>
                   <th className="text-right px-6 py-4 text-sm font-medium text-neutral-400">Current Value</th>
                   <th className="text-left px-6 py-4 text-sm font-medium text-neutral-400">Created</th>
                   <th className="text-center px-6 py-4 text-sm font-medium text-neutral-400">Actions</th>
+
                 </tr>
               </thead>
               <tbody>
