@@ -39,15 +39,16 @@ const ACTIVE: CardDef[] = [
     to: "/sandbox-demo",
     icon: <FaBolt size={22} />,
   },
+  {
+    title: "Demo",
+    description: "Operator-style QA harness with live widget and configurable spins.",
+    to: "/demo",
+    icon: <FaCircleNotch size={22} />,
+  },
 ];
 
-const COMING_SOON: CardDef[] = [
-  { title: "Lucky Wheel", description: "Manage wheel campaigns and prizes.", icon: <FaCircleNotch size={22} /> },
-  { title: "Spin Sprint", description: "Time-boxed spin competitions.", icon: <FaBolt size={22} /> },
-  { title: "Tournament", description: "Leaderboard-driven tournaments.", icon: <FaTrophy size={22} /> },
-  { title: "Admin", description: "Brands, users and exchange rates.", icon: <FaUsersCog size={22} /> },
-  { title: "Root / Catalog", description: "Currencies, operators, products, tiers.", icon: <FaDatabase size={22} /> },
-];
+const COMING_SOON: CardDef[] = [];
+
 
 const panelBase: React.CSSProperties = {
   background: "#0f172a",
