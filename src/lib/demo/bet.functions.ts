@@ -36,9 +36,9 @@ export const placeDemoBet = createServerFn({ method: "POST" })
 
 
     const host = getRequestHost();
+    const isLocal = host.startsWith("localhost") || host.startsWith("127.");
     const forwardedProto = getRequestHeader("x-forwarded-proto");
-    const proto =
-      forwardedProto ?? (host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https");
+    const proto = isLocal ? "http" : (forwardedProto ?? "https");
     const url = `${proto}://${host}/api/v1/event/bet`;
 
     const { brandId, ...betPayload } = data;
