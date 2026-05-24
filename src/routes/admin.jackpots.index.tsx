@@ -183,6 +183,8 @@ function JackpotsPage() {
         poolBalance: 0,
         createdAt: g.createdAt,
         kind: "group",
+        categories: g.assignedCategories ?? [],
+        gameIds: g.assignedGameIds ?? [],
       });
     }
     return out;
