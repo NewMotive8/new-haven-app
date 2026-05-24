@@ -329,6 +329,9 @@ export interface JackpotCreationFormProps {
   initialDraft?: JackpotSavePayload;
   /** Customize the primary submit button label (e.g. "Save changes"). */
   saveLabel?: string;
+  /** When editing an existing jackpot, the DB id is forwarded through the
+   *  simulator hand-off so Save issues a PUT instead of a POST. */
+  editId?: number;
 }
 
 // Draft hydration / sanitization lives in @/lib/jackpot/hydrate-draft and is
@@ -336,7 +339,7 @@ export interface JackpotCreationFormProps {
 
 
 
-export function JackpotCreationForm({ onSave, submitting = false, onCancel, initialDraft, saveLabel: _saveLabel }: JackpotCreationFormProps) {
+export function JackpotCreationForm({ onSave, submitting = false, onCancel, initialDraft, saveLabel: _saveLabel, editId }: JackpotCreationFormProps) {
   const navigate = useNavigate();
   const incoming = useRouterState({
     select: (s) => s.location.state as { jackpotConfig?: JackpotSavePayload } | undefined,
