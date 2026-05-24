@@ -30,7 +30,7 @@ const DEFAULT_STYLE = { gradient: "from-slate-700 to-slate-900", emoji: "🎰" }
 
 function DemoPage() {
   const [brandId, setBrandId] = useState<string>("1");
-  const [activeTile, setActiveTile] = useState<Tile | null>(null);
+  const [activeTile, setActiveTile] = useState<MockGame | null>(null);
 
   useEffect(() => {
     const stored = typeof window !== "undefined" ? localStorage.getItem(BRAND_KEY) : null;
@@ -43,13 +43,15 @@ function DemoPage() {
     setActiveTile(null);
   };
 
+  const catalog = useMemo(() => getMockCatalog(brandId), [brandId]);
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
           <div>
             <div className="text-[10px] uppercase tracking-widest text-emerald-400">
-              Operator Harness
+              Operator Harness · {catalog.name}
             </div>
             <h1 className="text-2xl font-black">QA Demo</h1>
           </div>
@@ -78,37 +80,43 @@ function DemoPage() {
         </p>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {GAMES.map((g) => (
-            <button
-              key={g.id}
-              type="button"
-              onClick={() => setActiveTile(g)}
-              className={`group relative aspect-[3/4] rounded-2xl overflow-hidden bg-gradient-to-br ${g.gradient}
-                          border border-white/10 shadow-lg hover:shadow-2xl hover:-translate-y-1 hover:border-amber-400/60
-                          transition-all`}
-            >
-              <div className="absolute inset-0 flex items-center justify-center text-7xl opacity-80 group-hover:scale-110 transition-transform">
-                {g.emoji}
-              </div>
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3 text-left">
-                <div className="text-[10px] uppercase tracking-widest text-slate-300/80">
-                  {g.category}
+          {catalog.games.map((g) => {
+            const style = CATEGORY_STYLES[g.category] ?? DEFAULT_STYLE;
+            return (
+              <button
+                key={g.gameId}
+                type="button"
+                onClick={() => setActiveTile(g)}
+                className={`group relative aspect-[3/4] rounded-2xl overflow-hidden bg-gradient-to-br ${style.gradient}
+                            border border-white/10 shadow-lg hover:shadow-2xl hover:-translate-y-1 hover:border-amber-400/60
+                            transition-all`}
+              >
+                <div className="absolute inset-0 flex items-center justify-center text-7xl opacity-80 group-hover:scale-110 transition-transform">
+                  {style.emoji}
                 </div>
-                <div className="font-bold text-slate-50">{g.name}</div>
-              </div>
-              <div className="absolute top-2 right-2 text-[10px] font-mono bg-black/40 text-slate-300 rounded px-1.5 py-0.5">
-                {g.id}
-              </div>
-            </button>
-          ))}
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3 text-left">
+                  <div className="text-[10px] uppercase tracking-widest text-slate-300/80 flex items-center justify-between gap-2">
+                    <span>{g.category}</span>
+                    <span className="text-slate-400/80 normal-case tracking-normal">{g.provider}</span>
+                  </div>
+                  <div className="font-bold text-slate-50">{g.name}</div>
+                </div>
+                <div className="absolute top-2 right-2 text-[10px] font-mono bg-black/40 text-slate-300 rounded px-1.5 py-0.5">
+                  {g.gameId}
+                </div>
+              </button>
+            );
+          })}
         </div>
       </main>
 
       <QaOverlay
         open={!!activeTile}
         brandId={brandId}
-        initialGameId={activeTile?.id ?? ""}
+        initialGameId={activeTile?.gameId ?? ""}
         initialCategory={activeTile?.category ?? ""}
+        initialProvider={activeTile?.provider ?? ""}
+        initialName={activeTile?.name ?? ""}
         onClose={() => setActiveTile(null)}
       />
     </div>
