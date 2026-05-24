@@ -1,36 +1,54 @@
-## Problem
+## Goal
 
-`/demo` → QA Overlay → SPIN calls `POST /api/v1/event/bet` directly from the browser. That route is gated by `requireInternalSecret` (`src/lib/jackpot/http.ts`), which requires `Authorization: Bearer <INTERNAL_SERVICE_SECRET>` or `X-Internal-Service-Secret`. The browser sends no header → 403 `INTERNAL_HANDSHAKE_MISSING`.
+On `/demo`, remove the manual "Jackpot Campaign" dropdown. When a tile is clicked, the overlay automatically resolves which active jackpot (if any) applies to that tile's Game ID + Category, then either renders the live widget or shows one of three fallback messages based on the campaign timeline (evaluated against the Time Machine timestamp).
 
-`INTERNAL_SERVICE_SECRET` is configured as a server-side runtime secret. **It must never be shipped to the client bundle** — that defeats the zero-trust gate and exposes the secret on the public preview/published URL. So "hard-code it in the page" is off the table.
+## Resolution logic (in order)
 
-## Recommendation: Option A — Server-side proxy via `createServerFn`
+For the clicked tile, scan `/api/v1/jackpots` (filtered to `enabled: true`) and find the first jackpot whose targeting matches:
 
-Create a TanStack server function `placeDemoBet` that runs in the worker, reads `process.env.INTERNAL_SERVICE_SECRET`, and forwards the payload to the existing bet route with the Bearer header attached. The `/demo` overlay calls the server fn instead of `fetch("/api/v1/event/bet")`.
+- match if `assignedGameIds` contains the tile's game id, OR
+- match if `assignedCategories` contains the tile's category
+- (a jackpot with neither array populated is treated as untargeted → no match)
 
-**Files:**
-- New: `src/lib/demo/bet.functions.ts`
-  - `placeDemoBet = createServerFn({ method: "POST" }).inputValidator(z.object({...bet payload...})).handler(async ({ data }) => { ... })`
-  - Handler builds an absolute URL via `getRequestHost()` + protocol, POSTs to `/api/v1/event/bet` with `Authorization: Bearer ${process.env.INTERNAL_SERVICE_SECRET}`, returns parsed JSON (or rethrows status/code/message so the UI keeps showing the same error envelope).
-- Edit: `src/components/demo/QaOverlay.tsx`
-  - Replace the `fetch("/api/v1/event/bet", ...)` block with `await placeDemoBet({ data: payload })` via `useServerFn`. Keep the existing response/error handling shape (`contribution`, `perJackpot`, `win`, `code`, `message`).
-- No edits to `src/lib/jackpot/*`, `src/routes/api/v1/event/bet.ts`, `src/routes/sandbox-demo.tsx`, or DB.
+Then evaluate the campaign window using `jackpot.config.timed.startDate` / `endDate` (ISO UTC) against the effective timestamp (`buildIsoTimestamp(tm)` from the Time Machine, or "now" when TM is default):
 
-**Why this is correct here:**
-- Secret stays on the server.
-- `/demo` keeps simulating a "real operator site" — the operator's backend (here: the server fn) holds the credential.
-- Zero impact on the engineering sandbox.
+| Condition | UI |
+|---|---|
+| No targeting match | Hide widget. Message: "This game is not assigned to a Jackpot" |
+| Match + `now < startDate` | Hide widget. Message: "The Jackpot for this game will start later" |
+| Match + `now > endDate` | Hide widget. Message: "This Jackpot campaign has ended" |
+| Match + inside window (or no start/end set) | Render full widget + QA controls |
 
-## Option B — Secret input in the overlay (mirror sandbox-demo)
+The resolution re-runs whenever the jackpots poll refreshes (2s interval already in place) or the Time Machine value changes, so flipping the TM into the past/future updates the fallback live.
 
-Add a small "Internal Secret" text input + Auth Mode toggle to `QaOverlay`, persist to `sessionStorage`, and send it as `Authorization: Bearer …` from the browser on every spin. Same UX as `/sandbox-demo`.
+## Overlay behavior when active
 
-Trade-off: secret lives in the operator's browser session. Fine for an internal-only QA harness behind login; **not** appropriate if `/demo` is publicly reachable.
+When a valid jackpot is resolved, keep the existing QA controls but drop the Jackpot Campaign dropdown:
+- Widget Style selector
+- Win Animation selector
+- Game ID + Category (editable; edits re-trigger resolution)
+- Bet Size (default 1.00)
+- Time Machine (date/time/timezone → ISO on spin payload)
+- 3D Spin button (disabled while spinning)
 
-## Option C — NOT recommended
+Spin still calls `placeDemoBet` server proxy with `{ transactionId, wager, gameId, category, jackpotId: <resolved id>, clientTimestamp, clientTimezone, brandId, playerSegments: [] }`. On success the displayed pool balance animates upward by the contribution slice (already wired via `displayFloorRef` + `setDisplayBalance`); on `json.win` the selected `WinCelebration` variant fires.
 
-Hard-coding `INTERNAL_SERVICE_SECRET` in `QaOverlay.tsx` or wiring it via `VITE_*`. Vite inlines it into the public JS bundle → any visitor of the preview/published URL can read it and bypass the VPC gate from anywhere. Do not do this.
+## Fallback UI
 
-## Question for you
+Inside the overlay where the widget panel currently lives, when there's no resolved jackpot render a centered card with:
+- A muted icon/badge
+- The status message text (one of the three above)
+- A small caption showing the matched jackpot name + window (when the issue is time-based) so QA can see *why* it's gated
+- The right-hand QA controls panel is hidden in this state — only the message + "Close" remain, since there's nothing to spin against.
 
-Pick A or B and I'll implement it in build mode. Default if you don't say: **A**.
+## Files
+
+- `src/components/demo/QaOverlay.tsx` — remove jackpot select, add `resolveJackpot(tile, jackpots, tmIso)` helper, derive `{ status, jackpot }` via `useMemo`, branch render between fallback card and current operational layout. Keep `placeDemoBet` call unchanged except `jackpotId` comes from the resolved jackpot.
+- No backend/API/schema changes. No edits to `src/lib/jackpot/*`, server routes, or `sandbox-demo.tsx`.
+
+## Technical notes
+
+- Tile `gameId` is a string (e.g. `"stellar-rush"`) while `assignedGameIds` is `number[]`. Match by coercing both to string before `includes` so either shape works without touching the backend.
+- Effective timestamp: if `tm` equals `defaultTimeMachine()` use `Date.now()`, otherwise parse `buildIsoTimestamp(tm)`. Compare numerically via `Date.parse`.
+- `startDate`/`endDate` may be absent → treat missing start as `-Infinity` and missing end as `+Infinity` (campaign always active).
+- If multiple jackpots match, prefer one with `assignedGameIds` hit over a category-only hit; otherwise take the first.
