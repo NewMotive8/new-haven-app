@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { TimeMachine, buildIsoTimestamp, defaultTimeMachine, type TimeMachineValue } from "./TimeMachine";
 import { WinCelebration, type WinAnimationVariant, type WinInfo } from "./WinCelebration";
+import { placeDemoBet } from "@/lib/demo/bet.functions";
+
 
 type Jackpot = {
   id: number;
@@ -51,6 +54,8 @@ export function QaOverlay({
   const [jackpots, setJackpots] = useState<Jackpot[]>([]);
   const [selectedJpId, setSelectedJpId] = useState<number | null>(null);
   const [optedIn, setOptedIn] = useState(false);
+  const placeBet = useServerFn(placeDemoBet);
+
   const [gameId, setGameId] = useState(initialGameId);
   const [category, setCategory] = useState(initialCategory);
   const [wager, setWager] = useState(1);
@@ -165,7 +170,7 @@ export function QaOverlay({
         typeof crypto !== "undefined" && "randomUUID" in crypto
           ? crypto.randomUUID()
           : `txn-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-      const payload: Record<string, unknown> = {
+      const payload = {
         transactionId,
         wager: w,
         gameId: gameId.trim() || "demo-game",
@@ -173,38 +178,20 @@ export function QaOverlay({
         jackpotId: selectedJp.id,
         clientTimestamp,
         clientTimezone: tm.timezone,
-        playerSegments: [],
+        playerSegments: [] as string[],
+        brandId,
       };
 
-      const res = await fetch("/api/v1/event/bet", {
-        method: "POST",
-        headers: headers(),
-        body: JSON.stringify(payload),
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        contribution?: { pool: number; seed: number; house: number };
-        perJackpot?: Array<{ jackpotId: number; contribution: { pool: number; seed: number; house: number } }>;
-        win?: {
-          jackpotId: number;
-          amount: number;
-          isCommunity?: boolean;
-          communitySize?: number;
-          communityMemberPayOut?: number;
-          triggeringPayout?: number;
-          communityPool?: number;
-          cappedDelta?: number;
-        } | null;
-        code?: string;
-        message?: string;
-        error?: string;
-      };
-      if (!res.ok) {
+      const result = await placeBet({ data: payload });
+      const json = result.body;
+      if (!result.ok) {
         throw new Error(
-          `Bet HTTP ${res.status}${json.code ? ` (${json.code})` : ""}${
+          `Bet HTTP ${result.status}${json.code ? ` (${json.code})` : ""}${
             json.message || json.error ? `: ${json.message ?? json.error}` : ""
           }`,
         );
       }
+
 
       let poolAdd = 0;
       let seedAdd = 0;
