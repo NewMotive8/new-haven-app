@@ -26,7 +26,6 @@ function baseSingle(
     operatorContribution: 0,
     seedPlayerContribution: 100,
     seedOperatorContribution: 0,
-    poolPercentageValue: 0,
     recurrenceType: "single",
     weeklyDay: "",
     monthlyDay: "",
@@ -66,7 +65,6 @@ const classicHigh: SingleBlueprint = {
   payload: {
     ...baseSingle("external", "High-Traffic Premium Classic", "Premium classic progressive"),
     type: "classic",
-    poolPercentageValue: 1.5,
     reseedingAmount: 1000,
     maximumSeedAmount: 1000,
     initialPoolAmount: 1000,
@@ -88,7 +86,6 @@ const classicMid: SingleBlueprint = {
   payload: {
     ...baseSingle("external", "Mid-Traffic Engagement Classic", "Mid-traffic classic progressive"),
     type: "classic",
-    poolPercentageValue: 1.5,
     reseedingAmount: 250,
     maximumSeedAmount: 250,
     initialPoolAmount: 250,
@@ -110,7 +107,6 @@ const classicSmall: SingleBlueprint = {
   payload: {
     ...baseSingle("internal", "Small-Traffic Loyalty Booster", "Internal-token loyalty classic"),
     type: "classic",
-    poolPercentageValue: 2.0,
     reseedingAmount: 50,
     maximumSeedAmount: 50,
     initialPoolAmount: 50,
@@ -132,7 +128,6 @@ const mustDropHigh: SingleBlueprint = {
   payload: {
     ...baseSingle("external", "High-Traffic Grand Must-Drop", "Grand must-drop, hype-curved"),
     type: "must_drop",
-    poolPercentageValue: 2.0,
     reseedingAmount: 2500,
     maximumSeedAmount: 2500,
     initialPoolAmount: 2500,
@@ -155,7 +150,6 @@ const mustDropMid: SingleBlueprint = {
   payload: {
     ...baseSingle("external", "Mid-Traffic Daily Cap Hunter", "Daily-cap must-drop"),
     type: "must_drop",
-    poolPercentageValue: 1.5,
     reseedingAmount: 500,
     maximumSeedAmount: 500,
     initialPoolAmount: 500,
@@ -178,7 +172,6 @@ const mustDropSmall: SingleBlueprint = {
   payload: {
     ...baseSingle("internal", "Small-Traffic Mini Coin Escape", "Internal-token mini must-drop"),
     type: "must_drop",
-    poolPercentageValue: 3.0,
     reseedingAmount: 100,
     maximumSeedAmount: 100,
     initialPoolAmount: 100,
@@ -236,7 +229,6 @@ const happyHigh: SingleBlueprint = {
       {
         ...baseSingle("external", "High-Traffic Friday Rush Hour", "Friday-night happy hour"),
         type: "frequency",
-        poolPercentageValue: 2.0,
         reseedingAmount: 2000,
         maximumSeedAmount: 2000,
         initialPoolAmount: 2000,
@@ -269,7 +261,6 @@ const happyMid: SingleBlueprint = {
           "Daily afternoon power hour",
         ),
         type: "frequency",
-        poolPercentageValue: 2.0,
         reseedingAmount: 300,
         maximumSeedAmount: 300,
         initialPoolAmount: 300,
@@ -298,7 +289,6 @@ const happySmall: SingleBlueprint = {
       {
         ...baseSingle("internal", "Small-Traffic Token Saturday", "Weekly token happy hour"),
         type: "frequency",
-        poolPercentageValue: 4.0,
         reseedingAmount: 50,
         maximumSeedAmount: 50,
         initialPoolAmount: 50,

@@ -14,7 +14,7 @@ export function buildTriggerCondition(p: JackpotSavePayload): Record<string, unk
     pool: {
       playerContribution: p.playerContribution,
       operatorContribution: p.operatorContribution,
-      poolPercentageValue: p.poolPercentageValue,
+      
       initialPoolAmount: p.initialPoolAmount ?? null,
     },
     seed: {
@@ -85,7 +85,14 @@ export function buildCreateBody(payload: JackpotSavePayload) {
   const seedAmount = reseed > 0 ? reseed : initialPool;
   const poolBalance = initialPool > 0 ? initialPool : seedAmount;
   const triggerThreshold = Math.max(poolBalance * 2, seedAmount * 2);
-  const contributionRate = payload.poolPercentageValue / 100;
+  // Derive top-level contributionRate from the v2 Contribution Weight split.
+  // Percentage mode: (totalContributionAmount% × poolWeight%) → fractional rate per wager.
+  // Fixed mode: no meaningful per-wager rate; engine reads the fixed amount from config.engineV2.
+  const totalAmt = Number(payload.totalContributionAmount) || 0;
+  const poolW = Number(payload.poolWeight) || 0;
+  const contributionRate = (payload.totalContributionType ?? "fixed") === "percentage"
+    ? (totalAmt * poolW) / 10000
+    : 0;
   const isDraft = payload.isDraft === true;
   const config = buildTriggerCondition(payload);
   if (isDraft) {
