@@ -536,15 +536,6 @@ export function QaOverlay({
                   </div>
                 )}
 
-                <button
-                  type="button"
-                  onClick={handleSpin}
-                  disabled={spinning || !selectedJp}
-                  className="relative mt-2 self-end px-10 py-4 rounded-2xl font-black uppercase tracking-widest text-lg
-                             text-amber-950 disabled:opacity-50 disabled:cursor-not-allowed
-                             bg-gradient-to-b from-yellow-300 via-amber-400 to-amber-600
-                             shadow-[0_8px_0_#78350f,0_12px_24px_rgba(245,158,11,0.5)]
-                             hover:translate-y-0.5 hover:shadow-[0_6px_0_#78350f,0_10px_20px_rgba(245,158,11,0.5)]
                 <div className="mt-2 flex flex-wrap items-center justify-end gap-3">
                   {optedIn ? (
                     <button
