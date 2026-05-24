@@ -54,6 +54,8 @@ export function QaOverlay({
   const [jackpots, setJackpots] = useState<Jackpot[]>([]);
   const [selectedJpId, setSelectedJpId] = useState<number | null>(null);
   const [optedIn, setOptedIn] = useState(false);
+  const placeBet = useServerFn(placeDemoBet);
+
   const [gameId, setGameId] = useState(initialGameId);
   const [category, setCategory] = useState(initialCategory);
   const [wager, setWager] = useState(1);
