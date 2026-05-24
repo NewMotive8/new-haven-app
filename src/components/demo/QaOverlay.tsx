@@ -503,6 +503,16 @@ export function QaOverlay({
                     />
                   </label>
                   <label className="flex flex-col gap-1 text-xs text-slate-400">
+                    Provider
+                    <input
+                      type="text"
+                      value={provider}
+                      onChange={(e) => setProvider(e.target.value)}
+                      placeholder="—"
+                      className="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-slate-100 text-sm"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs text-slate-400">
                     Widget Style
                     <select
                       value={widgetStyle}
