@@ -130,18 +130,27 @@ function SimulatorPage() {
     if (asDraft) setSavingDraft(true); else setSaving(true);
     try {
       const body = buildCreateBody({ ...payload, isDraft: asDraft });
-      await axios.post("/api/v1/jackpots", body, {
-        headers: { brandId: String(brandId), "Content-Type": "application/json" },
-      });
-      toast.success(asDraft ? "Draft saved" : "Jackpot created");
+      const editId = editIdRef.current;
+      if (editId != null) {
+        await axios.put(`/api/v1/jackpots/${editId}`, body, {
+          headers: { brandId: String(brandId), "Content-Type": "application/json" },
+        });
+        toast.success(asDraft ? "Draft updated" : "Jackpot updated");
+      } else {
+        await axios.post("/api/v1/jackpots", body, {
+          headers: { brandId: String(brandId), "Content-Type": "application/json" },
+        });
+        toast.success(asDraft ? "Draft saved" : "Jackpot created");
+      }
       try { sessionStorage.removeItem('jackpot:pendingPayload'); } catch { /* noop */ }
       navigate({ to: "/admin/jackpots" });
     } catch (err: unknown) {
       const msg =
-        (err as { response?: { data?: { message?: string } }; message?: string })
-          ?.response?.data?.message ??
+        (err as { response?: { data?: { error?: string; message?: string } }; message?: string })
+          ?.response?.data?.error ??
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         (err as { message?: string })?.message ??
-        (asDraft ? "Failed to save draft" : "Failed to create jackpot");
+        (asDraft ? "Failed to save draft" : "Failed to save jackpot");
       toast.error(msg);
     } finally {
       if (asDraft) setSavingDraft(false); else setSaving(false);
