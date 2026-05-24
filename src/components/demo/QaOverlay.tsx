@@ -392,7 +392,9 @@ export function QaOverlay({
               <div className="text-[10px] uppercase tracking-widest text-emerald-400">
                 QA Configuration
               </div>
-              <h2 className="text-lg font-bold text-slate-100">Test Harness — {initialGameId}</h2>
+              <h2 className="text-lg font-bold text-slate-100">
+                Test Harness — {initialName?.trim() ? `${initialName} · ${initialGameId}` : initialGameId}
+              </h2>
             </div>
             <button
               type="button"
