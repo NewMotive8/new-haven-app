@@ -183,7 +183,7 @@ export function QaOverlay({
       };
 
       const result = await placeBet({ data: payload });
-      const json = result.body ?? {};
+      const json = result.body;
       if (!result.ok) {
         throw new Error(
           `Bet HTTP ${result.status}${json.code ? ` (${json.code})` : ""}${
