@@ -153,11 +153,12 @@ export function QaOverlay({
     if (!open) return;
     setGameId(initialGameId);
     setCategory(initialCategory);
+    setProvider(initialProvider);
     setError(null);
     setLastSplit(null);
     displayFloorRef.current = null;
     setDisplayBalance(null);
-  }, [open, initialGameId, initialCategory, brandId]);
+  }, [open, initialGameId, initialCategory, initialProvider, brandId]);
 
   useEffect(() => {
     if (!open || !brandId) return;
