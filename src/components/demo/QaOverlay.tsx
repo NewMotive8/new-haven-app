@@ -17,9 +17,15 @@ type Jackpot = {
   assignedCategories?: string[];
   assignedGameIds?: (number | string)[];
   config?: {
-    timed?: {
-      startDate?: string;
-      endDate?: string;
+    timed?: { startDate?: string; endDate?: string };
+    eligibility?: {
+      games?: {
+        casino?: {
+          categories?: string[];
+          gameIds?: (number | string)[];
+          providers?: string[];
+        };
+      };
     };
   } & Record<string, unknown>;
 };
@@ -64,8 +70,15 @@ function resolveJackpot(
   const matches: Array<{ jp: Jackpot; byGame: boolean }> = [];
   for (const jp of jackpots) {
     if (!jp.enabled) continue;
-    const gameIds = (jp.assignedGameIds ?? []).map((x) => String(x));
-    const cats = (jp.assignedCategories ?? []).map((x) => String(x).toLowerCase());
+    const elig = jp.config?.eligibility?.games?.casino;
+    const gameIds = [
+      ...(jp.assignedGameIds ?? []),
+      ...(elig?.gameIds ?? []),
+    ].map((x) => String(x));
+    const cats = [
+      ...(jp.assignedCategories ?? []),
+      ...(elig?.categories ?? []),
+    ].map((x) => String(x).toLowerCase());
     const byGame = gid !== "" && gameIds.includes(gid);
     const byCat = cat !== "" && cats.includes(cat);
     if (byGame || byCat) matches.push({ jp, byGame });
