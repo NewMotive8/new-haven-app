@@ -55,6 +55,8 @@ interface JackpotGroupRow {
   name: string;
   status: GroupStatus;
   createdAt: string;
+  assignedCategories?: string[];
+  assignedGameIds?: number[];
 }
 
 type RowStatus = "active" | "draft" | "disabled";
@@ -69,7 +71,10 @@ interface UnifiedRow {
   poolBalance: number;
   createdAt: string;
   kind: RowKind;
+  categories: string[];
+  gameIds: number[];
 }
+
 
 function useJackpotsPage(brandId: number | undefined, page: number, size: number) {
   return useQuery<SpringPage<JackpotDTO>>({
