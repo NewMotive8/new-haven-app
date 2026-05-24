@@ -545,10 +545,44 @@ export function QaOverlay({
                              bg-gradient-to-b from-yellow-300 via-amber-400 to-amber-600
                              shadow-[0_8px_0_#78350f,0_12px_24px_rgba(245,158,11,0.5)]
                              hover:translate-y-0.5 hover:shadow-[0_6px_0_#78350f,0_10px_20px_rgba(245,158,11,0.5)]
-                             active:translate-y-1.5 active:shadow-[0_2px_0_#78350f] transition"
-                >
-                  {spinning ? "Spinning…" : `Spin €${Number(wager || 0).toFixed(2)}`}
-                </button>
+                <div className="mt-2 flex flex-wrap items-center justify-end gap-3">
+                  {optedIn ? (
+                    <button
+                      type="button"
+                      onClick={() => setOptedIn(false)}
+                      disabled={!selectedJp}
+                      className="px-5 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-sm font-semibold hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      Opt out
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setOptedIn(true)}
+                      disabled={!selectedJp}
+                      className="px-5 py-2.5 rounded-lg font-bold text-sm uppercase tracking-wider text-amber-950
+                                 bg-gradient-to-b from-yellow-300 via-amber-400 to-amber-600
+                                 shadow-[0_4px_0_#78350f] hover:translate-y-0.5 hover:shadow-[0_2px_0_#78350f]
+                                 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      Opt in Jackpot
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleSpin}
+                    disabled={spinning || !selectedJp || !optedIn}
+                    title={!optedIn ? "Opt in to spin." : undefined}
+                    className="relative px-10 py-4 rounded-2xl font-black uppercase tracking-widest text-lg
+                               text-amber-950 disabled:opacity-50 disabled:cursor-not-allowed
+                               bg-gradient-to-b from-yellow-300 via-amber-400 to-amber-600
+                               shadow-[0_8px_0_#78350f,0_12px_24px_rgba(245,158,11,0.5)]
+                               hover:translate-y-0.5 hover:shadow-[0_6px_0_#78350f,0_10px_20px_rgba(245,158,11,0.5)]
+                               active:translate-y-1.5 active:shadow-[0_2px_0_#78350f] transition"
+                  >
+                    {spinning ? "Spinning…" : `Spin €${Number(wager || 0).toFixed(2)}`}
+                  </button>
+                </div>
               </div>
             </div>
           )}
