@@ -555,10 +555,11 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             (a, b) => (b.tierRank ?? 0) - (a.tierRank ?? 0),
           );
           for (const child of ranked) {
-            const p =
+            const baseP =
               child.triggerProbability > 0
                 ? child.triggerProbability
                 : readTriggerProbability(child);
+            const p = effectiveTriggerProbability(child, baseP, wager);
             if (rng() < p) {
               const winAmount = Number(child.poolBalance) || 0;
               const community = readCommunityConfig(child);
