@@ -292,6 +292,7 @@ const happyMid: SingleBlueprint = {
         poolWeight: 70,   // 2.8% of wager
         seedWeight: 30,   // 1.2% of wager
         houseWeight: 0,
+        houseFixedPerSpin: 0.15,
       },
       "DAILY",
       "",
