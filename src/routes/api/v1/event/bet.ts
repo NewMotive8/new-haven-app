@@ -609,19 +609,20 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             tierBreakdown: e.ledger.entries,
           }));
 
-          // Hierarchical win evaluation: highest tier_rank → lowest.
+          // Hierarchical win evaluation: highest tier_rank → lowest. Each
+          // child is evaluated through the shared engine so the forced-hit
+          // gate (pool >= configured cap) and structural rules match the
+          // admin simulator exactly.
           let win: Record<string, unknown> | null = null;
+          const cfgByJackpotId = new Map(configs.map((c) => [c.id, c]));
           const ranked = [...children].sort(
             (a, b) => (b.tierRank ?? 0) - (a.tierRank ?? 0),
           );
           for (const child of ranked) {
-            const baseP =
-              child.triggerProbability > 0
-                ? child.triggerProbability
-                : readTriggerProbability(child);
-            const p = effectiveTriggerProbability(child, baseP, wager);
-            if (rng() < p) {
-              const winAmount = resolveWinAmount(child);
+            const childCfg = cfgByJackpotId.get(child.id) ?? inlineConfigFromDto(child);
+            const spin = evaluateLiveSpin(childCfg, wager, rng);
+            if (spin.won) {
+              const winAmount = spin.winAmount;
               const community = readCommunityConfig(child);
               if (community && community.split > 0) {
                 const breakdown = applyCommunityPayout(winAmount, community, rng);
@@ -629,6 +630,7 @@ export const Route = createFileRoute("/api/v1/event/bet")({
                   jackpotId: child.id,
                   tierRank: child.tierRank,
                   amount: winAmount,
+                  forcedHit: spin.forcedHit,
                   isCommunity: true,
                   communitySize: breakdown.communitySize,
                   communityMemberPayOut: breakdown.communityMemberPayOut,
