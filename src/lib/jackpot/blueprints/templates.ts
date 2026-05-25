@@ -306,12 +306,11 @@ const happyMid: SingleBlueprint = {
         // Active enterprise split — keeps pool & seed contributions non-zero
         // when the blueprint is hydrated into the simulator.
         contributionMode: "split",
-        totalContributionAmount: 4,
-        totalContributionType: "percentage",
-        poolWeight: 70,   // 2.8% of wager
-        seedWeight: 30,   // 1.2% of wager
-        houseWeight: 0,
-        houseFixedPerSpin: 0.15,
+        totalContributionAmount: 0.15,
+        totalContributionType: "fixed",
+        poolWeight: 60,
+        seedWeight: 20,
+        houseWeight: 20,
       },
       "DAILY",
       "",
