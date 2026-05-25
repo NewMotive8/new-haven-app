@@ -1,106 +1,98 @@
 ## Scope
 
-Frontend-only overhaul of the **results panel** on `/admin/simulator` (`src/routes/admin.simulator.tsx`). The left configuration panel, run logic, and backend stay untouched. Charts use **Recharts** (already imported in the file).
-
-> Note: your message was truncated at *"the reset sequence: `Win Trigger"*. I'm planning the re-seed log block based on the obvious shape (Win Trigger → Payout → Pool reset → Seed reservoir drawn down to `minimumSeedAmount`). If you wanted a specific wording, paste the rest and I'll adjust before implementation.
+Single file: `src/routes/admin.simulator.tsx`. Pure frontend, no DTO/backend/migration changes. Targets the `ComplianceDashboard` block (KPI row, replay helpers, fairness ledger) and removes the `<details>Raw engine output</details>` collapsible.
 
 ---
 
-## 1. New layout
+## 1. Fix nested DTO field resolution
 
-Replace the current `<ResultsSummary>` block with a stacked dashboard:
+Update `buildPoolReplay`, `buildProbabilityCurve`, and the `ReSeedEventLog` helpers to read the schema using the names the user specified, with fallbacks so legacy configs still render.
+
+- **Seed cap** — read `config.seed?.maximumSeedAmount` first, fall back to `config.seed?.targetAmount` (current behaviour). `supported` becomes `seedCap > 0`.
+- **Seed floor** — read `config.seed?.minimumSeedAmount` first, fall back to `config.seed?.currentAmount`.
+- **Pool cap** — read `config.pool?.maximumAmount` first, fall back to `config.pool?.targetAmount`.
+- **Pool start** — `config.pool?.currentAmount` (already correct).
+
+Cast through `as any` only where the DTO type does not declare `minimumSeedAmount` / `maximumSeedAmount` — these fields are already persisted into the JSONB config and the helper extends without modifying `types.ts`.
+
+`buildPoolReplay` already does the overflow waterfall correctly (cap headroom → seed, remainder + poolAdd → main pool, win events drain pool then re-seed from floor). After the field swap, verify the in-loop math reads the new variables (`seedCap`, `floor`) and that the sawtooth still uses `result.winEvents` ordered by iteration. No structural change to the algorithm.
+
+---
+
+## 2. Dual-row KPI grid (replaces single row + raw-output accordion)
+
+Delete the `<details>…<ResultsSummary/></details>` block from `SimulatorPage` (lines ~449–456) and remove the legacy ResultsSummary/MathAudit usage **only from the dashboard render path** — keep the helper functions in the file untouched to avoid unrelated churn (they're inert once unreferenced; tree-shaking handles them in prod).
+
+Replace the current 4-card `<ComplianceKpi>` row with two semantic rows wrapped in titled bands:
 
 ```text
-┌──────────────────────────────────────────────────────────┐
-│  KPI ROW  (4 cards)                                      │
-├──────────────────────────────┬───────────────────────────┤
-│  Must-Drop Escalation        │  Seed Overflow Waterfall  │
-│  (LineChart)                 │  (Stacked AreaChart)      │
-├──────────────────────────────┴───────────────────────────┤
-│  Proportional Fairness Ledger (Table — recent 25 spins)  │
-├──────────────────────────────────────────────────────────┤
-│  Event Log w/ highlighted Re-Seed Snap rows              │
-└──────────────────────────────────────────────────────────┘
+┌─ Financial Performance ─────────────────────────────────────────┐
+│  Total Wager Volume │ Total Jackpot Payouts │ Effective RTP │ Operator Net Revenue │
+├─ Simulation Health & Gate Integrity ────────────────────────────┤
+│  Expected Wins │ Triggers Fired │ Actual Wins Approved │ Blocked by Gate │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-Keep existing `ResultsSummary` tier/RTP detail below as a collapsible "Raw engine output" section so nothing regresses.
+Each row: `display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px`. Section header is a small uppercase label above each row to keep the layout tight.
 
----
-
-## 2. KPI cards (top row)
-
-Derived directly from `SimulatorResponseDTO` + `activeConfig`:
-
+### Row 1 — Financial Performance
 | Card | Source |
 |---|---|
-| **Total Wager Volume** | `result.totalWagered` |
-| **Total Jackpot Payouts** | `result.winAmountCounter` |
-| **Effective RTP Impact** | `result.rtp` (already a %) |
-| **Total Overflow Diverted** | computed client-side: sum of per-spin `max(0, seedContribution − (maxSeed − seedCurrent))` reconstructed from `activeConfig.seed` + iteration count. Falls back to `0` (with "n/a — backend metric pending") when the config has no `maximumSeedAmount` so we don't fabricate numbers. |
+| Total Wager Volume | `result.totalWagered` |
+| Total Jackpot Payouts | `result.winAmountCounter` |
+| Effective Jackpot RTP | `result.rtp` (already %) |
+| Operator Net Revenue | `result.houseContributions` if present and > 0; otherwise computed fallback `totalWagered × (poolContributionAmount + seedContributionAmount)/100 × housePct/100` using `getJackpotSplit(config).housePct` (re-uses the helper already in this file). Badge text states the % share. |
 
-Cards use existing `panel` style + a colored accent stripe per metric.
+### Row 2 — Simulation Health & Gate Integrity
+| Card | Source / formula |
+|---|---|
+| Expected Wins | `Math.round(result.iterations × configuredProbability(config, "jackpot"))` — uses the existing helper, so it works for both fixed-odds and curve-mode configs. |
+| Triggers Fired | `(result.winCounter ?? 0) + (result.rejectedByGate ?? 0)` — the RNG firings before gate evaluation. |
+| Actual Wins Approved | `result.winCounter` |
+| Blocked by Gate | `result.rejectedByGate ?? 0`. When `> 0`, set `accent="#ef4444"` and add a destructive-tinted border `border: 1px solid rgba(239, 68, 68, 0.5)` plus a "Liquidity gate triggered — review funding" sub-badge. When `0`, render neutral accent (`#10b981`) with "Healthy" badge. |
 
----
-
-## 3. Charts
-
-### a. Must-Drop Escalation (LineChart)
-- X: spin index (sampled to ~200 points for perf)
-- Y: instantaneous win probability
-- Reconstructed client-side from `activeConfig` (Classic/AVERAGE/MAXIMUM/Must-Drop curve in `src/lib/jackpot/math.ts`). For Must-Drop, plot the escalation curve as pool approaches `maximumAmount`; for AVERAGE/MAXIMUM, plot the configured curve; for Classic, plot a flat baseline + a wager-scaled overlay.
-- Reuse pure helpers from `math.ts` — no new math, no backend changes.
-
-### b. Seed Overflow Waterfall (Stacked AreaChart)
-- X: spin index
-- Y: balance
-- Two stacked series: **Seed Pool** (clamped at `maximumSeedAmount`) and **Main Pool** (absorbs overflow)
-- Series are simulated locally with a lightweight forward replay using `activeConfig` contribution amounts and `result.iterations` — visually demonstrates the flat ceiling + steepened main-pool curve. Win events from `result.winEvents` punch the sawtooth resets.
+The existing `ComplianceKpi` component already accepts `accent` + `badge`; extend it with an optional `tone?: "alert"` prop that, when set, swaps the panel border and value text colour to the destructive token. Keep it inline-styled — no new CSS file.
 
 ---
 
-## 4. Proportional Fairness Ledger (table)
+## 3. Fairness-ledger fallbacks for must-drop
 
-`<Table>` from `@/components/ui/table` with last 25 spins (synthesized from `result.winEvents` plus an interleaved sample of non-winning spins for context):
+`buildFairnessRows` currently uses `configuredProbability(config, "jackpot")`, which returns `0` for must-drop configs (no fixed odds, no `triggerOdds`) — that's why columns render as `—`.
 
-| Spin ID | Wager | Base Probability | Effective Probability | Result |
-|---|---|---|---|---|
+For `structuralType === "MUST_DROP"`, synthesize a baseline by sampling the escalation curve produced by `buildProbabilityCurve`:
+- **Base probability** = the curve's first point (early-fill baseline, e.g. `0.0001`).
+- **Effective probability** at a given wager = base × `(wager / referenceWager)`, clamped to 1.
+- For each row, instead of a flat number, pick the curve probability at the row's `spinId` so the table shows escalation across the simulation (`baseProb` column = first-point baseline, `effectiveProb` column = curve-at-spin × wager scaler).
 
-- **Base** = configured Classic threshold from `activeConfig`
-- **Effective** = `base × (wager / referenceWager)` clamped to 1.0 — same formula the backend now applies. Highlight rows where wager > reference wager so the proportional bump is visible.
-- Win/Loss badge in the Result column.
+Result: must-drop rows show real ascending probabilities instead of `—`. Loss rows still vary wager values to demonstrate the ticket-scaling effect.
 
----
-
-## 5. Re-Seed Snap Event Log
-
-Vertical event feed driven by `result.winEvents`. Each win renders an `Alert`-style block:
-
-```text
-🏆 WIN @ spin #12,481 — payout $4,820
-   ├ Pool reset:  $4,820  →  $0
-   ├ Seed draw:   reservoir $9,500  →  $8,500  (−$1,000 minimumSeedAmount)
-   └ New pool:    $1,000 (reseed floor restored)
-```
-
-Non-win events (overflow openings) render as muted rows. Win rows get a highlighted border + subtle pulse animation.
+`formatProb` already handles `p <= 0 → "—"`, so curve-mode configs with no target cap still degrade gracefully.
 
 ---
 
-## 6. Technical details
+## 4. Layout polish (tight & professional)
 
-- **Files touched:** `src/routes/admin.simulator.tsx` only.
-- **New imports:** `LineChart`, `Line`, `ReferenceLine` from `recharts` (other Recharts primitives already imported).
-- **Helpers:** add three pure functions in the same file — `buildProbabilityCurve(config)`, `buildPoolReplay(config, iterations, winEvents)`, `buildFairnessRows(result, config)`. Keep them below the component to avoid churn elsewhere.
-- **Styling:** continue with the existing inline-style `panel` pattern for consistency with the rest of the page; use shadcn `Table` + `Badge` for tabular content.
-- **No backend / DTO / RNG / store changes.** If the backend later exposes a real `overflowDiverted` field, swap the derived KPI for the authoritative value.
-- **Perf:** downsample chart series to 200 points using fixed stride; tables capped at 25 rows.
+- KPI panels: reduce `padding` from 18 to 14, value font from 26 to 22 so two rows fit without overflow on the current 1290px viewport.
+- Add `gap: 8` between the section header label and the card grid; `gap: 16` between row 1 and row 2.
+- Remove the legacy accordion entirely — no toggle, no "Raw engine output" copy.
+- Charts/table/event-log below stay unchanged.
+
+---
+
+## Technical notes
+
+- File touched: `src/routes/admin.simulator.tsx` only.
+- No new imports, no new dependencies.
+- `JackpotConfigDTO` is **not** modified — `minimumSeedAmount` / `maximumSeedAmount` are accessed via `(config.seed as any)` since they live in the persisted JSONB and aren't in the TS type yet. This matches the existing pattern in `ReSeedEventLog` (line 1831).
+- `ResultsSummary`, `LedgerCard`, `LedgerTable`, `MathAudit`, `KpiCard` definitions remain in the file but become unreferenced from the dashboard path. Leaving them in place avoids deleting code that the user did not explicitly ask to remove.
+- No backend or DTO change requested or made.
 
 ---
 
 ## Out of scope
 
-- No new server function, migration, or `bet.ts` change.
-- No change to the JSON config textarea or the simulate request flow.
-- No new charting library — staying on Recharts.
+- Backend exposing an authoritative `overflowDiverted` or `expectedWins` field.
+- Extending `JackpotConfigDTO` with typed `minimumSeedAmount` / `maximumSeedAmount`.
+- Restyling the left-hand config panel or charts.
 
 Ready to implement on approval.

@@ -444,17 +444,7 @@ function SimulatorPage() {
               Run a simulation to see the compliance dashboard.
             </div>
           ) : (
-            <>
-              <ComplianceDashboard result={result} config={activeConfig} wager={wager} />
-              <details style={{ ...panel, padding: 14 }}>
-                <summary style={{ cursor: "pointer", color: "#9fb0c8", fontSize: 13, fontWeight: 600 }}>
-                  Raw engine output (legacy ledger &amp; math audit)
-                </summary>
-                <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 12 }}>
-                  <ResultsSummary result={result} config={activeConfig} />
-                </div>
-              </details>
-            </>
+            <ComplianceDashboard result={result} config={activeConfig} wager={wager} />
           )}
         </div>
       </div>
@@ -1289,8 +1279,6 @@ function ComplianceDashboard({
     () => buildPoolReplay(config, result, wager),
     [config, result, wager],
   );
-  const overflowTotal = replay.totalOverflow;
-  const overflowSupported = replay.supported;
 
   const probabilityCurve = React.useMemo(
     () => buildProbabilityCurve(config, result, wager),
@@ -1302,36 +1290,102 @@ function ComplianceDashboard({
     [result, config, wager],
   );
 
+  // ── Row 1 derivations ────────────────────────────────────────────────
+  const split = getJackpotSplit(config);
+  const housePct = split.housePct;
+  const poolContribPct = Number(config?.pool?.contributionAmount) || 0;
+  const seedContribPct = Number(config?.seed?.contributionAmount) || 0;
+  const contribRatePct = poolContribPct + seedContribPct;
+  const operatorRevenueFallback =
+    totalWager * (contribRatePct / 100) * (housePct / 100);
+  const operatorRevenue =
+    typeof result.houseContributions === "number" && result.houseContributions > 0
+      ? result.houseContributions
+      : operatorRevenueFallback;
+
+  // ── Row 2 derivations ────────────────────────────────────────────────
+  const baseProbForExpected = configuredProbability(config, "jackpot");
+  const expectedWins = Math.round((result.iterations || 0) * baseProbForExpected);
+  const actualWins = result.winCounter || 0;
+  const blockedByGate = result.rejectedByGate ?? 0;
+  const triggersFired = actualWins + blockedByGate;
+  const gateAlert = blockedByGate > 0;
+
+  const sectionLabel: React.CSSProperties = {
+    fontSize: 10,
+    letterSpacing: 1.6,
+    textTransform: "uppercase",
+    color: "#7d8ba3",
+    fontWeight: 700,
+    marginBottom: 8,
+  };
+  const rowGrid: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+    gap: 12,
+  };
+
   return (
     <>
-      {/* 1. KPI Row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
-        <ComplianceKpi
-          label="Total Wager Volume"
-          value={`€ ${fmt(totalWager)}`}
-          accent="#6366f1"
-        />
-        <ComplianceKpi
-          label="Total Jackpot Payouts"
-          value={`€ ${fmt(totalPayout)}`}
-          accent="#10b981"
-        />
-        <ComplianceKpi
-          label="Effective RTP Impact"
-          value={`${rtpPct.toFixed(3)}%`}
-          accent="#f59e0b"
-          badge={`${fmtInt(result.winCounter || 0)} wins / ${fmtInt(result.iterations)} spins`}
-        />
-        <ComplianceKpi
-          label="Total Overflow Diverted"
-          value={overflowSupported ? `€ ${fmt(overflowTotal)}` : "n/a"}
-          accent="#06b6d4"
-          badge={
-            overflowSupported
-              ? "Seed cap → main pool"
-              : "Set maximumSeedAmount to enable"
-          }
-        />
+      {/* 1. KPI Rows */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div>
+          <div style={sectionLabel}>Financial Performance</div>
+          <div style={rowGrid}>
+            <ComplianceKpi
+              label="Total Wager Volume"
+              value={`€ ${fmt(totalWager)}`}
+              accent="#6366f1"
+            />
+            <ComplianceKpi
+              label="Total Jackpot Payouts"
+              value={`€ ${fmt(totalPayout)}`}
+              accent="#10b981"
+            />
+            <ComplianceKpi
+              label="Effective Jackpot RTP"
+              value={`${rtpPct.toFixed(3)}%`}
+              accent="#f59e0b"
+            />
+            <ComplianceKpi
+              label="Operator Net Revenue"
+              value={`€ ${fmt(operatorRevenue)}`}
+              accent="#a855f7"
+              badge={housePct > 0 ? `${housePct.toFixed(1)}% house slice` : "No house split configured"}
+            />
+          </div>
+        </div>
+
+        <div>
+          <div style={sectionLabel}>Simulation Health &amp; Gate Integrity</div>
+          <div style={rowGrid}>
+            <ComplianceKpi
+              label="Expected Wins"
+              value={fmtInt(expectedWins)}
+              accent="#06b6d4"
+              badge={baseProbForExpected > 0 ? `1 in ${fmt(1 / baseProbForExpected, 0)} baseline` : "Curve / must-drop"}
+            />
+            <ComplianceKpi
+              label="Triggers Fired"
+              value={fmtInt(triggersFired)}
+              accent="#6366f1"
+              badge="Pre-gate RNG hits"
+            />
+            <ComplianceKpi
+              label="Actual Wins Approved"
+              value={fmtInt(actualWins)}
+              accent="#10b981"
+              badge={triggersFired > 0 ? `${((actualWins / triggersFired) * 100).toFixed(1)}% approval` : "—"}
+            />
+            <ComplianceKpi
+              label="Blocked by Gate"
+              value={fmtInt(blockedByGate)}
+              accent={gateAlert ? "#ef4444" : "#10b981"}
+              tone={gateAlert ? "alert" : undefined}
+              badge={gateAlert ? "Liquidity gate triggered — review funding" : "Healthy"}
+            />
+          </div>
+        </div>
       </div>
 
       {/* 2. Charts row */}
@@ -1354,19 +1408,24 @@ function ComplianceKpi({
   value,
   badge,
   accent,
+  tone,
 }: {
   label: string;
   value: string;
   badge?: string;
   accent: string;
+  tone?: "alert";
 }) {
+  const isAlert = tone === "alert";
   return (
     <div
       style={{
         ...panel,
-        padding: 18,
+        padding: 14,
         position: "relative",
         overflow: "hidden",
+        border: isAlert ? "1px solid rgba(239, 68, 68, 0.5)" : panel.border,
+        boxShadow: isAlert ? "0 0 0 1px rgba(239, 68, 68, 0.25) inset" : undefined,
       }}
     >
       <div
@@ -1382,14 +1441,14 @@ function ComplianceKpi({
       <div style={{ fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase", color: "#9fb0c8" }}>
         {label}
       </div>
-      <div style={{ fontSize: 26, fontWeight: 700, color: "#f8fafc", marginTop: 8, fontVariantNumeric: "tabular-nums" }}>
+      <div style={{ fontSize: 22, fontWeight: 700, color: isAlert ? "#fca5a5" : "#f8fafc", marginTop: 6, fontVariantNumeric: "tabular-nums" }}>
         {value}
       </div>
       {badge && (
         <span
           style={{
             display: "inline-block",
-            marginTop: 10,
+            marginTop: 8,
             padding: "3px 10px",
             background: `${accent}22`,
             color: accent,
@@ -1529,8 +1588,8 @@ function buildPoolReplay(
   if (!config) return { points: [], cap: 0, totalOverflow: 0, supported: false, overflowStart: null };
   const iterations = result.iterations || 0;
   const seedStart = Number(config.seed?.currentAmount) || 0;
-  // seed.targetAmount is the active seedCap in the engine (see simulator.ts:131).
-  const seedCap = Number(config.seed?.targetAmount) || 0;
+  // Prefer the new typed seed cap; fall back to legacy seed.targetAmount.
+  const seedCap = Number((config.seed as any)?.maximumSeedAmount) || Number(config.seed?.targetAmount) || 0;
   const supported = seedCap > 0;
   const poolStart = Number(config.pool?.currentAmount) || 0;
   const seedPerSpin = perSpinPoolContribution(config.seed, wager);
@@ -1678,20 +1737,38 @@ function buildFairnessRows(
   config: JackpotConfigDTO | null,
   wager: number,
 ): FairnessRow[] {
-  const baseProb = configuredProbability(config, "jackpot");
   const referenceWager = 1;
   const rows: FairnessRow[] = [];
 
-  // Mix recent wins with a sample of losses to prove the ratio works at any wager.
+  // Must-drop has no fixed configured probability — synthesize a baseline
+  // from the escalation curve so the table isn't all em-dashes.
+  const isMustDrop = (config as any)?.structuralType === "MUST_DROP";
+  const curve = isMustDrop ? buildProbabilityCurve(config, result, wager).points : [];
+  const curveBase = curve.length > 0 ? curve[0].probability : 0;
+  const configuredBase = configuredProbability(config, "jackpot");
+  const baseProb = configuredBase > 0 ? configuredBase : curveBase;
+
+  // Sample the curve at a given spin index (must-drop only).
+  const probAtSpin = (spin: number): number => {
+    if (!isMustDrop || curve.length === 0) return baseProb;
+    let chosen = curve[0].probability;
+    for (const p of curve) {
+      if (p.spin <= spin) chosen = p.probability;
+      else break;
+    }
+    return chosen;
+  };
+
+  // Recent wins.
   const wins = (result.winEvents ?? []).slice(-12);
   for (const w of wins) {
-    // For visualization we vary the demonstrated wager to make proportional scaling visible.
     const demoWager = wager;
+    const rowBase = isMustDrop ? probAtSpin(w.iteration) : baseProb;
     rows.push({
       spinId: w.iteration,
       wager: demoWager,
-      baseProb,
-      effectiveProb: Math.min(1, baseProb * (demoWager / referenceWager)),
+      baseProb: rowBase,
+      effectiveProb: Math.min(1, rowBase * (demoWager / referenceWager)),
       result: "WIN",
       payout: w.amount,
     });
@@ -1705,11 +1782,12 @@ function buildFairnessRows(
   for (let i = 0; i < lossWagers.length && rows.length < 25; i++) {
     const w = lossWagers[i];
     const spinId = Math.round(((i + 1) / (lossWagers.length + 1)) * totalSpins);
+    const rowBase = isMustDrop ? probAtSpin(spinId) : baseProb;
     rows.push({
       spinId,
       wager: w,
-      baseProb,
-      effectiveProb: Math.min(1, baseProb * (w / referenceWager)),
+      baseProb: rowBase,
+      effectiveProb: Math.min(1, rowBase * (w / referenceWager)),
       result: "LOSS",
     });
   }
@@ -1831,7 +1909,7 @@ function ReSeedEventLog({
     Number((config?.seed as any)?.minimumSeedAmount) ||
     Number(config?.seed?.currentAmount) ||
     0;
-  const seedCap = Number(config?.seed?.targetAmount) || 0;
+  const seedCap = Number((config?.seed as any)?.maximumSeedAmount) || Number(config?.seed?.targetAmount) || 0;
   return (
     <div style={panel}>
       <div style={{ fontSize: 14, fontWeight: 600, color: "#f8fafc" }}>Re-Seed Snap Event Log</div>
