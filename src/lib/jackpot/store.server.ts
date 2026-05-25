@@ -236,9 +236,20 @@ export async function createJackpot(
     .from("jackpot_pools")
     .insert({ jackpot_id: id, current_balance: poolBalance });
   if (poolErr) throw new Error(poolErr.message);
+  // Seed pool: persist min/max caps so apply_group_bet can enforce the
+  // overflow valve and post-win reseed without round-tripping the JSONB config.
+  const cfgSeed = (dto.config?.seed ?? {}) as Record<string, any>;
+  const minimumSeedAmount = Number(cfgSeed.minimumSeedAmount ?? seedAmount ?? 0);
+  const maximumSeedAmount = Number(cfgSeed.maximumSeedAmount ?? 0);
   const { error: seedErr } = await supabaseAdmin
     .from("jackpot_seeds")
-    .insert({ jackpot_id: id, base_seed_amount: seedAmount });
+    .insert({
+      jackpot_id: id,
+      base_seed_amount: seedAmount,
+      current_seed_amount: 0,
+      minimum_seed_amount: minimumSeedAmount,
+      maximum_seed_amount: maximumSeedAmount,
+    } as any);
   if (seedErr) throw new Error(seedErr.message);
 
   const result = await getJackpot(brandId, id);
