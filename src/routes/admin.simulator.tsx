@@ -44,10 +44,10 @@ export const SIMULATOR_TEMPLATES = [
       contributionAmount: 2.0,
     },
     seed: {
-      currentAmount: 2000,
+      currentAmount: 3000,
       minimumSeedAmount: 2000,
-      maximumSeedAmount: 5000,
-      contributionAmount: 0.8,
+      maximumSeedAmount: 10000,
+      contributionAmount: 1.2,
     },
     contribution: {
       houseWeight: 0.4,
