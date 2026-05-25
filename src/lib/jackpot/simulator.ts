@@ -212,7 +212,21 @@ function simulateClassic(
   const volatility = Number(jackpot.volatility) || 0;
   const winType = jackpot.type ?? "AVERAGE";
   const isAverage = winType !== "MAXIMUM";
-  const triggerOdds = Number(jackpot.triggerOdds) || 0;
+  // Trigger probability resolution.
+  // `triggerOdds` is a whole-number "1 in N" matrix (e.g. 5000) and MUST be
+  // inverted to a fractional probability (1/5000 = 0.0002) before use.
+  // `triggerProbability` is already fractional (e.g. 0.0002) and is used as-is.
+  // If neither is provided, default to a safe micro-decimal (0.0001) instead
+  // of falling through to a curve that can blow past 1.0 and trigger on
+  // every spin (which then gets 100% blocked by the safety gate).
+  const rawTriggerOdds = Number((jackpot as { triggerOdds?: number }).triggerOdds);
+  const rawTriggerProb = Number((jackpot as { triggerProbability?: number }).triggerProbability);
+  const triggerOdds =
+    Number.isFinite(rawTriggerOdds) && rawTriggerOdds > 1
+      ? rawTriggerOdds
+      : Number.isFinite(rawTriggerProb) && rawTriggerProb > 0 && rawTriggerProb < 1
+        ? 1 / rawTriggerProb
+        : 0;
 
   const fixedWinAmount = Number(jackpot.fixedWinAmount) || 0;
   const maximumWinAmountRaw =
