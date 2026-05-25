@@ -225,6 +225,7 @@ export type JackpotSavePayload = {
   minWagerAmount: number;
   maxWagerAmount: number;
   reseedingAmount: number;
+  minimumSeedAmount?: number;
   maximumSeedAmount: number;
   initialPoolAmount?: number;
   // --- Optional: MUST_DROP / FREQUENCY virtual lifespan (minutes).
@@ -407,6 +408,9 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
   const [minWagerAmount, setMinWagerAmount] = useState<number>(initial?.minWagerAmount ?? 0);
   const [maxWagerAmount, setMaxWagerAmount] = useState<number>(initial?.maxWagerAmount ?? 0);
   const [reseedingAmount, setReseedingAmount] = useState<number>(initial?.reseedingAmount ?? 0);
+  const [minimumSeedAmount, setMinimumSeedAmount] = useState<number>(
+    initial?.minimumSeedAmount ?? initial?.reseedingAmount ?? 0,
+  );
   const [maximumSeedAmount, setMaximumSeedAmount] = useState<number>(initial?.maximumSeedAmount ?? 0);
   const [initialPoolAmount, setInitialPoolAmount] = useState<number>(initial?.initialPoolAmount ?? 0);
   // Operation Safeguards — global per-jackpot caps (Must-Drop & Frequency).
@@ -777,6 +781,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
       minWagerAmount: isPercentage ? minWagerAmount : 0,
       maxWagerAmount: isPercentage ? maxWagerAmount : 0,
       reseedingAmount,
+      minimumSeedAmount,
       maximumSeedAmount,
       initialPoolAmount,
       // Must-Drop derives lifespan/period from its Recurrence picker.
@@ -2437,6 +2442,17 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
 
                           <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
+                              <BrightLabel htmlFor="min-seed-percentage">Minimum Seed Amount</BrightLabel>
+                              <CurrencyInput
+                                id="min-seed-percentage"
+                                type="number"
+                                placeholder="0"
+                                value={minimumSeedAmount}
+                                onChange={(e) => setMinimumSeedAmount(parseFloat(e.target.value) || 0)}
+                                className="bg-neutral-800 border-neutral-700"
+                              />
+                            </div>
+                            <div className="space-y-2">
                               <BrightLabel htmlFor="max-seed-percentage">Maximum Seed Amount</BrightLabel>
                               <CurrencyInput
                                 id="max-seed-percentage"
@@ -2447,7 +2463,6 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
                                 className="bg-neutral-800 border-neutral-700"
                               />
                             </div>
-                            <div></div>
                           </div>
                         </>
                       ) : (
@@ -2522,6 +2537,17 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
 
                           <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
+                              <BrightLabel htmlFor="min-seed">Minimum Seed Amount</BrightLabel>
+                              <CurrencyInput
+                                id="min-seed"
+                                type="number"
+                                placeholder="0"
+                                value={minimumSeedAmount}
+                                onChange={(e) => setMinimumSeedAmount(parseFloat(e.target.value) || 0)}
+                                className="bg-neutral-800 border-neutral-700"
+                              />
+                            </div>
+                            <div className="space-y-2">
                               <BrightLabel htmlFor="max-seed">Maximum Seed Amount</BrightLabel>
                               <CurrencyInput
                                 id="max-seed"
@@ -2532,7 +2558,6 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
                                 className="bg-neutral-800 border-neutral-700"
                               />
                             </div>
-                            <div></div>
                           </div>
                         </>
                       )}

@@ -236,9 +236,20 @@ export async function createJackpot(
     .from("jackpot_pools")
     .insert({ jackpot_id: id, current_balance: poolBalance });
   if (poolErr) throw new Error(poolErr.message);
+  // Seed pool: persist min/max caps so apply_group_bet can enforce the
+  // overflow valve and post-win reseed without round-tripping the JSONB config.
+  const cfgSeed = (dto.config?.seed ?? {}) as Record<string, any>;
+  const minimumSeedAmount = Number(cfgSeed.minimumSeedAmount ?? seedAmount ?? 0);
+  const maximumSeedAmount = Number(cfgSeed.maximumSeedAmount ?? 0);
   const { error: seedErr } = await supabaseAdmin
     .from("jackpot_seeds")
-    .insert({ jackpot_id: id, base_seed_amount: seedAmount });
+    .insert({
+      jackpot_id: id,
+      base_seed_amount: seedAmount,
+      current_seed_amount: 0,
+      minimum_seed_amount: minimumSeedAmount,
+      maximum_seed_amount: maximumSeedAmount,
+    } as any);
   if (seedErr) throw new Error(seedErr.message);
 
   const result = await getJackpot(brandId, id);
@@ -288,6 +299,23 @@ export async function updateJackpot(
       .update({ base_seed_amount: Number(dto.seedAmount) })
       .eq("jackpot_id", id);
     if (error) throw new Error(error.message);
+  }
+  // Mirror seed-cap edits from the trigger_condition JSON into the
+  // typed columns so apply_group_bet always sees the latest values.
+  if (dto.config?.seed) {
+    const s = dto.config.seed as Record<string, any>;
+    const patchSeed: Record<string, number> = {};
+    if (s.minimumSeedAmount !== undefined)
+      patchSeed.minimum_seed_amount = Number(s.minimumSeedAmount) || 0;
+    if (s.maximumSeedAmount !== undefined)
+      patchSeed.maximum_seed_amount = Number(s.maximumSeedAmount) || 0;
+    if (Object.keys(patchSeed).length > 0) {
+      const { error } = await supabaseAdmin
+        .from("jackpot_seeds")
+        .update(patchSeed as any)
+        .eq("jackpot_id", id);
+      if (error) throw new Error(error.message);
+    }
   }
 
   const after = await getJackpot(brandId, id);
@@ -956,7 +984,7 @@ export async function recordGroupTransaction(payload: {
   groupId: number;
   totals: { pool: number; seed: number; house: number };
   response: Record<string, unknown>;
-  poolDeltas: Array<{ jackpotId: number; delta: number }>;
+  poolDeltas: Array<{ jackpotId: number; delta: number; seedDelta?: number; maximumSeedAmount?: number }>;
   winJackpotId?: number | null;
   winAmount?: number;
   playerId?: string | null;

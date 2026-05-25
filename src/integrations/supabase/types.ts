@@ -169,18 +169,27 @@ export type Database = {
       jackpot_seeds: {
         Row: {
           base_seed_amount: number
+          current_seed_amount: number
           id: number
           jackpot_id: number
+          maximum_seed_amount: number
+          minimum_seed_amount: number
         }
         Insert: {
           base_seed_amount?: number
+          current_seed_amount?: number
           id?: number
           jackpot_id: number
+          maximum_seed_amount?: number
+          minimum_seed_amount?: number
         }
         Update: {
           base_seed_amount?: number
+          current_seed_amount?: number
           id?: number
           jackpot_id?: number
+          maximum_seed_amount?: number
+          minimum_seed_amount?: number
         }
         Relationships: [
           {
