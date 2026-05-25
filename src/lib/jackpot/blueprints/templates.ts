@@ -70,7 +70,12 @@ const classicHigh: SingleBlueprint = {
     initialPoolAmount: 1000,
     triggerOdds: 250000,
     operatorShare: 0,
-    houseFixedPerSpin: 0.15,
+    contributionMode: "split",
+    totalContributionType: "fixed",
+    totalContributionAmount: 0.15,
+    poolWeight: 60,
+    seedWeight: 20,
+    houseWeight: 20,
   },
 };
 
