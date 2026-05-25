@@ -271,10 +271,17 @@ export async function updateJackpot(
   const patch: Record<string, unknown> = {};
   if (dto.name !== undefined) patch.name = dto.name;
   if (dto.enabled !== undefined) patch.enabled = dto.enabled;
+  if (dto.volatility !== undefined) patch.volatility = Number(dto.volatility) || 0;
   // Persist the full JSONB config blob when supplied (wizard PUT path); merge
   // threshold edits into the existing config instead of replacing it. The
   // `trigger_condition` column doubles as the config store, so a naive
-  // `{threshold: N}` write would wipe engineV2/eligibility/pool/seed.
+  // `{threshold: N}` write would wipe engineV2/_draft/eligibility/pool/seed.
+  //
+  // Round-trip contract: `buildCreateBody` always emits a full `config`
+  // object (including `_draft`, `pool`, `seed`, `engineV2`, `prizeEconomy`,
+  // `eligibility`, `community`, `widget`, `recurrence`, …). The shallow merge
+  // below lets `dto.config` win for any key it owns while preserving any
+  // top-level keys the wizard does not emit (back-compat).
   if (dto.config !== undefined || dto.triggerThreshold !== undefined) {
     const base: Record<string, unknown> = {
       ...((existing.config as Record<string, unknown> | undefined) ?? {}),
@@ -312,6 +319,8 @@ export async function updateJackpot(
     patch.assigned_categories = dto.assignedCategories;
   if (dto.assignedGameIds !== undefined)
     patch.assigned_game_ids = dto.assignedGameIds;
+
+
 
 
   if (Object.keys(patch).length > 0) {
