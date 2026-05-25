@@ -42,12 +42,14 @@ export const SIMULATOR_TEMPLATES = [
     pool: {
       currentAmount: 500,
       minimumAmount: 100,
+      maximumAmount: 2500,
       contributionAmount: 2.5,
     },
     seed: {
       currentAmount: 500,
       minimumSeedAmount: 200,
       maximumSeedAmount: 2000,
+      targetAmount: 2000,
       contributionAmount: 1.0,
     },
     contribution: {
@@ -84,12 +86,14 @@ export const SIMULATOR_TEMPLATES = [
     pool: {
       currentAmount: 10000,
       minimumAmount: 5000,
+      maximumAmount: 50000,
       contributionAmount: 2.0,
     },
     seed: {
       currentAmount: 5000,
       minimumSeedAmount: 3000,
       maximumSeedAmount: 15000,
+      targetAmount: 15000,
       contributionAmount: 1.2,
     },
     contribution: {
@@ -241,6 +245,10 @@ function SimulatorPage() {
     setActiveConfig(cfg);
     setResult(null);
     setError(null);
+    // Uniform Baseline Initialization: every preset load locks the simulator
+    // wager input to a stable 1.00 baseline so comparisons across templates
+    // start from the same per-spin economic footing.
+    setWager(1);
   }, [selectedTemplateIndex, cameFromCreationFlow]);
 
   async function persistJackpot(asDraft: boolean) {

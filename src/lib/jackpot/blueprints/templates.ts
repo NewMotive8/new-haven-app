@@ -277,7 +277,16 @@ const happyMid: SingleBlueprint = {
         maximumSeedAmount: 300,
         initialPoolAmount: 300,
         maxTotalPayout: 1500,
+        averageWinAmount: 800,
         operatorShare: 15,
+        // Active enterprise split — keeps pool & seed contributions non-zero
+        // when the blueprint is hydrated into the simulator.
+        contributionMode: "split",
+        totalContributionAmount: 4,
+        totalContributionType: "percentage",
+        poolWeight: 70,   // 2.8% of wager
+        seedWeight: 30,   // 1.2% of wager
+        houseWeight: 0,
       },
       "DAILY",
       "",
@@ -305,7 +314,15 @@ const happySmall: SingleBlueprint = {
         maximumSeedAmount: 50,
         initialPoolAmount: 50,
         maxTotalPayout: 300,
+        averageWinAmount: 150,
         operatorShare: 15,
+        // Active enterprise split for the token happy-hour window.
+        contributionMode: "split",
+        totalContributionAmount: 3.5,
+        totalContributionType: "percentage",
+        poolWeight: 70,   // 2.45% of wager
+        seedWeight: 30,   // 1.05% of wager
+        houseWeight: 0,
       },
       "WEEKLY",
       "SATURDAY",
