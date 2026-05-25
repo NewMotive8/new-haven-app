@@ -956,7 +956,7 @@ export async function recordGroupTransaction(payload: {
   groupId: number;
   totals: { pool: number; seed: number; house: number };
   response: Record<string, unknown>;
-  poolDeltas: Array<{ jackpotId: number; delta: number }>;
+  poolDeltas: Array<{ jackpotId: number; delta: number; seedDelta?: number; maximumSeedAmount?: number }>;
   winJackpotId?: number | null;
   winAmount?: number;
   playerId?: string | null;
