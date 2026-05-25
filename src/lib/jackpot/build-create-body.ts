@@ -99,6 +99,10 @@ export function buildCreateBody(payload: JackpotSavePayload) {
   if (isDraft) {
     (config as Record<string, unknown>).isDraft = true;
   }
+  const casinoCats = payload.eligibility?.casino?.categories ?? [];
+  const casinoGameIds = (payload.eligibility?.casino?.gameIds ?? [])
+    .map((g) => Number(g))
+    .filter((n) => Number.isFinite(n));
   return {
     name: payload.name,
     enabled: !isDraft,
@@ -108,6 +112,8 @@ export function buildCreateBody(payload: JackpotSavePayload) {
     triggerThreshold,
     volatility: payload.volatility,
     jackpotType: payload.type,
+    assignedCategories: casinoCats,
+    assignedGameIds: casinoGameIds,
     config,
   };
 
