@@ -781,6 +781,7 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
       minWagerAmount: isPercentage ? minWagerAmount : 0,
       maxWagerAmount: isPercentage ? maxWagerAmount : 0,
       reseedingAmount,
+      minimumSeedAmount,
       maximumSeedAmount,
       initialPoolAmount,
       // Must-Drop derives lifespan/period from its Recurrence picker.
