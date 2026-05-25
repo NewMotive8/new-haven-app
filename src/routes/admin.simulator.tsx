@@ -1504,7 +1504,7 @@ function ComplianceDashboard({
               badge={gateAlert ? "Liquidity gate triggered — review funding" : "Healthy"}
               subNote={
                 gateAlert
-                  ? "Simulation loop running on zero-accumulation state — subsequent triggers blocked to protect re-seed floor."
+                  ? "Seed reservoir depleted below mandatory re-seed floor requirements — win triggers paused to preserve system compliance."
                   : undefined
               }
             />
