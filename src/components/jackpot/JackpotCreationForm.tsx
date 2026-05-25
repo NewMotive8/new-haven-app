@@ -294,6 +294,15 @@ export type JackpotSavePayload = {
    */
   operatorShare?: number;
 
+  /**
+   * Flat House rake in €/spin layered on top of the player-funded split.
+   * Drives the Corporate P&L summary on the simulator: Jackpot Rake Yield
+   * = iterations × houseFixedPerSpin. Stacks with base-game hold for the
+   * Combined Net Operator Margin. Conventional values: €0.15/spin for
+   * single jackpots, €0.25/spin for grouped multi-tier configurations.
+   */
+  houseFixedPerSpin?: number;
+
   previewWager?: number;
   /** When true, persist with enabled=false and tag config.isDraft=true. */
   isDraft?: boolean;
