@@ -1292,36 +1292,102 @@ function ComplianceDashboard({
     [result, config, wager],
   );
 
+  // ── Row 1 derivations ────────────────────────────────────────────────
+  const split = getJackpotSplit(config);
+  const housePct = split.housePct;
+  const poolContribPct = Number(config?.pool?.contributionAmount) || 0;
+  const seedContribPct = Number(config?.seed?.contributionAmount) || 0;
+  const contribRatePct = poolContribPct + seedContribPct;
+  const operatorRevenueFallback =
+    totalWager * (contribRatePct / 100) * (housePct / 100);
+  const operatorRevenue =
+    typeof result.houseContributions === "number" && result.houseContributions > 0
+      ? result.houseContributions
+      : operatorRevenueFallback;
+
+  // ── Row 2 derivations ────────────────────────────────────────────────
+  const baseProbForExpected = configuredProbability(config, "jackpot");
+  const expectedWins = Math.round((result.iterations || 0) * baseProbForExpected);
+  const actualWins = result.winCounter || 0;
+  const blockedByGate = result.rejectedByGate ?? 0;
+  const triggersFired = actualWins + blockedByGate;
+  const gateAlert = blockedByGate > 0;
+
+  const sectionLabel: React.CSSProperties = {
+    fontSize: 10,
+    letterSpacing: 1.6,
+    textTransform: "uppercase",
+    color: "#7d8ba3",
+    fontWeight: 700,
+    marginBottom: 8,
+  };
+  const rowGrid: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+    gap: 12,
+  };
+
   return (
     <>
-      {/* 1. KPI Row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
-        <ComplianceKpi
-          label="Total Wager Volume"
-          value={`€ ${fmt(totalWager)}`}
-          accent="#6366f1"
-        />
-        <ComplianceKpi
-          label="Total Jackpot Payouts"
-          value={`€ ${fmt(totalPayout)}`}
-          accent="#10b981"
-        />
-        <ComplianceKpi
-          label="Effective RTP Impact"
-          value={`${rtpPct.toFixed(3)}%`}
-          accent="#f59e0b"
-          badge={`${fmtInt(result.winCounter || 0)} wins / ${fmtInt(result.iterations)} spins`}
-        />
-        <ComplianceKpi
-          label="Total Overflow Diverted"
-          value={overflowSupported ? `€ ${fmt(overflowTotal)}` : "n/a"}
-          accent="#06b6d4"
-          badge={
-            overflowSupported
-              ? "Seed cap → main pool"
-              : "Set maximumSeedAmount to enable"
-          }
-        />
+      {/* 1. KPI Rows */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div>
+          <div style={sectionLabel}>Financial Performance</div>
+          <div style={rowGrid}>
+            <ComplianceKpi
+              label="Total Wager Volume"
+              value={`€ ${fmt(totalWager)}`}
+              accent="#6366f1"
+            />
+            <ComplianceKpi
+              label="Total Jackpot Payouts"
+              value={`€ ${fmt(totalPayout)}`}
+              accent="#10b981"
+            />
+            <ComplianceKpi
+              label="Effective Jackpot RTP"
+              value={`${rtpPct.toFixed(3)}%`}
+              accent="#f59e0b"
+            />
+            <ComplianceKpi
+              label="Operator Net Revenue"
+              value={`€ ${fmt(operatorRevenue)}`}
+              accent="#a855f7"
+              badge={housePct > 0 ? `${housePct.toFixed(1)}% house slice` : "No house split configured"}
+            />
+          </div>
+        </div>
+
+        <div>
+          <div style={sectionLabel}>Simulation Health &amp; Gate Integrity</div>
+          <div style={rowGrid}>
+            <ComplianceKpi
+              label="Expected Wins"
+              value={fmtInt(expectedWins)}
+              accent="#06b6d4"
+              badge={baseProbForExpected > 0 ? `1 in ${fmt(1 / baseProbForExpected, 0)} baseline` : "Curve / must-drop"}
+            />
+            <ComplianceKpi
+              label="Triggers Fired"
+              value={fmtInt(triggersFired)}
+              accent="#6366f1"
+              badge="Pre-gate RNG hits"
+            />
+            <ComplianceKpi
+              label="Actual Wins Approved"
+              value={fmtInt(actualWins)}
+              accent="#10b981"
+              badge={triggersFired > 0 ? `${((actualWins / triggersFired) * 100).toFixed(1)}% approval` : "—"}
+            />
+            <ComplianceKpi
+              label="Blocked by Gate"
+              value={fmtInt(blockedByGate)}
+              accent={gateAlert ? "#ef4444" : "#10b981"}
+              tone={gateAlert ? "alert" : undefined}
+              badge={gateAlert ? "Liquidity gate triggered — review funding" : "Healthy"}
+            />
+          </div>
+        </div>
       </div>
 
       {/* 2. Charts row */}
