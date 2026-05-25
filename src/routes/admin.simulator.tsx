@@ -1432,12 +1432,10 @@ function ComplianceDashboard({
   result,
   config,
   wager,
-  baseHoldPct,
 }: {
   result: SimulatorResponseDTO;
   config: JackpotConfigDTO | null;
   wager: number;
-  baseHoldPct: number;
 }) {
   const totalWager = result.totalWagered || 0;
   const totalPayout = result.winAmountCounter || 0;
