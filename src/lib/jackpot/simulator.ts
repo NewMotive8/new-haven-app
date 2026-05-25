@@ -212,7 +212,21 @@ function simulateClassic(
   const volatility = Number(jackpot.volatility) || 0;
   const winType = jackpot.type ?? "AVERAGE";
   const isAverage = winType !== "MAXIMUM";
-  const triggerOdds = Number(jackpot.triggerOdds) || 0;
+  // Trigger probability resolution.
+  // `triggerOdds` is a whole-number "1 in N" matrix (e.g. 5000) and MUST be
+  // inverted to a fractional probability (1/5000 = 0.0002) before use.
+  // `triggerProbability` is already fractional (e.g. 0.0002) and is used as-is.
+  // If neither is provided, default to a safe micro-decimal (0.0001) instead
+  // of falling through to a curve that can blow past 1.0 and trigger on
+  // every spin (which then gets 100% blocked by the safety gate).
+  const rawTriggerOdds = Number((jackpot as { triggerOdds?: number }).triggerOdds);
+  const rawTriggerProb = Number((jackpot as { triggerProbability?: number }).triggerProbability);
+  const triggerOdds =
+    Number.isFinite(rawTriggerOdds) && rawTriggerOdds > 1
+      ? rawTriggerOdds
+      : Number.isFinite(rawTriggerProb) && rawTriggerProb > 0 && rawTriggerProb < 1
+        ? 1 / rawTriggerProb
+        : 0;
 
   const fixedWinAmount = Number(jackpot.fixedWinAmount) || 0;
   const maximumWinAmountRaw =
@@ -412,7 +426,21 @@ function simulateTimed(
 ): SimulatorResponseDTO {
   const rt = buildRuntime(jackpot.pool, jackpot.seed, wager, jackpot.contribution);
   const volatility = Number(jackpot.volatility) || 0;
-  const triggerOdds = Number(jackpot.triggerOdds) || 0;
+  // See simulateClassic() for the resolution contract. Same rules apply here:
+  // invert `triggerOdds` (whole-number "1 in N") to a fraction, accept a
+  // pre-fractional `triggerProbability`, otherwise default to 0.0001 below.
+  const rawTriggerOdds = Number((jackpot as { triggerOdds?: number }).triggerOdds);
+  const rawTriggerProb = Number((jackpot as { triggerProbability?: number }).triggerProbability);
+  const triggerOdds =
+    Number.isFinite(rawTriggerOdds) && rawTriggerOdds > 1
+      ? rawTriggerOdds
+      : Number.isFinite(rawTriggerProb) && rawTriggerProb > 0 && rawTriggerProb < 1
+        ? 1 / rawTriggerProb
+        : 0;
+  // Fallback probability for timed jackpots with no explicit trigger config.
+  // Without this the curve below (logTarget=2 when no targetAmount/maxWin is
+  // set) overflows past 1.0 and triggers every spin.
+  const FALLBACK_TRIGGER_PROBABILITY = 0.0001;
 
   const fixedWinAmount = Number(jackpot.fixedWinAmount) || 0;
   const maximumWinAmountRaw =
@@ -510,12 +538,17 @@ function simulateTimed(
     let maximumHitChance: number;
     if (triggerOdds > 0) {
       maximumHitChance = fixedOddsHitChance(triggerOdds);
-
-    } else {
+    } else if (rawTarget > 0) {
       const currentAmount = Math.max(1, rt.poolCurrent);
       const logValue = Math.log(currentAmount) / Math.log(logTarget);
       const baseExponent = Math.pow(logValue, maxVolatility);
-      maximumHitChance = baseExponent * mathContribution * 100;
+      // Clamp: the unbounded curve can overshoot 1.0 when currentAmount
+      // approaches/exceeds logTarget, which would trigger on every spin.
+      maximumHitChance = Math.min(1, baseExponent * mathContribution * 100);
+    } else {
+      // No fixed odds AND no target/max win configured — fall back to the
+      // safe micro-decimal instead of letting the runaway curve fire.
+      maximumHitChance = FALLBACK_TRIGGER_PROBABILITY;
     }
 
     const hitChance = totalTimedChance + maximumHitChance;
