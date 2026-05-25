@@ -92,6 +92,7 @@ const classicMid: SingleBlueprint = {
     initialPoolAmount: 250,
     triggerOdds: 50000,
     operatorShare: 15,
+    houseFixedPerSpin: 0.15,
   },
 };
 
