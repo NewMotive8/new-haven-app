@@ -118,7 +118,6 @@ function SandboxBanner() {
     <div
       role="banner"
       aria-label="Test sandbox environment"
-      className="text-center font-bold bg-orange-200"
       style={{
         position: "sticky",
         top: 0,
@@ -126,10 +125,13 @@ function SandboxBanner() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        textAlign: "center",
         whiteSpace: "pre-line",
         gap: 10,
         padding: "8px 16px",
+        background: "#f59e0b",
         color: "#1a1100",
+        fontWeight: 800,
         fontSize: 13,
         letterSpacing: 1.5,
         textTransform: "uppercase",
