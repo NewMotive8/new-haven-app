@@ -3291,8 +3291,9 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
                           <CurrencyInput
                             id="reseed-amount"
                             type="number"
-                            placeholder="03"
-                            defaultValue="03"
+                            placeholder="0"
+                            value={reseedingAmount}
+                            onChange={(e) => setReseedingAmount(parseFloat(e.target.value) || 0)}
                             className="bg-neutral-800 border-neutral-700 w-full"
                           />
                         </div>
@@ -4344,8 +4345,9 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
                           <CurrencyInput
                             id="frequency-reseed-amount"
                             type="number"
-                            placeholder="03"
-                            defaultValue="03"
+                            placeholder="0"
+                            value={reseedingAmount}
+                            onChange={(e) => setReseedingAmount(parseFloat(e.target.value) || 0)}
                             className="bg-neutral-800 border-neutral-700 w-full"
                           />
                         </div>
