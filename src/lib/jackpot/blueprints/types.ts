@@ -62,6 +62,8 @@ export interface MultiBlueprint extends BlueprintMeta {
     walletType: "internal" | "external";
     /** 0..100. Direct House skim of every player contribution. */
     operatorShare?: number;
+    /** Flat House rake in €/spin, layered on top of the player split. */
+    houseFixedPerSpin?: number;
   };
   tiers: MultiTierSpec[];
 }
