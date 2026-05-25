@@ -53,9 +53,12 @@ export const SIMULATOR_TEMPLATES = [
       contributionAmount: 1.0,
     },
     contribution: {
-      houseWeight: 0.3,
-      // Flat House rake (€/spin) — feeds Corporate P&L card.
-      houseFixed: 0.15,
+      mode: "split",
+      totalContributionType: "FIXED",
+      totalContributionAmount: 0.15,
+      poolWeight: 60,
+      seedWeight: 20,
+      houseWeight: 20,
     },
     enabled: true,
   },
@@ -76,8 +79,12 @@ export const SIMULATOR_TEMPLATES = [
       contributionAmount: 1.2,
     },
     contribution: {
-      houseWeight: 0.5,
-      houseFixed: 0.15,
+      mode: "split",
+      totalContributionType: "FIXED",
+      totalContributionAmount: 0.15,
+      poolWeight: 60,
+      seedWeight: 20,
+      houseWeight: 20,
     },
     enabled: true,
   },
@@ -100,8 +107,12 @@ export const SIMULATOR_TEMPLATES = [
       contributionAmount: 1.2,
     },
     contribution: {
-      houseWeight: 0.4,
-      houseFixed: 0.15,
+      mode: "split",
+      totalContributionType: "FIXED",
+      totalContributionAmount: 0.15,
+      poolWeight: 60,
+      seedWeight: 20,
+      houseWeight: 20,
     },
     enabled: true,
   },
@@ -124,8 +135,12 @@ export const SIMULATOR_TEMPLATES = [
       contributionAmount: 1.5,
     },
     contribution: {
-      houseWeight: 0.5,
-      houseFixed: 0.15,
+      mode: "split",
+      totalContributionType: "FIXED",
+      totalContributionAmount: 0.15,
+      poolWeight: 60,
+      seedWeight: 20,
+      houseWeight: 20,
     },
     timed: {
       lifespanMinutes: 10080,
@@ -231,6 +246,8 @@ function SimulatorPage() {
   // inflation) is what guarantees the curve engine sees enough volume.
   const [wager, setWager] = React.useState(1);
   const [iterations, setIterations] = React.useState(1000000);
+  // Base game underlying RTP hold (%). Drives the Casino Corporate P&L card.
+  const [baseHoldPct, setBaseHoldPct] = React.useState(4);
   const [configText, setConfigText] = React.useState(JSON.stringify(initialConfig, null, 2));
   const activeConfigTextRef = React.useRef(JSON.stringify(initialConfig, null, 2));
   const [loading, setLoading] = React.useState(false);
@@ -471,6 +488,25 @@ function SimulatorPage() {
                 }}
               />
             </div>
+            <div>
+              <label style={label}>
+                Base Game House Edge (RTP Hold) ·{" "}
+                <span style={{ color: "#34d399", fontWeight: 700 }}>{baseHoldPct}%</span>
+              </label>
+              <input
+                type="range"
+                min={4}
+                max={15}
+                step={0.5}
+                value={baseHoldPct}
+                onChange={(e) => setBaseHoldPct(Number(e.target.value) || 4)}
+                style={{ width: "100%", accentColor: "#10b981" }}
+              />
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#64748b", marginTop: 2 }}>
+                <span>4%</span>
+                <span>15%</span>
+              </div>
+            </div>
             {!cameFromCreationFlow && (
               <div>
                 <label style={label}>Preset template</label>
@@ -595,7 +631,7 @@ function SimulatorPage() {
               Run a simulation to see the compliance dashboard.
             </div>
           ) : (
-            <ComplianceDashboard result={result} config={activeConfig} wager={wager} />
+            <ComplianceDashboard result={result} config={activeConfig} wager={wager} baseHoldPct={baseHoldPct} />
           )}
         </div>
       </div>
@@ -1417,10 +1453,12 @@ function ComplianceDashboard({
   result,
   config,
   wager,
+  baseHoldPct,
 }: {
   result: SimulatorResponseDTO;
   config: JackpotConfigDTO | null;
   wager: number;
+  baseHoldPct: number;
 }) {
   const totalWager = result.totalWagered || 0;
   const totalPayout = result.winAmountCounter || 0;
@@ -1576,6 +1614,13 @@ function ComplianceDashboard({
         </div>
       </div>
 
+      {/* 1b. Casino Corporate P&L Summary — fixed-rake yield + base game hold */}
+      <CorporatePnlPanel
+        totalWager={result.totalWagered || 0}
+        houseContributions={result.houseContributions ?? 0}
+        baseHoldPct={baseHoldPct}
+      />
+
       {/* 2. Charts row */}
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12 }}>
         <MustDropChart title={escalationTitle} data={probabilityCurve.points} mode={probabilityCurve.mode} />
@@ -1588,6 +1633,112 @@ function ComplianceDashboard({
       {/* 4. Re-Seed Event Log */}
       <ReSeedEventLog result={result} config={config} />
     </>
+  );
+}
+
+function CorporatePnlPanel({
+  totalWager,
+  houseContributions,
+  baseHoldPct,
+}: {
+  totalWager: number;
+  houseContributions: number;
+  baseHoldPct: number;
+}) {
+  const jackpotHouseYield = Math.max(0, Number(houseContributions) || 0);
+  const baseGameHold = (Number(totalWager) || 0) * (Number(baseHoldPct) || 0) / 100;
+  const combinedMargin = jackpotHouseYield + baseGameHold;
+  const marginPctOfWager = totalWager > 0 ? (combinedMargin / totalWager) * 100 : 0;
+
+  const row: React.CSSProperties = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    padding: "10px 0",
+    borderBottom: "1px dashed #1f2a44",
+    fontVariantNumeric: "tabular-nums",
+  };
+  const lbl: React.CSSProperties = { color: "#9fb0c8", fontSize: 13 };
+  const val: React.CSSProperties = { color: "#e6edf3", fontSize: 16, fontWeight: 600 };
+
+  return (
+    <div
+      style={{
+        ...panel,
+        padding: 20,
+        border: "1px solid rgba(16, 185, 129, 0.35)",
+        background: "linear-gradient(180deg, rgba(16, 185, 129, 0.06), #0f172a 60%)",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <div>
+          <div
+            style={{
+              fontSize: 10,
+              letterSpacing: 1.8,
+              textTransform: "uppercase",
+              color: "#34d399",
+              fontWeight: 700,
+            }}
+          >
+            Casino Corporate P&amp;L Summary
+          </div>
+          <div style={{ fontSize: 12, color: "#7d8ba3", marginTop: 4 }}>
+            Combined operator yield — jackpot house split + base-game underlying hold.
+          </div>
+        </div>
+        <span
+          style={{
+            padding: "4px 10px",
+            background: "rgba(16, 185, 129, 0.12)",
+            color: "#34d399",
+            border: "1px solid rgba(16, 185, 129, 0.45)",
+            borderRadius: 999,
+            fontSize: 11,
+            fontWeight: 700,
+          }}
+        >
+          Base hold {baseHoldPct}%
+        </span>
+      </div>
+
+      <div style={row}>
+        <span style={lbl}>Jackpot House Yield</span>
+        <span style={val}>€ {fmt(jackpotHouseYield)}</span>
+      </div>
+      <div style={row}>
+        <span style={lbl}>
+          Base Game Underlying Hold
+          <span style={{ color: "#64748b", marginLeft: 6 }}>· wager × {baseHoldPct}%</span>
+        </span>
+        <span style={val}>€ {fmt(baseGameHold)}</span>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          paddingTop: 14,
+          marginTop: 4,
+          borderTop: "1px solid rgba(16, 185, 129, 0.4)",
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        <span style={{ color: "#34d399", fontSize: 13, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase" }}>
+          Combined Net Operator Margin
+        </span>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ color: "#34d399", fontSize: 28, fontWeight: 800 }}>
+            € {fmt(combinedMargin)}
+          </div>
+          {totalWager > 0 && (
+            <div style={{ color: "#34d399", fontSize: 11, opacity: 0.8 }}>
+              {marginPctOfWager.toFixed(2)}% of total wager
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
