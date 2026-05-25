@@ -1614,6 +1614,13 @@ function ComplianceDashboard({
         </div>
       </div>
 
+      {/* 1b. Casino Corporate P&L Summary — fixed-rake yield + base game hold */}
+      <CorporatePnlPanel
+        totalWager={result.totalWagered || 0}
+        houseContributions={result.houseContributions ?? 0}
+        baseHoldPct={baseHoldPct}
+      />
+
       {/* 2. Charts row */}
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12 }}>
         <MustDropChart title={escalationTitle} data={probabilityCurve.points} mode={probabilityCurve.mode} />
