@@ -53,9 +53,12 @@ export const SIMULATOR_TEMPLATES = [
       contributionAmount: 1.0,
     },
     contribution: {
-      houseWeight: 0.3,
-      // Flat House rake (€/spin) — feeds Corporate P&L card.
-      houseFixed: 0.15,
+      mode: "split",
+      totalContributionType: "FIXED",
+      totalContributionAmount: 0.15,
+      poolWeight: 60,
+      seedWeight: 20,
+      houseWeight: 20,
     },
     enabled: true,
   },
