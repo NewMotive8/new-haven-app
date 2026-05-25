@@ -264,28 +264,54 @@ function appendAudit(entry: AuditEntry) {
 function inlineConfigFromDto(jp: JackpotDTO): JackpotConfigDTO {
   const cfg = (jp.config ?? {}) as Record<string, unknown>;
   const v2 = (cfg.engineV2 ?? {}) as Record<string, unknown>;
+  const draft = (cfg._draft ?? {}) as Record<string, unknown>;
+  const poolCfg = (cfg.pool ?? {}) as Record<string, unknown>;
+  const seedCfg = (cfg.seed ?? {}) as Record<string, unknown>;
+
+  // Structural pipeline + win math model — read from the persisted config so
+  // every jackpot (classic / must_drop / frequency, average / maximum) is
+  // evaluated under the rules the operator actually saved. Falling back to
+  // CLASSIC + AVERAGE only when nothing is persisted.
+  const structuralRaw = String(cfg.type ?? draft.type ?? jp.jackpotType ?? "classic").toLowerCase();
+  const structuralType =
+    structuralRaw === "must_drop"
+      ? "MUST_DROP"
+      : structuralRaw === "frequency"
+        ? "FREQUENCY"
+        : "CLASSIC";
+  const payoutRaw = String(cfg.payoutModel ?? draft.payoutModel ?? "average").toLowerCase();
+  const winType = payoutRaw === "maximum" ? "MAXIMUM" : "AVERAGE";
+
+  const maxWin = Number(draft.maxWinAmount ?? (poolCfg as any).maximumWinAmount) || 0;
+  const minWin = Number(draft.minWinAmount ?? (poolCfg as any).minimumWinAmount) || 0;
+  const fixedWin = Number(draft.fixedWinAmount) || 0;
 
   return {
     id: jp.id,
     name: jp.name,
     enabled: jp.enabled,
     brandId: jp.brandId,
-    type: "AVERAGE",
-    structuralType: "CLASSIC",
-    volatility: jp.volatility ?? 1,
+    type: winType,
+    structuralType,
+    volatility: jp.volatility ?? Number(draft.volatility) ?? 1,
     pool: {
       currentAmount: jp.poolBalance,
       minimumAmount: jp.seedAmount,
       maximumAmount: jp.triggerThreshold,
+      minimumWinAmount: minWin,
+      maximumWinAmount: maxWin,
       contributionAmount: jp.contributionRate * 100,
       contributionType: "PERCENTAGE",
     },
     seed: {
       currentAmount: jp.seedAmount,
-      targetAmount: jp.seedAmount,
+      targetAmount: Number((seedCfg as any).maximumSeedAmount) || jp.seedAmount,
       contributionAmount: 0,
       contributionType: "FIXED",
     },
+    fixedWinAmount: fixedWin,
+    maximumWinAmount: maxWin,
+    triggerOdds: Number(v2.triggerOdds) || 0,
     contribution:
       v2.contributionMode === "split"
         ? {
@@ -303,17 +329,38 @@ function inlineConfigFromDto(jp: JackpotDTO): JackpotConfigDTO {
   };
 }
 
+// Resolve the actual win payout for a triggered jackpot, applying the
+// configured fixed-amount and maximum-amount caps. Mirrors the simulator's
+// `applyPayoutOverrides`: fixed wins (when set) bypass the pool; otherwise
+// the raw pool balance is capped at `maximumWinAmount`.
+function resolveWinAmount(jp: JackpotDTO): number {
+  const cfg = (jp.config ?? {}) as Record<string, unknown>;
+  const draft = (cfg._draft ?? {}) as Record<string, unknown>;
+  const poolCfg = (cfg.pool ?? {}) as Record<string, unknown>;
+  const fixedWin = Number(draft.fixedWinAmount) || 0;
+  if (fixedWin > 0) return fixedWin;
+  const maxWin = Number(draft.maxWinAmount ?? (poolCfg as any).maximumWinAmount) || 0;
+  const raw = Number(jp.poolBalance) || 0;
+  if (maxWin > 0 && raw > maxWin) return maxWin;
+  return raw;
+}
+
 // Read trigger odds (probability per spin) out of the persisted config blob.
-// Falls back to contributionRate as a coarse heuristic so the win branch is
-// always exercisable in the sandbox.
+// Priority: explicit fixed-odds override (engineV2.triggerOdds = N → 1/N),
+// then `contributionRate` as a coarse heuristic so the win branch is always
+// exercisable in the sandbox.
 function readTriggerProbability(jp: JackpotDTO): number {
   const cfg = (jp.config ?? {}) as Record<string, unknown>;
-  const odds = Number(cfg.triggerOdds);
-  if (Number.isFinite(odds) && odds > 0) return 1 / odds;
+  const v2 = (cfg.engineV2 ?? {}) as Record<string, unknown>;
+  const fixedOdds = Number(v2.triggerOdds);
+  if (Number.isFinite(fixedOdds) && fixedOdds > 1) return 1 / fixedOdds;
+  const legacyOdds = Number(cfg.triggerOdds);
+  if (Number.isFinite(legacyOdds) && legacyOdds > 0) return 1 / legacyOdds;
   const rate = Number(jp.contributionRate);
   if (Number.isFinite(rate) && rate > 0) return Math.min(rate, 0.05);
   return 0.001;
 }
+
 
 function readCommunityConfig(jp: JackpotDTO) {
   const cfg = (jp.config ?? {}) as Record<string, unknown>;
@@ -561,7 +608,7 @@ export const Route = createFileRoute("/api/v1/event/bet")({
                 : readTriggerProbability(child);
             const p = effectiveTriggerProbability(child, baseP, wager);
             if (rng() < p) {
-              const winAmount = Number(child.poolBalance) || 0;
+              const winAmount = resolveWinAmount(child);
               const community = readCommunityConfig(child);
               if (community && community.split > 0) {
                 const breakdown = applyCommunityPayout(winAmount, community, rng);
@@ -728,7 +775,7 @@ export const Route = createFileRoute("/api/v1/event/bet")({
           if (jpDto) {
             const p = effectiveTriggerProbability(jpDto, readTriggerProbability(jpDto), wager);
             if (rng() < p) {
-              const winAmount = Number(jpDto.poolBalance) || 0;
+              const winAmount = resolveWinAmount(jpDto);
               const community = readCommunityConfig(jpDto);
               if (community && community.split > 0) {
                 const breakdown = applyCommunityPayout(winAmount, community, rng);
@@ -844,7 +891,7 @@ export const Route = createFileRoute("/api/v1/event/bet")({
         for (const jpDto of dtos) {
           const p = effectiveTriggerProbability(jpDto, readTriggerProbability(jpDto), wager);
           if (rng() < p) {
-            const winAmount = Number(jpDto.poolBalance) || 0;
+            const winAmount = resolveWinAmount(jpDto);
             const community = readCommunityConfig(jpDto);
             if (community && community.split > 0) {
               const breakdown = applyCommunityPayout(winAmount, community, rng);
