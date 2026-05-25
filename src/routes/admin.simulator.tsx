@@ -1408,19 +1408,24 @@ function ComplianceKpi({
   value,
   badge,
   accent,
+  tone,
 }: {
   label: string;
   value: string;
   badge?: string;
   accent: string;
+  tone?: "alert";
 }) {
+  const isAlert = tone === "alert";
   return (
     <div
       style={{
         ...panel,
-        padding: 18,
+        padding: 14,
         position: "relative",
         overflow: "hidden",
+        border: isAlert ? "1px solid rgba(239, 68, 68, 0.5)" : panel.border,
+        boxShadow: isAlert ? "0 0 0 1px rgba(239, 68, 68, 0.25) inset" : undefined,
       }}
     >
       <div
@@ -1436,14 +1441,14 @@ function ComplianceKpi({
       <div style={{ fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase", color: "#9fb0c8" }}>
         {label}
       </div>
-      <div style={{ fontSize: 26, fontWeight: 700, color: "#f8fafc", marginTop: 8, fontVariantNumeric: "tabular-nums" }}>
+      <div style={{ fontSize: 22, fontWeight: 700, color: isAlert ? "#fca5a5" : "#f8fafc", marginTop: 6, fontVariantNumeric: "tabular-nums" }}>
         {value}
       </div>
       {badge && (
         <span
           style={{
             display: "inline-block",
-            marginTop: 10,
+            marginTop: 8,
             padding: "3px 10px",
             background: `${accent}22`,
             color: accent,
