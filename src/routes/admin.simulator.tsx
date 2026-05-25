@@ -101,6 +101,7 @@ export const SIMULATOR_TEMPLATES = [
     },
     contribution: {
       houseWeight: 0.4,
+      houseFixed: 0.15,
     },
     enabled: true,
   },
