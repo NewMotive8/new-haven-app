@@ -336,6 +336,29 @@ function readCommunityConfig(jp: JackpotDTO) {
 // GLI-12/19 compliant secure RNG fallback using Web Crypto API.
 const secureRandomFloat = () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
 
+/**
+ * Wager-proportional trigger probability for Classic / Fixed-Odds jackpots.
+ *
+ * Compliance: a $10 bet must have 10x the per-spin win chance of a $1 bet.
+ * Scaling is gated strictly on `jackpotType === "classic"`; Must-Drop,
+ * Frequency, and any DTO without an explicit kind tag fall through with
+ * `basePIn` unchanged — Must-Drop decay curves are NOT touched.
+ *
+ * Defensive: NaN/negative/Infinity inputs collapse to safe bounds; output
+ * is always a finite number in [0, 1].
+ */
+function effectiveTriggerProbability(
+  jp: Pick<JackpotDTO, "jackpotType">,
+  basePIn: number,
+  wagerIn: number,
+): number {
+  const p = Math.max(0, Number(basePIn) || 0);
+  if (jp.jackpotType !== "classic") return Math.min(1, p);
+  const w = Math.max(0, Number(wagerIn) || 0);
+  return Math.min(1, p * w);
+}
+
+
 export const Route = createFileRoute("/api/v1/event/bet")({
   server: {
     handlers: {
@@ -532,10 +555,11 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             (a, b) => (b.tierRank ?? 0) - (a.tierRank ?? 0),
           );
           for (const child of ranked) {
-            const p =
+            const baseP =
               child.triggerProbability > 0
                 ? child.triggerProbability
                 : readTriggerProbability(child);
+            const p = effectiveTriggerProbability(child, baseP, wager);
             if (rng() < p) {
               const winAmount = Number(child.poolBalance) || 0;
               const community = readCommunityConfig(child);
@@ -689,7 +713,7 @@ export const Route = createFileRoute("/api/v1/event/bet")({
           // Win evaluation against injected RNG.
           let win: Record<string, unknown> | null = null;
           if (jpDto) {
-            const p = readTriggerProbability(jpDto);
+            const p = effectiveTriggerProbability(jpDto, readTriggerProbability(jpDto), wager);
             if (rng() < p) {
               const winAmount = Number(jpDto.poolBalance) || 0;
               const community = readCommunityConfig(jpDto);
@@ -805,7 +829,7 @@ export const Route = createFileRoute("/api/v1/event/bet")({
         // First-match win evaluation across active DTOs (sandbox-style).
         let win: Record<string, unknown> | null = null;
         for (const jpDto of dtos) {
-          const p = readTriggerProbability(jpDto);
+          const p = effectiveTriggerProbability(jpDto, readTriggerProbability(jpDto), wager);
           if (rng() < p) {
             const winAmount = Number(jpDto.poolBalance) || 0;
             const community = readCommunityConfig(jpDto);
