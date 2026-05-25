@@ -909,18 +909,21 @@ export const Route = createFileRoute("/api/v1/event/bet")({
 
         const multi = computeMultiCampaignLedger(configs, wager);
 
-        // First-match win evaluation across active DTOs (sandbox-style).
+        // First-match win evaluation — shared engine across active DTOs.
         let win: Record<string, unknown> | null = null;
-        for (const jpDto of dtos) {
-          const p = effectiveTriggerProbability(jpDto, readTriggerProbability(jpDto), wager);
-          if (rng() < p) {
-            const winAmount = resolveWinAmount(jpDto);
+        for (let i = 0; i < dtos.length; i++) {
+          const jpDto = dtos[i];
+          const cfg = configs[i] ?? inlineConfigFromDto(jpDto);
+          const spin = evaluateLiveSpin(cfg, wager, rng);
+          if (spin.won) {
+            const winAmount = spin.winAmount;
             const community = readCommunityConfig(jpDto);
             if (community && community.split > 0) {
               const breakdown = applyCommunityPayout(winAmount, community, rng);
               win = {
                 jackpotId: jpDto.id,
                 amount: winAmount,
+                forcedHit: spin.forcedHit,
                 isCommunity: true,
                 communitySize: breakdown.communitySize,
                 communityMemberPayOut: breakdown.communityMemberPayOut,
@@ -929,7 +932,12 @@ export const Route = createFileRoute("/api/v1/event/bet")({
                 cappedDelta: breakdown.cappedDelta,
               };
             } else {
-              win = { jackpotId: jpDto.id, amount: winAmount, isCommunity: false };
+              win = {
+                jackpotId: jpDto.id,
+                amount: winAmount,
+                forcedHit: spin.forcedHit,
+                isCommunity: false,
+              };
             }
             break;
           }
