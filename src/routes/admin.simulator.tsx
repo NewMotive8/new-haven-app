@@ -1568,7 +1568,7 @@ function buildProbabilityCurve(
   return { points, mode: "curve" };
 }
 
-function MustDropChart({ data, mode }: { data: ProbPoint[]; mode: ProbCurveMode }) {
+function MustDropChart({ title, data, mode }: { title?: string; data: ProbPoint[]; mode: ProbCurveMode }) {
   const axisColor = "#9fb0c8";
   const gridColor = "rgba(159, 176, 200, 0.12)";
   const subtitle =
@@ -1581,7 +1581,7 @@ function MustDropChart({ data, mode }: { data: ProbPoint[]; mode: ProbCurveMode 
           : "Probability shape over the simulation.";
   return (
     <div style={panel}>
-      <div style={{ fontSize: 14, fontWeight: 600, color: "#f8fafc" }}>Must-Drop Escalation</div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: "#f8fafc" }}>{title ?? "Must-Drop Escalation"}</div>
       <div style={{ fontSize: 12, color: "#9fb0c8", marginTop: 2, marginBottom: 12 }}>{subtitle}</div>
       <div style={{ width: "100%", height: 240 }}>
         {data.length === 0 ? (
