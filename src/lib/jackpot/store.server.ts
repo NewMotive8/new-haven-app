@@ -271,16 +271,48 @@ export async function updateJackpot(
   const patch: Record<string, unknown> = {};
   if (dto.name !== undefined) patch.name = dto.name;
   if (dto.enabled !== undefined) patch.enabled = dto.enabled;
-  if (dto.contributionRate !== undefined)
-    patch.contribution_percentage = Number(dto.contributionRate);
-  if (dto.triggerThreshold !== undefined)
-    patch.trigger_condition = { threshold: Number(dto.triggerThreshold) };
+  // Persist the full JSONB config blob when supplied (wizard PUT path); merge
+  // threshold edits into the existing config instead of replacing it. The
+  // `trigger_condition` column doubles as the config store, so a naive
+  // `{threshold: N}` write would wipe engineV2/eligibility/pool/seed.
+  if (dto.config !== undefined || dto.triggerThreshold !== undefined) {
+    const base: Record<string, unknown> = {
+      ...((existing.config as Record<string, unknown> | undefined) ?? {}),
+      ...((dto.config as Record<string, unknown> | undefined) ?? {}),
+    };
+    if (dto.triggerThreshold !== undefined) {
+      base.threshold = Number(dto.triggerThreshold);
+    }
+    patch.trigger_condition = base;
+  }
+  if (dto.contributionRate !== undefined) {
+    // Defensive: don't accept a regression to 0 when the incoming v2 split has
+    // any non-zero weight/amount — recompute the rate the same way
+    // buildCreateBody does so a half-hydrated edit can't silently disable
+    // contributions.
+    let rate = Number(dto.contributionRate);
+    const v2 = (dto.config as Record<string, any> | undefined)?.engineV2 as
+      | Record<string, any>
+      | undefined;
+    if (rate === 0 && v2) {
+      const totalAmt = Number(v2.totalContributionAmount) || 0;
+      const poolW = Number(v2.poolWeight) || 0;
+      const seedW = Number(v2.seedWeight) || 0;
+      const houseW = Number(v2.houseWeight) || 0;
+      const hasSplit = totalAmt > 0 || poolW > 0 || seedW > 0 || houseW > 0;
+      if (hasSplit && (v2.totalContributionType ?? "fixed") === "percentage") {
+        rate = (totalAmt * poolW) / 10000;
+      }
+    }
+    patch.contribution_percentage = rate;
+  }
   if (dto.triggerProbability !== undefined)
     patch.trigger_probability = Number(dto.triggerProbability);
   if (dto.assignedCategories !== undefined)
     patch.assigned_categories = dto.assignedCategories;
   if (dto.assignedGameIds !== undefined)
     patch.assigned_game_ids = dto.assignedGameIds;
+
 
   if (Object.keys(patch).length > 0) {
     const { error } = await supabaseAdmin
