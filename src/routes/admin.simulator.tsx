@@ -172,12 +172,50 @@ function materializeTemplate(template: typeof SIMULATOR_TEMPLATES[number], idx =
     structuralType?: string;
     type?: string;
   };
-  return {
+  const base = {
     id: idx + 1,
     type: (tpl.type as JackpotConfigDTO["type"]) ?? "AVERAGE",
     volatility: 5,
     ...tpl,
   } as JackpotConfigDTO;
+
+  // ── Fixed-split materialization ──
+  // When a preset declares contribution.mode === "split", decouple the
+  // pool/seed contribution streams so the engine reads consistent FIXED
+  // amounts derived from the total × per-target weight. Without this, the
+  // pool/seed slots keep their legacy PERCENTAGE values (e.g. 2.5 / 1.0)
+  // and the house rake stays at €0.00 because the textarea never advertises
+  // the split contract to the simulation engine.
+  const c = base.contribution;
+  if (c && c.mode === "split") {
+    const total = Number(c.totalContributionAmount) || 0;
+    const totalType = (c.totalContributionType ?? "FIXED") as "FIXED" | "PERCENTAGE";
+    const pw = Math.max(0, Number(c.poolWeight) || 0);
+    const sw = Math.max(0, Number(c.seedWeight) || 0);
+    const hw = Math.max(0, Number(c.houseWeight) || 0);
+    const sumWeights = pw + sw + hw || 100;
+    const poolAmt = +(total * (pw / sumWeights)).toFixed(4);
+    const seedAmt = +(total * (sw / sumWeights)).toFixed(4);
+    base.contribution = {
+      mode: "split",
+      totalContributionType: totalType,
+      totalContributionAmount: total,
+      poolWeight: pw,
+      seedWeight: sw,
+      houseWeight: hw,
+    };
+    base.pool = {
+      ...(base.pool as any),
+      contributionType: totalType,
+      contributionAmount: poolAmt,
+    } as JackpotConfigDTO["pool"];
+    base.seed = {
+      ...(base.seed as any),
+      contributionType: totalType,
+      contributionAmount: seedAmt,
+    } as JackpotConfigDTO["seed"];
+  }
+  return base;
 }
 
 const DEFAULT_CONFIG: JackpotConfigDTO = materializeTemplate(SIMULATOR_TEMPLATES[0], 0);
