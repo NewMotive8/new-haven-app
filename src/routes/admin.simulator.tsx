@@ -268,7 +268,7 @@ function SimulatorPage() {
 
 
   return (
-    <div style={{ padding: 28, maxWidth: 1200, margin: "0 auto" }}>
+    <div style={{ padding: 28, maxWidth: 1600, margin: "0 auto" }}>
       <Link
         to="/admin/jackpots"
         style={{
