@@ -1633,8 +1633,17 @@ function buildPoolReplay(
   const seedCap = Number((config.seed as any)?.maximumSeedAmount) || Number(config.seed?.targetAmount) || 0;
   const supported = seedCap > 0;
   const poolStart = Number(config.pool?.currentAmount) || 0;
-  const seedPerSpin = perSpinPoolContribution(config.seed, wager);
-  const poolPerSpin = perSpinPoolContribution(config.pool, wager);
+  // Derive per-spin contribution from the configured rate × split share so
+  // the chart slope reflects actual per-spin accumulation rather than 0 when
+  // pool/seed contributionAmount is FIXED-0 or only totalContributionAmount is set.
+  const splitPcts = getJackpotSplit(config);
+  const contributionRate =
+    (Number(config.contribution?.totalContributionAmount) ||
+      (Number(config.pool?.contributionAmount) || 0) +
+        (Number(config.seed?.contributionAmount) || 0)) / 100;
+  const perSpinTotal = (Number(wager) || 0) * contributionRate;
+  const seedPerSpin = perSpinTotal * (splitPcts.seedPct / 100);
+  const poolPerSpin = perSpinTotal * (splitPcts.poolPct / 100);
 
   const N = Math.min(200, Math.max(20, iterations || 200));
   const wins = (result.winEvents ?? []).slice().sort((a, b) => a.iteration - b.iteration);
