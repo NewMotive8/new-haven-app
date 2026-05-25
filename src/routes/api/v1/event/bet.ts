@@ -618,9 +618,22 @@ export const Route = createFileRoute("/api/v1/event/bet")({
           // Atomic DB write — pool deltas + win settlement + transaction row
           // committed together inside `apply_group_bet` (SELECT ... FOR UPDATE
           // row-lock + clamp + decrement + ledger insert).
+          // Per-jackpot deltas: pool slice + seed slice + the configured
+          // maximum seed cap. The atomic `apply_group_bet` SQL function
+          // applies the seed slice up to the cap and redirects any
+          // overflow into the main pool (player-funds-stay-in-ecosystem
+          // compliance guarantee). The minimum is read server-side from
+          // jackpot_seeds for the post-win reseed step.
+          const childById = new Map(children.map((c) => [c.id, c]));
+          const readMaxSeed = (jp: any): number => {
+            const v = Number(jp?.config?.seed?.maximumSeedAmount ?? 0);
+            return Number.isFinite(v) && v > 0 ? v : 0;
+          };
           const poolDeltas = perJackpot.map((e) => ({
             jackpotId: e.jackpotId,
             delta: e.contribution.pool,
+            seedDelta: e.contribution.seed,
+            maximumSeedAmount: readMaxSeed(childById.get(e.jackpotId)),
           }));
           const winJackpotId =
             win && typeof win.jackpotId === "number" ? win.jackpotId : null;
