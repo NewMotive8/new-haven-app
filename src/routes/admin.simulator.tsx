@@ -37,7 +37,7 @@ export const SIMULATOR_TEMPLATES = [
   {
     id: "incentiv8-small-loyalty",
     name: "Incentiv8 Small-Traffic Loyalty",
-    structuralType: "classic",
+    structuralType: "CLASSIC",
     triggerOdds: 5000,
     pool: {
       currentAmount: 500,
@@ -58,7 +58,7 @@ export const SIMULATOR_TEMPLATES = [
   {
     id: "incentiv8-medium-mustdrop",
     name: "Incentiv8 Medium-Traffic Must-Drop",
-    structuralType: "must_drop",
+    structuralType: "MUST_DROP",
     pool: {
       currentAmount: 1500,
       minimumAmount: 500,
@@ -79,7 +79,7 @@ export const SIMULATOR_TEMPLATES = [
   {
     id: "incentiv8-enterprise-mega",
     name: "Incentiv8 Enterprise Mega Progressive",
-    structuralType: "classic",
+    structuralType: "CLASSIC",
     triggerOdds: 200000,
     pool: {
       currentAmount: 10000,
@@ -97,19 +97,62 @@ export const SIMULATOR_TEMPLATES = [
     },
     enabled: true,
   },
+  {
+    id: "incentiv8-friday-rush",
+    name: "High-Traffic Friday Rush Hour",
+    structuralType: "FREQUENCY",
+    type: "MAXIMUM",
+    pool: {
+      currentAmount: 2000,
+      minimumAmount: 500,
+      maximumAmount: 5000,
+      contributionAmount: 3.5,
+    },
+    seed: {
+      currentAmount: 1000,
+      minimumSeedAmount: 500,
+      maximumSeedAmount: 2000,
+      targetAmount: 2000,
+      contributionAmount: 1.5,
+    },
+    contribution: {
+      houseWeight: 0.5,
+    },
+    timed: {
+      lifespanMinutes: 10080,
+      mustDropPeriod: 3,
+      freqInterval: "WEEKLY",
+      freqDay: "5",
+      contribStartTime: "20:00",
+      contribEndTime: "23:00",
+      winStartTime: "20:00",
+      winEndTime: "23:00",
+    },
+    enabled: true,
+  },
 ] as const;
 
 /**
  * Minimal engine-required fields not present in the public template JSON.
  * Added at materialization time so templates remain copy-pastable as-is in
  * docs/onboarding while still satisfying the JackpotConfigDTO contract.
+ *
+ * FREQUENCY presets ship explicit `type` ("MAXIMUM") and `structuralType`
+ * ("FREQUENCY") overrides — we honour both so the Happy-Hour math/UI branch
+ * actually fires. Previously a silent fallback to AVERAGE/CLASSIC left
+ * contributionAmount, maximumAmount and reseedingAmount stuck at 0 when a
+ * FREQUENCY preset was selected.
  */
 function materializeTemplate(template: typeof SIMULATOR_TEMPLATES[number], idx = 0): JackpotConfigDTO {
+  const tpl = template as unknown as Partial<JackpotConfigDTO> & {
+    structuralType?: string;
+    type?: string;
+  };
   return {
     id: idx + 1,
-    type: "AVERAGE",
+    type: (tpl.type as JackpotConfigDTO["type"]) ?? "AVERAGE",
     volatility: 5,
-    ...(template as unknown as Partial<JackpotConfigDTO>),
+    ...tpl,
   } as JackpotConfigDTO;
 }
 
