@@ -246,8 +246,6 @@ function SimulatorPage() {
   // inflation) is what guarantees the curve engine sees enough volume.
   const [wager, setWager] = React.useState(1);
   const [iterations, setIterations] = React.useState(1000000);
-  // Base game underlying RTP hold (%). Drives the Casino Corporate P&L card.
-  const [baseHoldPct, setBaseHoldPct] = React.useState(4);
   const [configText, setConfigText] = React.useState(JSON.stringify(initialConfig, null, 2));
   const activeConfigTextRef = React.useRef(JSON.stringify(initialConfig, null, 2));
   const [loading, setLoading] = React.useState(false);
