@@ -1436,12 +1436,14 @@ function ComplianceKpi({
   badge,
   accent,
   tone,
+  subNote,
 }: {
   label: string;
   value: string;
   badge?: string;
   accent: string;
   tone?: "alert";
+  subNote?: string;
 }) {
   const isAlert = tone === "alert";
   return (
@@ -1487,6 +1489,18 @@ function ComplianceKpi({
         >
           {badge}
         </span>
+      )}
+      {subNote && (
+        <div
+          style={{
+            marginTop: 8,
+            fontSize: 11,
+            lineHeight: 1.4,
+            color: isAlert ? "#fca5a5" : "#7d8ba3",
+          }}
+        >
+          {subNote}
+        </div>
       )}
     </div>
   );
