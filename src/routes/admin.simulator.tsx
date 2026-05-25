@@ -407,8 +407,29 @@ function SimulatorPage() {
       if (frequencyCompressed) {
         toast.success("Happy Hour compression on — all spins treated as in-window traffic.");
       }
-      setResult(res.data);
+      // ── Fixed House Rake post-pass ──
+      // The simulator's execution loop walks every spin honoring the
+      // legacy pool.contributionAmount / seed.contributionAmount values,
+      // which leaves `houseContributions` at 0 when a preset only carries
+      // the new nested `contribution` split block. Recompute the per-spin
+      // house allocation directly from the split contract so the
+      // "House Revenue" KPI prints the true accumulated rake.
+      const finalData: SimulatorResponseDTO = { ...res.data };
+      const cSplit = (payloadToSend as any).contribution;
+      if (cSplit && cSplit.mode === "split") {
+        const total = Number(cSplit.totalContributionAmount) || 0;
+        const hwPct = Math.max(0, Number(cSplit.houseWeight) || 0);
+        const housePerSpin =
+          (cSplit.totalContributionType === "PERCENTAGE" ? wager * (total / 100) : total) *
+          (hwPct / 100);
+        const houseTotal = housePerSpin * effectiveIters;
+        finalData.houseContributions = houseTotal;
+        finalData.houseRatio =
+          finalData.totalWagered > 0 ? houseTotal / finalData.totalWagered : 0;
+      }
+      setResult(finalData);
       setActiveConfig(parsedPayload);
+
     } catch (e: any) {
       setError(e?.response?.data?.error || e?.message || "Simulation failed");
     } finally {
