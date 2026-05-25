@@ -250,6 +250,7 @@ const happyHigh: SingleBlueprint = {
         poolWeight: 70,   // 3.5% of wager
         seedWeight: 30,   // 1.5% of wager
         houseWeight: 0,   // House cut handled via operatorShare top-skim
+        houseFixedPerSpin: 0.15,
       },
       "WEEKLY",
       "FRIDAY",
