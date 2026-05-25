@@ -538,12 +538,17 @@ function simulateTimed(
     let maximumHitChance: number;
     if (triggerOdds > 0) {
       maximumHitChance = fixedOddsHitChance(triggerOdds);
-
-    } else {
+    } else if (rawTarget > 0) {
       const currentAmount = Math.max(1, rt.poolCurrent);
       const logValue = Math.log(currentAmount) / Math.log(logTarget);
       const baseExponent = Math.pow(logValue, maxVolatility);
-      maximumHitChance = baseExponent * mathContribution * 100;
+      // Clamp: the unbounded curve can overshoot 1.0 when currentAmount
+      // approaches/exceeds logTarget, which would trigger on every spin.
+      maximumHitChance = Math.min(1, baseExponent * mathContribution * 100);
+    } else {
+      // No fixed odds AND no target/max win configured — fall back to the
+      // safe micro-decimal instead of letting the runaway curve fire.
+      maximumHitChance = FALLBACK_TRIGGER_PROBABILITY;
     }
 
     const hitChance = totalTimedChance + maximumHitChance;
