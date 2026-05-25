@@ -486,25 +486,6 @@ function SimulatorPage() {
                 }}
               />
             </div>
-            <div>
-              <label style={label}>
-                Base Game House Edge (RTP Hold) ·{" "}
-                <span style={{ color: "#34d399", fontWeight: 700 }}>{baseHoldPct}%</span>
-              </label>
-              <input
-                type="range"
-                min={4}
-                max={15}
-                step={0.5}
-                value={baseHoldPct}
-                onChange={(e) => setBaseHoldPct(Number(e.target.value) || 4)}
-                style={{ width: "100%", accentColor: "#10b981" }}
-              />
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#64748b", marginTop: 2 }}>
-                <span>4%</span>
-                <span>15%</span>
-              </div>
-            </div>
             {!cameFromCreationFlow && (
               <div>
                 <label style={label}>Preset template</label>
