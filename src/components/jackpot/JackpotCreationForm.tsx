@@ -225,6 +225,7 @@ export type JackpotSavePayload = {
   minWagerAmount: number;
   maxWagerAmount: number;
   reseedingAmount: number;
+  minimumSeedAmount?: number;
   maximumSeedAmount: number;
   initialPoolAmount?: number;
   // --- Optional: MUST_DROP / FREQUENCY virtual lifespan (minutes).
