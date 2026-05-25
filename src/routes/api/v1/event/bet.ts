@@ -713,7 +713,7 @@ export const Route = createFileRoute("/api/v1/event/bet")({
           // Win evaluation against injected RNG.
           let win: Record<string, unknown> | null = null;
           if (jpDto) {
-            const p = readTriggerProbability(jpDto);
+            const p = effectiveTriggerProbability(jpDto, readTriggerProbability(jpDto), wager);
             if (rng() < p) {
               const winAmount = Number(jpDto.poolBalance) || 0;
               const community = readCommunityConfig(jpDto);
