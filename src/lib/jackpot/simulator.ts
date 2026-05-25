@@ -426,7 +426,21 @@ function simulateTimed(
 ): SimulatorResponseDTO {
   const rt = buildRuntime(jackpot.pool, jackpot.seed, wager, jackpot.contribution);
   const volatility = Number(jackpot.volatility) || 0;
-  const triggerOdds = Number(jackpot.triggerOdds) || 0;
+  // See simulateClassic() for the resolution contract. Same rules apply here:
+  // invert `triggerOdds` (whole-number "1 in N") to a fraction, accept a
+  // pre-fractional `triggerProbability`, otherwise default to 0.0001 below.
+  const rawTriggerOdds = Number((jackpot as { triggerOdds?: number }).triggerOdds);
+  const rawTriggerProb = Number((jackpot as { triggerProbability?: number }).triggerProbability);
+  const triggerOdds =
+    Number.isFinite(rawTriggerOdds) && rawTriggerOdds > 1
+      ? rawTriggerOdds
+      : Number.isFinite(rawTriggerProb) && rawTriggerProb > 0 && rawTriggerProb < 1
+        ? 1 / rawTriggerProb
+        : 0;
+  // Fallback probability for timed jackpots with no explicit trigger config.
+  // Without this the curve below (logTarget=2 when no targetAmount/maxWin is
+  // set) overflows past 1.0 and triggers every spin.
+  const FALLBACK_TRIGGER_PROBABILITY = 0.0001;
 
   const fixedWinAmount = Number(jackpot.fixedWinAmount) || 0;
   const maximumWinAmountRaw =
