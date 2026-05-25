@@ -1,39 +1,92 @@
-## Goal
-Fix the bug where "Erez test 6" (and other jackpots) lose their Slots/Game targeting after an edit, causing `/demo` to throw "This game is not assigned to a Jackpot." The root cause: `assignedCategories` and `assignedGameIds` are collected by the wizard but never persisted to the dedicated `jackpots.assigned_categories` / `assigned_game_ids` columns on create/update.
+## Root cause
 
-## Changes
+`/demo` spins go through `/api/v1/event/bet`, which calls `inlineConfigFromDto()` to build the contribution math from `jp.contributionRate` and `config.engineV2`. For jackpot 19 ("Erez test 6"), the DB row currently has:
 
-### 1. `src/lib/jackpot/build-create-body.ts`
-Surface eligibility selections at the top level of the body sent to `POST/PUT /api/v1/jackpots`:
-- Derive `assignedCategories` from `payload.eligibility?.casino?.categories ?? []`.
-- Derive `assignedGameIds` from `payload.eligibility?.casino?.gameIds`, coerced to numbers (filter out non-numeric).
-- Return these alongside the existing fields (they already exist in `JackpotDTO`, just weren't being sent).
-- Leave sportsbook / players targeting inside `config.eligibility` as today.
+- `contribution_percentage = 0`
+- `trigger_condition = {"threshold": 2}` (no `engineV2`, no `pool`, no `seed`, no `eligibility`)
 
-### 2. `src/lib/jackpot/store.server.ts` — `updateJackpot`
-Today only `name`, `enabled`, `contribution_percentage`, `trigger_condition`, `trigger_probability`, pool balance, seed amounts, and seed caps are persisted. Add:
-- `if (dto.assignedCategories !== undefined) patch.assigned_categories = dto.assignedCategories;`
-- `if (dto.assignedGameIds !== undefined) patch.assigned_game_ids = dto.assignedGameIds;`
-This fixes the regression for any future edit and recovers targeting next time the user saves "Erez test 6".
+So the bet routes correctly (we fixed `assigned_categories` last turn), but every slice is 0 → green "Spin processed · Pool +€0 · Seed +€0 · House +€0".
 
-### 3. `createJackpot` — no code change required
-It already writes `assigned_categories` / `assigned_game_ids` from the DTO, so once step 1 sends them, new jackpots are correct.
+The audit log shows the regression clearly:
 
-### 4. One-off data repair for "Erez test 6"
-Run a single SQL update through the migration tool to restore the live row's targeting from the latest `admin_audit_log` entry that contains a non-empty `after_state.assignedCategories` / `assignedGameIds`. Concretely:
 ```
+09:12:00  engineV2 = {split 50/35/15, fixed 1}, rate = 0.03   ← good
+09:12:33  engineV2 = NULL,                       rate = 0     ← wiped
+... all subsequent updates: same wiped state
+```
+
+Every subsequent admin save replaced the full JSONB config with `{threshold: N}` and zeroed the contribution rate.
+
+### Why it happens
+
+In `src/lib/jackpot/store.server.ts` → `updateJackpot()`:
+
+```ts
+if (dto.triggerThreshold !== undefined)
+  patch.trigger_condition = { threshold: Number(dto.triggerThreshold) };
+```
+
+Two problems:
+
+1. **`dto.config` is never persisted on update.** `buildCreateBody()` produces a rich `config` (engineV2, pool, seed, eligibility, prizeEconomy, community, _draft…) and PUTs it. `updateJackpot` ignores `dto.config` entirely.
+2. **`triggerThreshold` overwrites the entire JSONB column** with `{threshold: N}` instead of merging into the existing blob. Since `trigger_condition` is the same column that holds the config payload, every threshold-bearing PUT erases everything else in it.
+
+The contribution rate also resets to 0 on those PUTs because the wizard re-derives `contributionRate` from `totalContributionAmount × poolWeight` — and on a re-save where the form hasn't fully hydrated those v2 fields from `_draft`, it computes 0.
+
+## Plan
+
+### 1. Fix `updateJackpot` to preserve / persist the full config (`src/lib/jackpot/store.server.ts`, ~line 271–290)
+
+- Read `existing.config` (already loaded via `getJackpot`) as the base JSONB.
+- If `dto.config` is provided, use it as the new base (this is the normal wizard PUT path — full blob from `buildCreateBody`).
+- If `dto.triggerThreshold` is provided, set `threshold` on the base via shallow merge, never as a full replacement: `{ ...base, threshold: Number(dto.triggerThreshold) }`.
+- Only write `patch.trigger_condition` when at least one of `dto.config` or `dto.triggerThreshold` was supplied.
+
+Result: PUTs from the wizard carry the full engineV2 + eligibility + pool/seed blob into the DB; threshold-only callers no longer nuke siblings.
+
+### 2. Defensive: don't zero `contributionRate` when the wizard sends 0 but a meaningful v2 split exists
+
+In `updateJackpot`, if `dto.contributionRate === 0` AND the incoming `dto.config?.engineV2` describes a non-empty contribution (any of `totalContributionAmount`, `poolWeight`, `seedWeight`, `houseWeight` > 0), recompute it the same way `buildCreateBody` does and write the recomputed value. This stops a half-hydrated edit from silently disabling contributions. (No code change to `buildCreateBody` — single source of truth stays there; we just don't accept a regression to 0 when v2 fields are present.)
+
+### 3. One-off DB repair for jackpot 19 ("Erez test 6")
+
+Restore the last-known-good engineV2 + rate from the 09:12:00 audit snapshot, preserving the `assigned_categories = {Slots}` we already restored:
+
+```sql
 UPDATE jackpots
-SET assigned_categories = ARRAY['Slots']::text[],
-    assigned_game_ids   = '{}'::bigint[]   -- or the IDs the user actually wants
-WHERE id = <erez_test_6_id> AND brand_id = <brand>;
+SET contribution_percentage = 0.03,
+    trigger_condition = jsonb_build_object(
+      'threshold', 2,
+      'engineV2', jsonb_build_object(
+        'contributionMode', 'split',
+        'totalContributionType', 'fixed',
+        'totalContributionAmount', 1,
+        'poolWeight', 50,
+        'seedWeight', 35,
+        'houseWeight', 15,
+        'triggerOdds', 0
+      )
+    )
+WHERE id = 19 AND brand_id = '<brand>';
 ```
-Before running, confirm with the user which categories/games "Erez test 6" should target (Slots only? specific game IDs?). If the audit log still holds the original payload, I'll propose the exact values for approval.
 
-## Verification
-1. Edit "Erez test 6" in the admin form, save → reload `/demo` and launch a Slots game → no error, jackpot resolves.
-2. Create a new jackpot targeting Slots → row in DB has `assigned_categories = {Slots}` immediately.
-3. `bunx tsc --noEmit` passes.
+### 4. Verify
+
+- Reload `/demo`, launch a Slots game on "Erez test 6" → green notification now shows non-zero Pool/Seed/House slices (with totalAmount=1 fixed and 50/35/15 split, a €10 spin → Pool +€0.50, Seed +€0.35, House +€0.15).
+- Open "Erez test 6" in the admin wizard, save without changes → re-query `trigger_condition`; engineV2 must still be present and `contribution_percentage` must remain 0.03.
+- Create a fresh jackpot, save, edit, save again → engineV2 + weights survive across PUTs.
+- `bunx tsc --noEmit` passes.
 
 ## Out of scope
-- Sportsbook/league targeting persistence (still inside JSONB; not the source of the current bug).
-- Multi-tier (group) jackpot assignment columns — separate code path.
+
+- Wizard hydration of all engineV2 fields from `_draft` on edit (separate hardening pass — current fix prevents the regression even if hydration is partial).
+- Per-jackpot trigger probability changes.
+- Multi-tier (group) child config persistence.
+
+## Technical detail
+
+Files touched:
+- `src/lib/jackpot/store.server.ts` — `updateJackpot()` patch-building block (~lines 271–283).
+- DB: `UPDATE jackpots WHERE id=19` migration (one-off repair).
+
+No changes to `bet.ts`, `inlineConfigFromDto`, `buildCreateBody`, or the wizard. `createJackpot` already persists `trigger_condition` from `buildCreateBody`'s `config`, so no change there.
