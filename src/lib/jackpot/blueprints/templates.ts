@@ -233,7 +233,6 @@ const happyHigh: SingleBlueprint = {
         maximumSeedAmount: 2000,
         initialPoolAmount: 2000,
         maxTotalPayout: 10000,
-        maxWinAmount: 5000,
         averageWinAmount: 2000,
         operatorShare: 15,
         // Drive non-zero pool/seed contributionAmount when this blueprint is
