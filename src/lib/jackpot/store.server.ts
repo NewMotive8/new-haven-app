@@ -300,6 +300,23 @@ export async function updateJackpot(
       .eq("jackpot_id", id);
     if (error) throw new Error(error.message);
   }
+  // Mirror seed-cap edits from the trigger_condition JSON into the
+  // typed columns so apply_group_bet always sees the latest values.
+  if (dto.config?.seed) {
+    const s = dto.config.seed as Record<string, any>;
+    const patchSeed: Record<string, number> = {};
+    if (s.minimumSeedAmount !== undefined)
+      patchSeed.minimum_seed_amount = Number(s.minimumSeedAmount) || 0;
+    if (s.maximumSeedAmount !== undefined)
+      patchSeed.maximum_seed_amount = Number(s.maximumSeedAmount) || 0;
+    if (Object.keys(patchSeed).length > 0) {
+      const { error } = await supabaseAdmin
+        .from("jackpot_seeds")
+        .update(patchSeed as any)
+        .eq("jackpot_id", id);
+      if (error) throw new Error(error.message);
+    }
+  }
 
   const after = await getJackpot(brandId, id);
 
