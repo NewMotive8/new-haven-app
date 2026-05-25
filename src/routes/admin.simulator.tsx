@@ -86,12 +86,14 @@ export const SIMULATOR_TEMPLATES = [
     pool: {
       currentAmount: 10000,
       minimumAmount: 5000,
+      maximumAmount: 50000,
       contributionAmount: 2.0,
     },
     seed: {
       currentAmount: 5000,
       minimumSeedAmount: 3000,
       maximumSeedAmount: 15000,
+      targetAmount: 15000,
       contributionAmount: 1.2,
     },
     contribution: {
