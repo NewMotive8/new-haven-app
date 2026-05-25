@@ -1890,7 +1890,7 @@ function ReSeedEventLog({
     Number((config?.seed as any)?.minimumSeedAmount) ||
     Number(config?.seed?.currentAmount) ||
     0;
-  const seedCap = Number(config?.seed?.targetAmount) || 0;
+  const seedCap = Number((config?.seed as any)?.maximumSeedAmount) || Number(config?.seed?.targetAmount) || 0;
   return (
     <div style={panel}>
       <div style={{ fontSize: 14, fontWeight: 600, color: "#f8fafc" }}>Re-Seed Snap Event Log</div>
