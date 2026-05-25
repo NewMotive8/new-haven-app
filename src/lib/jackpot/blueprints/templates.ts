@@ -314,7 +314,15 @@ const happySmall: SingleBlueprint = {
         maximumSeedAmount: 50,
         initialPoolAmount: 50,
         maxTotalPayout: 300,
+        averageWinAmount: 150,
         operatorShare: 15,
+        // Active enterprise split for the token happy-hour window.
+        contributionMode: "split",
+        totalContributionAmount: 3.5,
+        totalContributionType: "percentage",
+        poolWeight: 70,   // 2.45% of wager
+        seedWeight: 30,   // 1.05% of wager
+        houseWeight: 0,
       },
       "WEEKLY",
       "SATURDAY",
