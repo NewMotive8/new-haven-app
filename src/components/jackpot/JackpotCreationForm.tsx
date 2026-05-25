@@ -408,6 +408,9 @@ export function JackpotCreationForm({ onSave, submitting = false, onCancel, init
   const [minWagerAmount, setMinWagerAmount] = useState<number>(initial?.minWagerAmount ?? 0);
   const [maxWagerAmount, setMaxWagerAmount] = useState<number>(initial?.maxWagerAmount ?? 0);
   const [reseedingAmount, setReseedingAmount] = useState<number>(initial?.reseedingAmount ?? 0);
+  const [minimumSeedAmount, setMinimumSeedAmount] = useState<number>(
+    initial?.minimumSeedAmount ?? initial?.reseedingAmount ?? 0,
+  );
   const [maximumSeedAmount, setMaximumSeedAmount] = useState<number>(initial?.maximumSeedAmount ?? 0);
   const [initialPoolAmount, setInitialPoolAmount] = useState<number>(initial?.initialPoolAmount ?? 0);
   // Operation Safeguards — global per-jackpot caps (Must-Drop & Frequency).
