@@ -1636,6 +1636,112 @@ function ComplianceDashboard({
   );
 }
 
+function CorporatePnlPanel({
+  totalWager,
+  houseContributions,
+  baseHoldPct,
+}: {
+  totalWager: number;
+  houseContributions: number;
+  baseHoldPct: number;
+}) {
+  const jackpotHouseYield = Math.max(0, Number(houseContributions) || 0);
+  const baseGameHold = (Number(totalWager) || 0) * (Number(baseHoldPct) || 0) / 100;
+  const combinedMargin = jackpotHouseYield + baseGameHold;
+  const marginPctOfWager = totalWager > 0 ? (combinedMargin / totalWager) * 100 : 0;
+
+  const row: React.CSSProperties = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    padding: "10px 0",
+    borderBottom: "1px dashed #1f2a44",
+    fontVariantNumeric: "tabular-nums",
+  };
+  const lbl: React.CSSProperties = { color: "#9fb0c8", fontSize: 13 };
+  const val: React.CSSProperties = { color: "#e6edf3", fontSize: 16, fontWeight: 600 };
+
+  return (
+    <div
+      style={{
+        ...panel,
+        padding: 20,
+        border: "1px solid rgba(16, 185, 129, 0.35)",
+        background: "linear-gradient(180deg, rgba(16, 185, 129, 0.06), #0f172a 60%)",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <div>
+          <div
+            style={{
+              fontSize: 10,
+              letterSpacing: 1.8,
+              textTransform: "uppercase",
+              color: "#34d399",
+              fontWeight: 700,
+            }}
+          >
+            Casino Corporate P&amp;L Summary
+          </div>
+          <div style={{ fontSize: 12, color: "#7d8ba3", marginTop: 4 }}>
+            Combined operator yield — jackpot house split + base-game underlying hold.
+          </div>
+        </div>
+        <span
+          style={{
+            padding: "4px 10px",
+            background: "rgba(16, 185, 129, 0.12)",
+            color: "#34d399",
+            border: "1px solid rgba(16, 185, 129, 0.45)",
+            borderRadius: 999,
+            fontSize: 11,
+            fontWeight: 700,
+          }}
+        >
+          Base hold {baseHoldPct}%
+        </span>
+      </div>
+
+      <div style={row}>
+        <span style={lbl}>Jackpot House Yield</span>
+        <span style={val}>€ {fmt(jackpotHouseYield)}</span>
+      </div>
+      <div style={row}>
+        <span style={lbl}>
+          Base Game Underlying Hold
+          <span style={{ color: "#64748b", marginLeft: 6 }}>· wager × {baseHoldPct}%</span>
+        </span>
+        <span style={val}>€ {fmt(baseGameHold)}</span>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          paddingTop: 14,
+          marginTop: 4,
+          borderTop: "1px solid rgba(16, 185, 129, 0.4)",
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        <span style={{ color: "#34d399", fontSize: 13, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase" }}>
+          Combined Net Operator Margin
+        </span>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ color: "#34d399", fontSize: 28, fontWeight: 800 }}>
+            € {fmt(combinedMargin)}
+          </div>
+          {totalWager > 0 && (
+            <div style={{ color: "#34d399", fontSize: 11, opacity: 0.8 }}>
+              {marginPctOfWager.toFixed(2)}% of total wager
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ComplianceKpi({
   label,
   value,
