@@ -137,6 +137,7 @@ const mustDropHigh: SingleBlueprint = {
     mustDropPeriod: 1,
     triggerOdds: 0,
     operatorShare: 15,
+    houseFixedPerSpin: 0.15,
   },
 };
 
