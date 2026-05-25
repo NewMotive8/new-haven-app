@@ -610,7 +610,7 @@ function SimulatorPage() {
               Run a simulation to see the compliance dashboard.
             </div>
           ) : (
-            <ComplianceDashboard result={result} config={activeConfig} wager={wager} baseHoldPct={baseHoldPct} />
+            <ComplianceDashboard result={result} config={activeConfig} wager={wager} />
           )}
         </div>
       </div>
