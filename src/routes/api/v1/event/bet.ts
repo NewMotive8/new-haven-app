@@ -33,6 +33,7 @@ import {
   computeBetLedger,
   computeMultiCampaignLedger,
 } from "@/lib/jackpot/ledger";
+import { evaluateLiveSpin } from "@/lib/jackpot/live-engine";
 import type { JackpotConfigDTO, JackpotDTO } from "@/lib/jackpot/types";
 
 // ---------------------------------------------------------------------------
@@ -286,6 +287,18 @@ function inlineConfigFromDto(jp: JackpotDTO): JackpotConfigDTO {
   const minWin = Number(draft.minWinAmount ?? (poolCfg as any).minimumWinAmount) || 0;
   const fixedWin = Number(draft.fixedWinAmount) || 0;
 
+  // Operator pool cap — authoritative source order: explicit max-pool key in
+  // the persisted config, then the legacy `pool.maximumAmount` key, then the
+  // wizard's max-win field (must-drop ceiling), then `triggerThreshold` as a
+  // last-resort heuristic for legacy rows that never set any cap.
+  const persistedMaxPool =
+    Number((poolCfg as any).maximumPoolAmount) ||
+    Number((poolCfg as any).maximumAmount) ||
+    Number((poolCfg as any).maximumWinAmount) ||
+    Number(draft.maxWinAmount) ||
+    Number(jp.triggerThreshold) ||
+    0;
+
   return {
     id: jp.id,
     name: jp.name,
@@ -297,7 +310,7 @@ function inlineConfigFromDto(jp: JackpotDTO): JackpotConfigDTO {
     pool: {
       currentAmount: jp.poolBalance,
       minimumAmount: jp.seedAmount,
-      maximumAmount: jp.triggerThreshold,
+      maximumAmount: persistedMaxPool,
       minimumWinAmount: minWin,
       maximumWinAmount: maxWin,
       contributionAmount: jp.contributionRate * 100,
@@ -596,19 +609,20 @@ export const Route = createFileRoute("/api/v1/event/bet")({
             tierBreakdown: e.ledger.entries,
           }));
 
-          // Hierarchical win evaluation: highest tier_rank → lowest.
+          // Hierarchical win evaluation: highest tier_rank → lowest. Each
+          // child is evaluated through the shared engine so the forced-hit
+          // gate (pool >= configured cap) and structural rules match the
+          // admin simulator exactly.
           let win: Record<string, unknown> | null = null;
+          const cfgByJackpotId = new Map(configs.map((c) => [c.id, c]));
           const ranked = [...children].sort(
             (a, b) => (b.tierRank ?? 0) - (a.tierRank ?? 0),
           );
           for (const child of ranked) {
-            const baseP =
-              child.triggerProbability > 0
-                ? child.triggerProbability
-                : readTriggerProbability(child);
-            const p = effectiveTriggerProbability(child, baseP, wager);
-            if (rng() < p) {
-              const winAmount = resolveWinAmount(child);
+            const childCfg = cfgByJackpotId.get(child.id) ?? inlineConfigFromDto(child);
+            const spin = evaluateLiveSpin(childCfg, wager, rng);
+            if (spin.won) {
+              const winAmount = spin.winAmount;
               const community = readCommunityConfig(child);
               if (community && community.split > 0) {
                 const breakdown = applyCommunityPayout(winAmount, community, rng);
@@ -616,6 +630,7 @@ export const Route = createFileRoute("/api/v1/event/bet")({
                   jackpotId: child.id,
                   tierRank: child.tierRank,
                   amount: winAmount,
+                  forcedHit: spin.forcedHit,
                   isCommunity: true,
                   communitySize: breakdown.communitySize,
                   communityMemberPayOut: breakdown.communityMemberPayOut,
@@ -628,6 +643,7 @@ export const Route = createFileRoute("/api/v1/event/bet")({
                   jackpotId: child.id,
                   tierRank: child.tierRank,
                   amount: winAmount,
+                  forcedHit: spin.forcedHit,
                   isCommunity: false,
                 };
               }
@@ -770,18 +786,20 @@ export const Route = createFileRoute("/api/v1/event/bet")({
 
           const ledger = computeBetLedger(cfg, wager);
 
-          // Win evaluation against injected RNG.
+          // Win evaluation — shared engine: forced-hit gate + structural rules.
           let win: Record<string, unknown> | null = null;
-          if (jpDto) {
-            const p = effectiveTriggerProbability(jpDto, readTriggerProbability(jpDto), wager);
-            if (rng() < p) {
-              const winAmount = resolveWinAmount(jpDto);
-              const community = readCommunityConfig(jpDto);
+          {
+            const spin = evaluateLiveSpin(cfg, wager, rng);
+            if (spin.won) {
+              const winAmount = spin.winAmount;
+              const jackpotId = jpDto ? jpDto.id : cfg.id;
+              const community = jpDto ? readCommunityConfig(jpDto) : null;
               if (community && community.split > 0) {
                 const breakdown = applyCommunityPayout(winAmount, community, rng);
                 win = {
-                  jackpotId: jpDto.id,
+                  jackpotId,
                   amount: winAmount,
+                  forcedHit: spin.forcedHit,
                   isCommunity: true,
                   communitySize: breakdown.communitySize,
                   communityMemberPayOut: breakdown.communityMemberPayOut,
@@ -790,7 +808,12 @@ export const Route = createFileRoute("/api/v1/event/bet")({
                   cappedDelta: breakdown.cappedDelta,
                 };
               } else {
-                win = { jackpotId: jpDto.id, amount: winAmount, isCommunity: false };
+                win = {
+                  jackpotId,
+                  amount: winAmount,
+                  forcedHit: spin.forcedHit,
+                  isCommunity: false,
+                };
               }
             }
           }
@@ -886,18 +909,21 @@ export const Route = createFileRoute("/api/v1/event/bet")({
 
         const multi = computeMultiCampaignLedger(configs, wager);
 
-        // First-match win evaluation across active DTOs (sandbox-style).
+        // First-match win evaluation — shared engine across active DTOs.
         let win: Record<string, unknown> | null = null;
-        for (const jpDto of dtos) {
-          const p = effectiveTriggerProbability(jpDto, readTriggerProbability(jpDto), wager);
-          if (rng() < p) {
-            const winAmount = resolveWinAmount(jpDto);
+        for (let i = 0; i < dtos.length; i++) {
+          const jpDto = dtos[i];
+          const cfg = configs[i] ?? inlineConfigFromDto(jpDto);
+          const spin = evaluateLiveSpin(cfg, wager, rng);
+          if (spin.won) {
+            const winAmount = spin.winAmount;
             const community = readCommunityConfig(jpDto);
             if (community && community.split > 0) {
               const breakdown = applyCommunityPayout(winAmount, community, rng);
               win = {
                 jackpotId: jpDto.id,
                 amount: winAmount,
+                forcedHit: spin.forcedHit,
                 isCommunity: true,
                 communitySize: breakdown.communitySize,
                 communityMemberPayOut: breakdown.communityMemberPayOut,
@@ -906,7 +932,12 @@ export const Route = createFileRoute("/api/v1/event/bet")({
                 cappedDelta: breakdown.cappedDelta,
               };
             } else {
-              win = { jackpotId: jpDto.id, amount: winAmount, isCommunity: false };
+              win = {
+                jackpotId: jpDto.id,
+                amount: winAmount,
+                forcedHit: spin.forcedHit,
+                isCommunity: false,
+              };
             }
             break;
           }

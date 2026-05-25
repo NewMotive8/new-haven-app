@@ -6,6 +6,12 @@ export const TRIGGER_ODDS_MAX = _TRIGGER_ODDS_MAX;
 
 
 export function buildTriggerCondition(p: JackpotSavePayload): Record<string, unknown> {
+  // Operator pool cap — fall back to maxWinAmount when no dedicated max-pool
+  // field is set (must-drop ceiling). Never silently drop to 0/null.
+  const explicitMaxPool = Number(p.maximumPoolAmount) || 0;
+  const fallbackMaxPool =
+    Number(p.maxWinAmount) > 0 ? Number(p.maxWinAmount) : 0;
+  const persistedMaxPool = explicitMaxPool > 0 ? explicitMaxPool : fallbackMaxPool;
   return {
     type: p.type,
     payoutModel: p.payoutModel,
@@ -14,8 +20,14 @@ export function buildTriggerCondition(p: JackpotSavePayload): Record<string, unk
     pool: {
       playerContribution: p.playerContribution,
       operatorContribution: p.operatorContribution,
-      
+
       initialPoolAmount: p.initialPoolAmount ?? null,
+      // Authoritative cap source for the live engine; mirrored under the
+      // legacy key so PoolDTO consumers read the same value.
+      maximumPoolAmount: persistedMaxPool > 0 ? persistedMaxPool : null,
+      maximumAmount: persistedMaxPool > 0 ? persistedMaxPool : null,
+      minimumWinAmount: Number(p.minWinAmount) || 0,
+      maximumWinAmount: Number(p.maxWinAmount) || 0,
     },
     seed: {
       seedPlayerContribution: p.seedPlayerContribution,

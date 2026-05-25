@@ -228,6 +228,10 @@ export type JackpotSavePayload = {
   minimumSeedAmount?: number;
   maximumSeedAmount: number;
   initialPoolAmount?: number;
+  // Operator-configured pool cap (0/undefined = uncapped). When the live
+  // engine sees pool.currentBalance >= maximumPoolAmount, it force-triggers
+  // a deterministic win (MUST_DROP value-driven mode).
+  maximumPoolAmount?: number;
   // --- Optional: MUST_DROP / FREQUENCY virtual lifespan (minutes).
   lifespanMinutes?: number;
   mustDropPeriod?: 1 | 2 | 3 | 4;
