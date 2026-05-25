@@ -54,6 +54,8 @@ export const SIMULATOR_TEMPLATES = [
     },
     contribution: {
       houseWeight: 0.3,
+      // Flat House rake (€/spin) — feeds Corporate P&L card.
+      houseFixed: 0.15,
     },
     enabled: true,
   },
