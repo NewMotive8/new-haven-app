@@ -44,9 +44,9 @@ export function dtoToPayload(dto: JackpotDTO): JackpotSavePayload {
     const draft = cfg._draft as Partial<JackpotSavePayload>;
     const merged: JackpotSavePayload = {
       // structured-config baseline (lowest priority)
-      name: dto.name ?? "",
       description: cfg.description ?? "",
       walletType: econ.walletType === "internal" ? "internal" : "external",
+
       currencyId: econ.walletType === "internal" ? (econ.currencyId ?? null) : null,
       amountScale: econ.walletType === "internal" ? 1 : 100,
       type: (cfg.type ?? dto.jackpotType ?? "classic") as JackpotSavePayload["type"],
