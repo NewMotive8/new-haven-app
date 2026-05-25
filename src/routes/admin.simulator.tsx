@@ -1279,8 +1279,6 @@ function ComplianceDashboard({
     () => buildPoolReplay(config, result, wager),
     [config, result, wager],
   );
-  const overflowTotal = replay.totalOverflow;
-  const overflowSupported = replay.supported;
 
   const probabilityCurve = React.useMemo(
     () => buildProbabilityCurve(config, result, wager),
