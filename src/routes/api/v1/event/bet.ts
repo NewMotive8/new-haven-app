@@ -786,18 +786,20 @@ export const Route = createFileRoute("/api/v1/event/bet")({
 
           const ledger = computeBetLedger(cfg, wager);
 
-          // Win evaluation against injected RNG.
+          // Win evaluation — shared engine: forced-hit gate + structural rules.
           let win: Record<string, unknown> | null = null;
-          if (jpDto) {
-            const p = effectiveTriggerProbability(jpDto, readTriggerProbability(jpDto), wager);
-            if (rng() < p) {
-              const winAmount = resolveWinAmount(jpDto);
-              const community = readCommunityConfig(jpDto);
+          {
+            const spin = evaluateLiveSpin(cfg, wager, rng);
+            if (spin.won) {
+              const winAmount = spin.winAmount;
+              const jackpotId = jpDto ? jpDto.id : cfg.id;
+              const community = jpDto ? readCommunityConfig(jpDto) : null;
               if (community && community.split > 0) {
                 const breakdown = applyCommunityPayout(winAmount, community, rng);
                 win = {
-                  jackpotId: jpDto.id,
+                  jackpotId,
                   amount: winAmount,
+                  forcedHit: spin.forcedHit,
                   isCommunity: true,
                   communitySize: breakdown.communitySize,
                   communityMemberPayOut: breakdown.communityMemberPayOut,
@@ -806,7 +808,12 @@ export const Route = createFileRoute("/api/v1/event/bet")({
                   cappedDelta: breakdown.cappedDelta,
                 };
               } else {
-                win = { jackpotId: jpDto.id, amount: winAmount, isCommunity: false };
+                win = {
+                  jackpotId,
+                  amount: winAmount,
+                  forcedHit: spin.forcedHit,
+                  isCommunity: false,
+                };
               }
             }
           }
