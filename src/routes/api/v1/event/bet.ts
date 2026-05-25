@@ -33,6 +33,7 @@ import {
   computeBetLedger,
   computeMultiCampaignLedger,
 } from "@/lib/jackpot/ledger";
+import { evaluateLiveSpin } from "@/lib/jackpot/live-engine";
 import type { JackpotConfigDTO, JackpotDTO } from "@/lib/jackpot/types";
 
 // ---------------------------------------------------------------------------
@@ -286,6 +287,18 @@ function inlineConfigFromDto(jp: JackpotDTO): JackpotConfigDTO {
   const minWin = Number(draft.minWinAmount ?? (poolCfg as any).minimumWinAmount) || 0;
   const fixedWin = Number(draft.fixedWinAmount) || 0;
 
+  // Operator pool cap — authoritative source order: explicit max-pool key in
+  // the persisted config, then the legacy `pool.maximumAmount` key, then the
+  // wizard's max-win field (must-drop ceiling), then `triggerThreshold` as a
+  // last-resort heuristic for legacy rows that never set any cap.
+  const persistedMaxPool =
+    Number((poolCfg as any).maximumPoolAmount) ||
+    Number((poolCfg as any).maximumAmount) ||
+    Number((poolCfg as any).maximumWinAmount) ||
+    Number(draft.maxWinAmount) ||
+    Number(jp.triggerThreshold) ||
+    0;
+
   return {
     id: jp.id,
     name: jp.name,
@@ -297,7 +310,7 @@ function inlineConfigFromDto(jp: JackpotDTO): JackpotConfigDTO {
     pool: {
       currentAmount: jp.poolBalance,
       minimumAmount: jp.seedAmount,
-      maximumAmount: jp.triggerThreshold,
+      maximumAmount: persistedMaxPool,
       minimumWinAmount: minWin,
       maximumWinAmount: maxWin,
       contributionAmount: jp.contributionRate * 100,
