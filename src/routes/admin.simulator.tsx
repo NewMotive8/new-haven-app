@@ -1273,7 +1273,20 @@ function ComplianceDashboard({
 }) {
   const totalWager = result.totalWagered || 0;
   const totalPayout = result.winAmountCounter || 0;
-  const rtpPct = result.rtp ?? (totalWager > 0 ? (totalPayout / totalWager) * 100 : 0);
+  // Always compute RTP on the client — backend value can be stale/zero.
+  const rtpPct = totalWager > 0 ? (totalPayout / totalWager) * 100 : 0;
+
+  // ── Contribution split adapters ─────────────────────────────────────
+  const splitPcts = getJackpotSplit(config);
+  const splitShare = {
+    pool: splitPcts.poolPct / 100,
+    seed: splitPcts.seedPct / 100,
+    house: splitPcts.housePct / 100,
+  };
+  const contributionRate =
+    (Number(config?.contribution?.totalContributionAmount) ||
+      (Number(config?.pool?.contributionAmount) || 0) +
+        (Number(config?.seed?.contributionAmount) || 0)) / 100;
 
   const replay = React.useMemo(
     () => buildPoolReplay(config, result, wager),
@@ -1291,17 +1304,8 @@ function ComplianceDashboard({
   );
 
   // ── Row 1 derivations ────────────────────────────────────────────────
-  const split = getJackpotSplit(config);
-  const housePct = split.housePct;
-  const poolContribPct = Number(config?.pool?.contributionAmount) || 0;
-  const seedContribPct = Number(config?.seed?.contributionAmount) || 0;
-  const contribRatePct = poolContribPct + seedContribPct;
-  const operatorRevenueFallback =
-    totalWager * (contribRatePct / 100) * (housePct / 100);
-  const operatorRevenue =
-    typeof result.houseContributions === "number" && result.houseContributions > 0
-      ? result.houseContributions
-      : operatorRevenueFallback;
+  const operatorRevenue = totalWager * contributionRate * splitShare.house;
+  const housePct = splitPcts.housePct;
 
   // ── Row 2 derivations ────────────────────────────────────────────────
   const baseProbForExpected = configuredProbability(config, "jackpot");
@@ -1310,6 +1314,18 @@ function ComplianceDashboard({
   const blockedByGate = result.rejectedByGate ?? 0;
   const triggersFired = actualWins + blockedByGate;
   const gateAlert = blockedByGate > 0;
+
+  // ── Chart title (dynamic) ────────────────────────────────────────────
+  const jackpotType = String(
+    (config as any)?.jackpotType ?? config?.structuralType ?? "",
+  ).toLowerCase();
+  const escalationTitle =
+    jackpotType === "must_drop"
+      ? "Must-Drop Escalation"
+      : jackpotType === "classic"
+        ? "Classic Odds Escalation"
+        : "Probability Escalation";
+
 
   const sectionLabel: React.CSSProperties = {
     fontSize: 10,
