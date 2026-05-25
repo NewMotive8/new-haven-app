@@ -277,6 +277,10 @@ export async function updateJackpot(
     patch.trigger_condition = { threshold: Number(dto.triggerThreshold) };
   if (dto.triggerProbability !== undefined)
     patch.trigger_probability = Number(dto.triggerProbability);
+  if (dto.assignedCategories !== undefined)
+    patch.assigned_categories = dto.assignedCategories;
+  if (dto.assignedGameIds !== undefined)
+    patch.assigned_game_ids = dto.assignedGameIds;
 
   if (Object.keys(patch).length > 0) {
     const { error } = await supabaseAdmin
