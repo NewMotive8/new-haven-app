@@ -608,7 +608,7 @@ export const Route = createFileRoute("/api/v1/event/bet")({
                 : readTriggerProbability(child);
             const p = effectiveTriggerProbability(child, baseP, wager);
             if (rng() < p) {
-              const winAmount = Number(child.poolBalance) || 0;
+              const winAmount = resolveWinAmount(child);
               const community = readCommunityConfig(child);
               if (community && community.split > 0) {
                 const breakdown = applyCommunityPayout(winAmount, community, rng);
@@ -775,7 +775,7 @@ export const Route = createFileRoute("/api/v1/event/bet")({
           if (jpDto) {
             const p = effectiveTriggerProbability(jpDto, readTriggerProbability(jpDto), wager);
             if (rng() < p) {
-              const winAmount = Number(jpDto.poolBalance) || 0;
+              const winAmount = resolveWinAmount(jpDto);
               const community = readCommunityConfig(jpDto);
               if (community && community.split > 0) {
                 const breakdown = applyCommunityPayout(winAmount, community, rng);
@@ -891,7 +891,7 @@ export const Route = createFileRoute("/api/v1/event/bet")({
         for (const jpDto of dtos) {
           const p = effectiveTriggerProbability(jpDto, readTriggerProbability(jpDto), wager);
           if (rng() < p) {
-            const winAmount = Number(jpDto.poolBalance) || 0;
+            const winAmount = resolveWinAmount(jpDto);
             const community = readCommunityConfig(jpDto);
             if (community && community.split > 0) {
               const breakdown = applyCommunityPayout(winAmount, community, rng);
