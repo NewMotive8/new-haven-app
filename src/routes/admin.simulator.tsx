@@ -1276,17 +1276,16 @@ function ComplianceDashboard({
   // Always compute RTP on the client — backend value can be stale/zero.
   const rtpPct = totalWager > 0 ? (totalPayout / totalWager) * 100 : 0;
 
-  // ── Contribution split adapters ─────────────────────────────────────
-  const splitPcts = getJackpotSplit(config);
-  const splitShare = {
-    pool: splitPcts.poolPct / 100,
-    seed: splitPcts.seedPct / 100,
-    house: splitPcts.housePct / 100,
-  };
-  const contributionRate =
-    (Number(config?.contribution?.totalContributionAmount) ||
-      (Number(config?.pool?.contributionAmount) || 0) +
-        (Number(config?.seed?.contributionAmount) || 0)) / 100;
+  // ── Contribution rate adapters ──────────────────────────────────────
+  // Read slice rates straight from persisted config; house split comes from
+  // contribution.houseWeight (preferred) or contribution.houseAmount.
+  const poolRatePct = Number(config?.pool?.contributionAmount) || 0;
+  const seedRatePct = Number(config?.seed?.contributionAmount) || 0;
+  const houseRatePct =
+    Number(config?.contribution?.houseWeight) ||
+    Number((config as any)?.contribution?.houseAmount) ||
+    0;
+  const totalContributionRatePct = poolRatePct + seedRatePct + houseRatePct;
 
   const replay = React.useMemo(
     () => buildPoolReplay(config, result, wager),
@@ -1303,16 +1302,16 @@ function ComplianceDashboard({
     [result, config, wager],
   );
 
-  // ── Row 1 derivations ────────────────────────────────────────────────
-  const operatorRevenue = totalWager * contributionRate * splitShare.house;
-  const housePct = splitPcts.housePct;
+  // ── Row 1 derivations (Financial Contributions Ledger) ──────────────
+  const totalContributionAmount = (totalWager * totalContributionRatePct) / 100;
+  const mainPoolContribution = (totalWager * poolRatePct) / 100;
+  const houseContribution = (totalWager * houseRatePct) / 100;
+  const totalOverflowDiverted = replay.totalOverflow || 0;
 
-  // ── Row 2 derivations ────────────────────────────────────────────────
-  const baseProbForExpected = configuredProbability(config, "jackpot");
-  const expectedWins = Math.round((result.iterations || 0) * baseProbForExpected);
+  // ── Row 2 derivations (Payouts & Hit Performance) ───────────────────
   const actualWins = result.winCounter || 0;
+  const avgHitAmount = actualWins > 0 ? totalPayout / actualWins : 0;
   const blockedByGate = result.rejectedByGate ?? 0;
-  const triggersFired = actualWins + blockedByGate;
   const gateAlert = blockedByGate > 0;
 
   // ── Chart title (dynamic) ────────────────────────────────────────────
@@ -1326,6 +1325,8 @@ function ComplianceDashboard({
         ? "Classic Odds Escalation"
         : "Probability Escalation";
 
+  // RTP retained as a subtle badge on Total Payout
+  void rtpPct;
 
   const sectionLabel: React.CSSProperties = {
     fontSize: 10,
@@ -1346,58 +1347,67 @@ function ComplianceDashboard({
       {/* 1. KPI Rows */}
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div>
-          <div style={sectionLabel}>Financial Performance</div>
+          <div style={sectionLabel}>Financial Contributions Ledger</div>
           <div style={rowGrid}>
             <ComplianceKpi
-              label="Total Wager Volume"
-              value={`€ ${fmt(totalWager)}`}
+              label="Total Contribution Amount"
+              value={`€ ${fmt(totalContributionAmount)}`}
               accent="#6366f1"
+              badge={
+                totalContributionRatePct > 0
+                  ? `${totalContributionRatePct.toFixed(2)}% combined rate`
+                  : "No contribution configured"
+              }
             />
             <ComplianceKpi
-              label="Total Jackpot Payouts"
-              value={`€ ${fmt(totalPayout)}`}
+              label="Main Pool Contribution"
+              value={`€ ${fmt(mainPoolContribution)}`}
               accent="#10b981"
+              badge={poolRatePct > 0 ? `${poolRatePct.toFixed(2)}% of wager` : "—"}
             />
             <ComplianceKpi
-              label="Effective Jackpot RTP"
-              value={`${rtpPct.toFixed(3)}%`}
-              accent="#f59e0b"
-            />
-            <ComplianceKpi
-              label="Operator Net Revenue"
-              value={`€ ${fmt(operatorRevenue)}`}
+              label="House Pool Contribution"
+              value={`€ ${fmt(houseContribution)}`}
               accent="#a855f7"
               badge={
-                operatorRevenue > 0
-                  ? `${housePct.toFixed(1)}% house slice`
-                  : housePct > 0
-                    ? `${housePct.toFixed(1)}% house slice`
-                    : "No house split configured"
+                houseContribution > 0
+                  ? `${houseRatePct.toFixed(2)}% house slice`
+                  : "No house split configured"
+              }
+            />
+            <ComplianceKpi
+              label="Total Overflow Diverted"
+              value={`€ ${fmt(totalOverflowDiverted)}`}
+              accent="#f59e0b"
+              badge={
+                totalOverflowDiverted > 0
+                  ? "Seed cap → main pool"
+                  : "Seed cap not reached"
               }
             />
           </div>
         </div>
 
         <div>
-          <div style={sectionLabel}>Simulation Health &amp; Gate Integrity</div>
+          <div style={sectionLabel}>Payouts &amp; Hit Performance</div>
           <div style={rowGrid}>
             <ComplianceKpi
-              label="Expected Wins"
-              value={fmtInt(expectedWins)}
-              accent="#06b6d4"
-              badge={baseProbForExpected > 0 ? `1 in ${fmt(1 / baseProbForExpected, 0)} baseline` : "Curve / must-drop"}
-            />
-            <ComplianceKpi
-              label="Triggers Fired"
-              value={fmtInt(triggersFired)}
-              accent="#6366f1"
-              badge="Pre-gate RNG hits"
-            />
-            <ComplianceKpi
-              label="Actual Wins Approved"
-              value={fmtInt(actualWins)}
+              label="Total Payout"
+              value={`€ ${fmt(totalPayout)}`}
               accent="#10b981"
-              badge={triggersFired > 0 ? `${((actualWins / triggersFired) * 100).toFixed(1)}% approval` : "—"}
+              badge={totalWager > 0 ? `${rtpPct.toFixed(3)}% effective RTP` : "—"}
+            />
+            <ComplianceKpi
+              label="Number of Hits"
+              value={fmtInt(actualWins)}
+              accent="#06b6d4"
+              badge="Approved winning events"
+            />
+            <ComplianceKpi
+              label="Average Hit Amount"
+              value={`€ ${fmt(avgHitAmount)}`}
+              accent="#6366f1"
+              badge={actualWins > 0 ? `${fmtInt(actualWins)} hits` : "No hits yet"}
             />
             <ComplianceKpi
               label="Blocked by Gate"
