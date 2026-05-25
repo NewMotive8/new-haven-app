@@ -1273,7 +1273,20 @@ function ComplianceDashboard({
 }) {
   const totalWager = result.totalWagered || 0;
   const totalPayout = result.winAmountCounter || 0;
-  const rtpPct = result.rtp ?? (totalWager > 0 ? (totalPayout / totalWager) * 100 : 0);
+  // Always compute RTP on the client — backend value can be stale/zero.
+  const rtpPct = totalWager > 0 ? (totalPayout / totalWager) * 100 : 0;
+
+  // ── Contribution split adapters ─────────────────────────────────────
+  const splitPcts = getJackpotSplit(config);
+  const splitShare = {
+    pool: splitPcts.poolPct / 100,
+    seed: splitPcts.seedPct / 100,
+    house: splitPcts.housePct / 100,
+  };
+  const contributionRate =
+    (Number(config?.contribution?.totalContributionAmount) ||
+      (Number(config?.pool?.contributionAmount) || 0) +
+        (Number(config?.seed?.contributionAmount) || 0)) / 100;
 
   const replay = React.useMemo(
     () => buildPoolReplay(config, result, wager),
@@ -1291,17 +1304,8 @@ function ComplianceDashboard({
   );
 
   // ── Row 1 derivations ────────────────────────────────────────────────
-  const split = getJackpotSplit(config);
-  const housePct = split.housePct;
-  const poolContribPct = Number(config?.pool?.contributionAmount) || 0;
-  const seedContribPct = Number(config?.seed?.contributionAmount) || 0;
-  const contribRatePct = poolContribPct + seedContribPct;
-  const operatorRevenueFallback =
-    totalWager * (contribRatePct / 100) * (housePct / 100);
-  const operatorRevenue =
-    typeof result.houseContributions === "number" && result.houseContributions > 0
-      ? result.houseContributions
-      : operatorRevenueFallback;
+  const operatorRevenue = totalWager * contributionRate * splitShare.house;
+  const housePct = splitPcts.housePct;
 
   // ── Row 2 derivations ────────────────────────────────────────────────
   const baseProbForExpected = configuredProbability(config, "jackpot");
@@ -1310,6 +1314,18 @@ function ComplianceDashboard({
   const blockedByGate = result.rejectedByGate ?? 0;
   const triggersFired = actualWins + blockedByGate;
   const gateAlert = blockedByGate > 0;
+
+  // ── Chart title (dynamic) ────────────────────────────────────────────
+  const jackpotType = String(
+    (config as any)?.jackpotType ?? config?.structuralType ?? "",
+  ).toLowerCase();
+  const escalationTitle =
+    jackpotType === "must_drop"
+      ? "Must-Drop Escalation"
+      : jackpotType === "classic"
+        ? "Classic Odds Escalation"
+        : "Probability Escalation";
+
 
   const sectionLabel: React.CSSProperties = {
     fontSize: 10,
@@ -1351,7 +1367,13 @@ function ComplianceDashboard({
               label="Operator Net Revenue"
               value={`€ ${fmt(operatorRevenue)}`}
               accent="#a855f7"
-              badge={housePct > 0 ? `${housePct.toFixed(1)}% house slice` : "No house split configured"}
+              badge={
+                operatorRevenue > 0
+                  ? `${housePct.toFixed(1)}% house slice`
+                  : housePct > 0
+                    ? `${housePct.toFixed(1)}% house slice`
+                    : "No house split configured"
+              }
             />
           </div>
         </div>
@@ -1383,6 +1405,11 @@ function ComplianceDashboard({
               accent={gateAlert ? "#ef4444" : "#10b981"}
               tone={gateAlert ? "alert" : undefined}
               badge={gateAlert ? "Liquidity gate triggered — review funding" : "Healthy"}
+              subNote={
+                gateAlert
+                  ? "Simulation loop running on zero-accumulation state — subsequent triggers blocked to protect re-seed floor."
+                  : undefined
+              }
             />
           </div>
         </div>
@@ -1390,7 +1417,7 @@ function ComplianceDashboard({
 
       {/* 2. Charts row */}
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12 }}>
-        <MustDropChart data={probabilityCurve.points} mode={probabilityCurve.mode} />
+        <MustDropChart title={escalationTitle} data={probabilityCurve.points} mode={probabilityCurve.mode} />
         <OverflowWaterfallChart data={replay.points} cap={replay.cap} overflowStart={replay.overflowStart} />
       </div>
 
@@ -1409,12 +1436,14 @@ function ComplianceKpi({
   badge,
   accent,
   tone,
+  subNote,
 }: {
   label: string;
   value: string;
   badge?: string;
   accent: string;
   tone?: "alert";
+  subNote?: string;
 }) {
   const isAlert = tone === "alert";
   return (
@@ -1460,6 +1489,18 @@ function ComplianceKpi({
         >
           {badge}
         </span>
+      )}
+      {subNote && (
+        <div
+          style={{
+            marginTop: 8,
+            fontSize: 11,
+            lineHeight: 1.4,
+            color: isAlert ? "#fca5a5" : "#7d8ba3",
+          }}
+        >
+          {subNote}
+        </div>
       )}
     </div>
   );
@@ -1527,7 +1568,7 @@ function buildProbabilityCurve(
   return { points, mode: "curve" };
 }
 
-function MustDropChart({ data, mode }: { data: ProbPoint[]; mode: ProbCurveMode }) {
+function MustDropChart({ title, data, mode }: { title?: string; data: ProbPoint[]; mode: ProbCurveMode }) {
   const axisColor = "#9fb0c8";
   const gridColor = "rgba(159, 176, 200, 0.12)";
   const subtitle =
@@ -1540,7 +1581,7 @@ function MustDropChart({ data, mode }: { data: ProbPoint[]; mode: ProbCurveMode 
           : "Probability shape over the simulation.";
   return (
     <div style={panel}>
-      <div style={{ fontSize: 14, fontWeight: 600, color: "#f8fafc" }}>Must-Drop Escalation</div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: "#f8fafc" }}>{title ?? "Must-Drop Escalation"}</div>
       <div style={{ fontSize: 12, color: "#9fb0c8", marginTop: 2, marginBottom: 12 }}>{subtitle}</div>
       <div style={{ width: "100%", height: 240 }}>
         {data.length === 0 ? (
@@ -1592,8 +1633,17 @@ function buildPoolReplay(
   const seedCap = Number((config.seed as any)?.maximumSeedAmount) || Number(config.seed?.targetAmount) || 0;
   const supported = seedCap > 0;
   const poolStart = Number(config.pool?.currentAmount) || 0;
-  const seedPerSpin = perSpinPoolContribution(config.seed, wager);
-  const poolPerSpin = perSpinPoolContribution(config.pool, wager);
+  // Derive per-spin contribution from the configured rate × split share so
+  // the chart slope reflects actual per-spin accumulation rather than 0 when
+  // pool/seed contributionAmount is FIXED-0 or only totalContributionAmount is set.
+  const splitPcts = getJackpotSplit(config);
+  const contributionRate =
+    (Number(config.contribution?.totalContributionAmount) ||
+      (Number(config.pool?.contributionAmount) || 0) +
+        (Number(config.seed?.contributionAmount) || 0)) / 100;
+  const perSpinTotal = (Number(wager) || 0) * contributionRate;
+  const seedPerSpin = perSpinTotal * (splitPcts.seedPct / 100);
+  const poolPerSpin = perSpinTotal * (splitPcts.poolPct / 100);
 
   const N = Math.min(200, Math.max(20, iterations || 200));
   const wins = (result.winEvents ?? []).slice().sort((a, b) => a.iteration - b.iteration);
