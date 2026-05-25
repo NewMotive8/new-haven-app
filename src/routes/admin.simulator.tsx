@@ -174,6 +174,7 @@ function SimulatorPage() {
   );
 
   const cameFromCreationFlow = Boolean(originalPayloadRef.current);
+  const [selectedTemplateIndex, setSelectedTemplateIndex] = React.useState<number>(1);
   // Realistic mass-market wager baseline. Iteration scaling (not wager
   // inflation) is what guarantees the curve engine sees enough volume.
   const [wager, setWager] = React.useState(1);
@@ -186,6 +187,18 @@ function SimulatorPage() {
   const [activeConfig, setActiveConfig] = React.useState<JackpotConfigDTO | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [savingDraft, setSavingDraft] = React.useState(false);
+
+  React.useEffect(() => {
+    if (cameFromCreationFlow) return;
+    if (!Number.isFinite(selectedTemplateIndex) || !SIMULATOR_TEMPLATES[selectedTemplateIndex]) return;
+    const cfg = materializeTemplate(SIMULATOR_TEMPLATES[selectedTemplateIndex], selectedTemplateIndex);
+    const text = JSON.stringify(cfg, null, 2);
+    activeConfigTextRef.current = text;
+    setConfigText(text);
+    setActiveConfig(cfg);
+    setResult(null);
+    setError(null);
+  }, [selectedTemplateIndex, cameFromCreationFlow]);
 
   async function persistJackpot(asDraft: boolean) {
     const payload = originalPayloadRef.current;
@@ -407,18 +420,8 @@ function SimulatorPage() {
                 <label style={label}>Preset template</label>
                 <select
                   style={input}
-                  defaultValue="0"
-                  onChange={(e) => {
-                    const idx = Number(e.target.value);
-                    if (!Number.isFinite(idx) || !SIMULATOR_TEMPLATES[idx]) return;
-                    const cfg = materializeTemplate(SIMULATOR_TEMPLATES[idx], idx);
-                    const text = JSON.stringify(cfg, null, 2);
-                    activeConfigTextRef.current = text;
-                    setConfigText(text);
-                    setActiveConfig(cfg);
-                    setResult(null);
-                    setError(null);
-                  }}
+                  value={selectedTemplateIndex}
+                  onChange={(e) => setSelectedTemplateIndex(Number(e.target.value))}
                 >
                   {SIMULATOR_TEMPLATES.map((t, i) => (
                     <option key={t.name} value={i}>{t.name}</option>
