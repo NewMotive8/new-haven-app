@@ -245,6 +245,10 @@ function SimulatorPage() {
     setActiveConfig(cfg);
     setResult(null);
     setError(null);
+    // Uniform Baseline Initialization: every preset load locks the simulator
+    // wager input to a stable 1.00 baseline so comparisons across templates
+    // start from the same per-spin economic footing.
+    setWager(1);
   }, [selectedTemplateIndex, cameFromCreationFlow]);
 
   async function persistJackpot(asDraft: boolean) {
