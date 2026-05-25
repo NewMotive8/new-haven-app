@@ -643,6 +643,7 @@ export const Route = createFileRoute("/api/v1/event/bet")({
                   jackpotId: child.id,
                   tierRank: child.tierRank,
                   amount: winAmount,
+                  forcedHit: spin.forcedHit,
                   isCommunity: false,
                 };
               }
