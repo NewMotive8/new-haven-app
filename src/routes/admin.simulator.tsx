@@ -1588,8 +1588,8 @@ function buildPoolReplay(
   if (!config) return { points: [], cap: 0, totalOverflow: 0, supported: false, overflowStart: null };
   const iterations = result.iterations || 0;
   const seedStart = Number(config.seed?.currentAmount) || 0;
-  // seed.targetAmount is the active seedCap in the engine (see simulator.ts:131).
-  const seedCap = Number(config.seed?.targetAmount) || 0;
+  // Prefer the new typed seed cap; fall back to legacy seed.targetAmount.
+  const seedCap = Number((config.seed as any)?.maximumSeedAmount) || Number(config.seed?.targetAmount) || 0;
   const supported = seedCap > 0;
   const poolStart = Number(config.pool?.currentAmount) || 0;
   const seedPerSpin = perSpinPoolContribution(config.seed, wager);
