@@ -444,17 +444,7 @@ function SimulatorPage() {
               Run a simulation to see the compliance dashboard.
             </div>
           ) : (
-            <>
-              <ComplianceDashboard result={result} config={activeConfig} wager={wager} />
-              <details style={{ ...panel, padding: 14 }}>
-                <summary style={{ cursor: "pointer", color: "#9fb0c8", fontSize: 13, fontWeight: 600 }}>
-                  Raw engine output (legacy ledger &amp; math audit)
-                </summary>
-                <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 12 }}>
-                  <ResultsSummary result={result} config={activeConfig} />
-                </div>
-              </details>
-            </>
+            <ComplianceDashboard result={result} config={activeConfig} wager={wager} />
           )}
         </div>
       </div>
