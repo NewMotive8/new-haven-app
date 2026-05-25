@@ -125,6 +125,8 @@ function SandboxBanner() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        textAlign: "center",
+        whiteSpace: "pre-line",
         gap: 10,
         padding: "8px 16px",
         background: "#f59e0b",
@@ -139,7 +141,7 @@ function SandboxBanner() {
       }}
     >
       <span aria-hidden>⚠</span>
-      STAGING ENVIRONMENT. Data here does not affect live operations
+      {"\n"}STAGING ENVIRONMENT{"\n"}
       <span aria-hidden>⚠</span>
     </div>
   );
