@@ -400,6 +400,28 @@ function SimulatorPage() {
               />
             </div>
             <div>
+              <label style={label}>Preset template</label>
+              <select
+                style={input}
+                defaultValue="0"
+                onChange={(e) => {
+                  const idx = Number(e.target.value);
+                  if (!Number.isFinite(idx) || !SIMULATOR_TEMPLATES[idx]) return;
+                  const cfg = materializeTemplate(SIMULATOR_TEMPLATES[idx], idx);
+                  const text = JSON.stringify(cfg, null, 2);
+                  activeConfigTextRef.current = text;
+                  setConfigText(text);
+                  setActiveConfig(cfg);
+                  setResult(null);
+                  setError(null);
+                }}
+              >
+                {SIMULATOR_TEMPLATES.map((t, i) => (
+                  <option key={t.name} value={i}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label style={label}>
                 Jackpot config (JSON)
                 {cameFromCreationFlow && (
