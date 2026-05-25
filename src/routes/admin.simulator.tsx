@@ -28,46 +28,48 @@ import {
 } from "recharts";
 
 /**
- * Motive8 production-compliant simulation templates.
+ * Incentiv8 production-ready simulation templates.
  * These drive the template <select> and the initial textarea state, and are
  * engineered to fully populate the 7-card KPI dashboard without tripping
  * the liquidity safety gate on first run.
  */
 export const SIMULATOR_TEMPLATES = [
   {
-    name: "Motive8 Classic Mega Progressive",
+    id: "incentiv8-small-loyalty",
+    name: "Incentiv8 Small-Traffic Loyalty",
     structuralType: "classic",
     triggerOdds: 5000,
     pool: {
-      currentAmount: 5000,
-      minimumAmount: 2000,
-      contributionAmount: 2.0,
+      currentAmount: 500,
+      minimumAmount: 100,
+      contributionAmount: 2.5,
     },
     seed: {
-      currentAmount: 3000,
-      minimumSeedAmount: 2000,
-      maximumSeedAmount: 10000,
-      contributionAmount: 1.2,
+      currentAmount: 500,
+      minimumSeedAmount: 200,
+      maximumSeedAmount: 2000,
+      contributionAmount: 1.0,
     },
     contribution: {
-      houseWeight: 0.4,
+      houseWeight: 0.3,
     },
     enabled: true,
   },
   {
-    name: "Motive8 Value Must-Drop (Fast Growth)",
+    id: "incentiv8-medium-mustdrop",
+    name: "Incentiv8 Medium-Traffic Must-Drop",
     structuralType: "must_drop",
     pool: {
-      currentAmount: 1000,
+      currentAmount: 1500,
       minimumAmount: 500,
-      maximumAmount: 10000,
-      contributionAmount: 3.5,
+      maximumAmount: 5000,
+      contributionAmount: 3.0,
     },
     seed: {
-      currentAmount: 500,
+      currentAmount: 1000,
       minimumSeedAmount: 500,
-      maximumSeedAmount: 2500,
-      contributionAmount: 1.0,
+      maximumSeedAmount: 4000,
+      contributionAmount: 1.2,
     },
     contribution: {
       houseWeight: 0.5,
@@ -75,22 +77,23 @@ export const SIMULATOR_TEMPLATES = [
     enabled: true,
   },
   {
-    name: "Motive8 Frequency Split Campaign",
-    structuralType: "frequency",
-    triggerOdds: 2500,
+    id: "incentiv8-enterprise-mega",
+    name: "Incentiv8 Enterprise Mega Progressive",
+    structuralType: "classic",
+    triggerOdds: 200000,
     pool: {
-      currentAmount: 1500,
-      minimumAmount: 500,
-      contributionAmount: 1.5,
+      currentAmount: 10000,
+      minimumAmount: 5000,
+      contributionAmount: 2.0,
     },
     seed: {
-      currentAmount: 800,
-      minimumSeedAmount: 500,
-      maximumSeedAmount: 2000,
-      contributionAmount: 0.5,
+      currentAmount: 5000,
+      minimumSeedAmount: 3000,
+      maximumSeedAmount: 15000,
+      contributionAmount: 1.2,
     },
     contribution: {
-      houseWeight: 0.2,
+      houseWeight: 0.4,
     },
     enabled: true,
   },
