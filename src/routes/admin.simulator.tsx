@@ -27,25 +27,90 @@ import {
   ReferenceLine,
 } from "recharts";
 
-const DEFAULT_CONFIG: JackpotConfigDTO = {
-  id: 1,
-  name: "Demo Jackpot",
-  type: "AVERAGE",
-  volatility: 5,
-  pool: {
-    currentAmount: 1000,
-    minimumAmount: 500,
-    maximumAmount: 10000,
-    contributionAmount: 2,
-    contributionType: "PERCENTAGE",
+/**
+ * Motive8 production-compliant simulation templates.
+ * These drive the template <select> and the initial textarea state, and are
+ * engineered to fully populate the 7-card KPI dashboard without tripping
+ * the liquidity safety gate on first run.
+ */
+export const SIMULATOR_TEMPLATES = [
+  {
+    name: "Motive8 Classic Mega Progressive",
+    structuralType: "classic",
+    triggerOdds: 5000,
+    pool: {
+      currentAmount: 5000,
+      minimumAmount: 2000,
+      contributionAmount: 2.0,
+    },
+    seed: {
+      currentAmount: 2000,
+      minimumSeedAmount: 2000,
+      maximumSeedAmount: 5000,
+      contributionAmount: 0.8,
+    },
+    contribution: {
+      houseWeight: 0.4,
+    },
+    enabled: true,
   },
-  seed: {
-    currentAmount: 500,
-    targetAmount: 1000,
-    contributionAmount: 1,
-    contributionType: "PERCENTAGE",
+  {
+    name: "Motive8 Value Must-Drop (Fast Growth)",
+    structuralType: "must_drop",
+    pool: {
+      currentAmount: 1000,
+      minimumAmount: 500,
+      maximumAmount: 10000,
+      contributionAmount: 3.5,
+    },
+    seed: {
+      currentAmount: 500,
+      minimumSeedAmount: 500,
+      maximumSeedAmount: 2500,
+      contributionAmount: 1.0,
+    },
+    contribution: {
+      houseWeight: 0.5,
+    },
+    enabled: true,
   },
-};
+  {
+    name: "Motive8 Frequency Split Campaign",
+    structuralType: "frequency",
+    triggerOdds: 2500,
+    pool: {
+      currentAmount: 1500,
+      minimumAmount: 500,
+      contributionAmount: 1.5,
+    },
+    seed: {
+      currentAmount: 800,
+      minimumSeedAmount: 500,
+      maximumSeedAmount: 2000,
+      contributionAmount: 0.5,
+    },
+    contribution: {
+      houseWeight: 0.2,
+    },
+    enabled: true,
+  },
+] as const;
+
+/**
+ * Minimal engine-required fields not present in the public template JSON.
+ * Added at materialization time so templates remain copy-pastable as-is in
+ * docs/onboarding while still satisfying the JackpotConfigDTO contract.
+ */
+function materializeTemplate(template: typeof SIMULATOR_TEMPLATES[number], idx = 0): JackpotConfigDTO {
+  return {
+    id: idx + 1,
+    type: "AVERAGE",
+    volatility: 5,
+    ...(template as unknown as Partial<JackpotConfigDTO>),
+  } as JackpotConfigDTO;
+}
+
+const DEFAULT_CONFIG: JackpotConfigDTO = materializeTemplate(SIMULATOR_TEMPLATES[0], 0);
 
 const panel: React.CSSProperties = {
   background: "#0f172a",
