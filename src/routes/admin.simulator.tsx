@@ -125,6 +125,7 @@ export const SIMULATOR_TEMPLATES = [
     },
     contribution: {
       houseWeight: 0.5,
+      houseFixed: 0.15,
     },
     timed: {
       lifespanMinutes: 10080,
