@@ -265,12 +265,11 @@ const happyHigh: SingleBlueprint = {
         // FREQUENCY engine sees no inflow, which used to surface as the
         // dreaded "all-zeroes" Friday-Rush preset.
         contributionMode: "split",
-        totalContributionAmount: 5,
-        totalContributionType: "percentage",
-        poolWeight: 70,   // 3.5% of wager
-        seedWeight: 30,   // 1.5% of wager
-        houseWeight: 0,   // House cut handled via operatorShare top-skim
-        houseFixedPerSpin: 0.15,
+        totalContributionAmount: 0.15,
+        totalContributionType: "fixed",
+        poolWeight: 60,
+        seedWeight: 20,
+        houseWeight: 20,
       },
       "WEEKLY",
       "FRIDAY",
