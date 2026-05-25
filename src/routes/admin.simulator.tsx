@@ -1367,7 +1367,13 @@ function ComplianceDashboard({
               label="Operator Net Revenue"
               value={`€ ${fmt(operatorRevenue)}`}
               accent="#a855f7"
-              badge={housePct > 0 ? `${housePct.toFixed(1)}% house slice` : "No house split configured"}
+              badge={
+                operatorRevenue > 0
+                  ? `${housePct.toFixed(1)}% house slice`
+                  : housePct > 0
+                    ? `${housePct.toFixed(1)}% house slice`
+                    : "No house split configured"
+              }
             />
           </div>
         </div>
@@ -1399,6 +1405,11 @@ function ComplianceDashboard({
               accent={gateAlert ? "#ef4444" : "#10b981"}
               tone={gateAlert ? "alert" : undefined}
               badge={gateAlert ? "Liquidity gate triggered — review funding" : "Healthy"}
+              subNote={
+                gateAlert
+                  ? "Simulation loop running on zero-accumulation state — subsequent triggers blocked to protect re-seed floor."
+                  : undefined
+              }
             />
           </div>
         </div>
@@ -1406,7 +1417,7 @@ function ComplianceDashboard({
 
       {/* 2. Charts row */}
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12 }}>
-        <MustDropChart data={probabilityCurve.points} mode={probabilityCurve.mode} />
+        <MustDropChart title={escalationTitle} data={probabilityCurve.points} mode={probabilityCurve.mode} />
         <OverflowWaterfallChart data={replay.points} cap={replay.cap} overflowStart={replay.overflowStart} />
       </div>
 
