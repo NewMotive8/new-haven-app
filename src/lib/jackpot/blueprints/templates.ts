@@ -70,6 +70,7 @@ const classicHigh: SingleBlueprint = {
     initialPoolAmount: 1000,
     triggerOdds: 250000,
     operatorShare: 0,
+    houseFixedPerSpin: 0.15,
   },
 };
 
@@ -91,6 +92,7 @@ const classicMid: SingleBlueprint = {
     initialPoolAmount: 250,
     triggerOdds: 50000,
     operatorShare: 15,
+    houseFixedPerSpin: 0.15,
   },
 };
 
@@ -135,6 +137,7 @@ const mustDropHigh: SingleBlueprint = {
     mustDropPeriod: 1,
     triggerOdds: 0,
     operatorShare: 15,
+    houseFixedPerSpin: 0.15,
   },
 };
 
@@ -157,6 +160,7 @@ const mustDropMid: SingleBlueprint = {
     mustDropPeriod: 1,
     triggerOdds: 0,
     operatorShare: 15,
+    houseFixedPerSpin: 0.15,
   },
 };
 
@@ -246,6 +250,7 @@ const happyHigh: SingleBlueprint = {
         poolWeight: 70,   // 3.5% of wager
         seedWeight: 30,   // 1.5% of wager
         houseWeight: 0,   // House cut handled via operatorShare top-skim
+        houseFixedPerSpin: 0.15,
       },
       "WEEKLY",
       "FRIDAY",
@@ -287,6 +292,7 @@ const happyMid: SingleBlueprint = {
         poolWeight: 70,   // 2.8% of wager
         seedWeight: 30,   // 1.2% of wager
         houseWeight: 0,
+        houseFixedPerSpin: 0.15,
       },
       "DAILY",
       "",

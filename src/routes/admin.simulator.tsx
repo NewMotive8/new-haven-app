@@ -54,6 +54,8 @@ export const SIMULATOR_TEMPLATES = [
     },
     contribution: {
       houseWeight: 0.3,
+      // Flat House rake (€/spin) — feeds Corporate P&L card.
+      houseFixed: 0.15,
     },
     enabled: true,
   },
@@ -75,6 +77,7 @@ export const SIMULATOR_TEMPLATES = [
     },
     contribution: {
       houseWeight: 0.5,
+      houseFixed: 0.15,
     },
     enabled: true,
   },
@@ -98,6 +101,7 @@ export const SIMULATOR_TEMPLATES = [
     },
     contribution: {
       houseWeight: 0.4,
+      houseFixed: 0.15,
     },
     enabled: true,
   },
@@ -121,6 +125,7 @@ export const SIMULATOR_TEMPLATES = [
     },
     contribution: {
       houseWeight: 0.5,
+      houseFixed: 0.15,
     },
     timed: {
       lifespanMinutes: 10080,
