@@ -57,7 +57,8 @@ export interface MultiTierSpec {
 export interface MultiBlueprint extends BlueprintMeta {
   kind: "multi";
   group: {
-    contributionType: "percentage";
+    contributionType: "percentage" | "fixed";
+    /** When contributionType="percentage" this is a %; when "fixed" it is €/spin. */
     masterPlayerPercent: number;
     walletType: "internal" | "external";
     /** 0..100. Direct House skim of every player contribution. */
