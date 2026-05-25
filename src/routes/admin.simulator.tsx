@@ -22,6 +22,9 @@ import {
   Legend,
   BarChart,
   Bar,
+  LineChart,
+  Line,
+  ReferenceLine,
 } from "recharts";
 
 const DEFAULT_CONFIG: JackpotConfigDTO = {
