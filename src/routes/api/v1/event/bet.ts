@@ -829,7 +829,7 @@ export const Route = createFileRoute("/api/v1/event/bet")({
         // First-match win evaluation across active DTOs (sandbox-style).
         let win: Record<string, unknown> | null = null;
         for (const jpDto of dtos) {
-          const p = readTriggerProbability(jpDto);
+          const p = effectiveTriggerProbability(jpDto, readTriggerProbability(jpDto), wager);
           if (rng() < p) {
             const winAmount = Number(jpDto.poolBalance) || 0;
             const community = readCommunityConfig(jpDto);
