@@ -336,6 +336,29 @@ function readCommunityConfig(jp: JackpotDTO) {
 // GLI-12/19 compliant secure RNG fallback using Web Crypto API.
 const secureRandomFloat = () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
 
+/**
+ * Wager-proportional trigger probability for Classic / Fixed-Odds jackpots.
+ *
+ * Compliance: a $10 bet must have 10x the per-spin win chance of a $1 bet.
+ * Scaling is gated strictly on `jackpotType === "classic"`; Must-Drop,
+ * Frequency, and any DTO without an explicit kind tag fall through with
+ * `basePIn` unchanged — Must-Drop decay curves are NOT touched.
+ *
+ * Defensive: NaN/negative/Infinity inputs collapse to safe bounds; output
+ * is always a finite number in [0, 1].
+ */
+function effectiveTriggerProbability(
+  jp: Pick<JackpotDTO, "jackpotType">,
+  basePIn: number,
+  wagerIn: number,
+): number {
+  const p = Math.max(0, Number(basePIn) || 0);
+  if (jp.jackpotType !== "classic") return Math.min(1, p);
+  const w = Math.max(0, Number(wagerIn) || 0);
+  return Math.min(1, p * w);
+}
+
+
 export const Route = createFileRoute("/api/v1/event/bet")({
   server: {
     handlers: {
