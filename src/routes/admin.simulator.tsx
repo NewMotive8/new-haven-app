@@ -441,10 +441,20 @@ function SimulatorPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {!result ? (
             <div style={{ ...panel, color: "#64748b", fontSize: 13 }}>
-              Run a simulation to see the executive summary.
+              Run a simulation to see the compliance dashboard.
             </div>
           ) : (
-            <ResultsSummary result={result} config={activeConfig} />
+            <>
+              <ComplianceDashboard result={result} config={activeConfig} wager={wager} />
+              <details style={{ ...panel, padding: 14 }}>
+                <summary style={{ cursor: "pointer", color: "#9fb0c8", fontSize: 13, fontWeight: 600 }}>
+                  Raw engine output (legacy ledger &amp; math audit)
+                </summary>
+                <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 12 }}>
+                  <ResultsSummary result={result} config={activeConfig} />
+                </div>
+              </details>
+            </>
           )}
         </div>
       </div>
