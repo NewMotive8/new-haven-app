@@ -1737,20 +1737,38 @@ function buildFairnessRows(
   config: JackpotConfigDTO | null,
   wager: number,
 ): FairnessRow[] {
-  const baseProb = configuredProbability(config, "jackpot");
   const referenceWager = 1;
   const rows: FairnessRow[] = [];
 
-  // Mix recent wins with a sample of losses to prove the ratio works at any wager.
+  // Must-drop has no fixed configured probability — synthesize a baseline
+  // from the escalation curve so the table isn't all em-dashes.
+  const isMustDrop = (config as any)?.structuralType === "MUST_DROP";
+  const curve = isMustDrop ? buildProbabilityCurve(config, result, wager).points : [];
+  const curveBase = curve.length > 0 ? curve[0].probability : 0;
+  const configuredBase = configuredProbability(config, "jackpot");
+  const baseProb = configuredBase > 0 ? configuredBase : curveBase;
+
+  // Sample the curve at a given spin index (must-drop only).
+  const probAtSpin = (spin: number): number => {
+    if (!isMustDrop || curve.length === 0) return baseProb;
+    let chosen = curve[0].probability;
+    for (const p of curve) {
+      if (p.spin <= spin) chosen = p.probability;
+      else break;
+    }
+    return chosen;
+  };
+
+  // Recent wins.
   const wins = (result.winEvents ?? []).slice(-12);
   for (const w of wins) {
-    // For visualization we vary the demonstrated wager to make proportional scaling visible.
     const demoWager = wager;
+    const rowBase = isMustDrop ? probAtSpin(w.iteration) : baseProb;
     rows.push({
       spinId: w.iteration,
       wager: demoWager,
-      baseProb,
-      effectiveProb: Math.min(1, baseProb * (demoWager / referenceWager)),
+      baseProb: rowBase,
+      effectiveProb: Math.min(1, rowBase * (demoWager / referenceWager)),
       result: "WIN",
       payout: w.amount,
     });
@@ -1764,11 +1782,12 @@ function buildFairnessRows(
   for (let i = 0; i < lossWagers.length && rows.length < 25; i++) {
     const w = lossWagers[i];
     const spinId = Math.round(((i + 1) / (lossWagers.length + 1)) * totalSpins);
+    const rowBase = isMustDrop ? probAtSpin(spinId) : baseProb;
     rows.push({
       spinId,
       wager: w,
-      baseProb,
-      effectiveProb: Math.min(1, baseProb * (w / referenceWager)),
+      baseProb: rowBase,
+      effectiveProb: Math.min(1, rowBase * (w / referenceWager)),
       result: "LOSS",
     });
   }
