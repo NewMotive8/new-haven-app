@@ -70,12 +70,6 @@ const classicHigh: SingleBlueprint = {
     initialPoolAmount: 1000,
     triggerOdds: 250000,
     operatorShare: 0,
-    contributionMode: "split",
-    totalContributionType: "fixed",
-    totalContributionAmount: 0.15,
-    poolWeight: 60,
-    seedWeight: 20,
-    houseWeight: 20,
   },
 };
 
@@ -97,12 +91,6 @@ const classicMid: SingleBlueprint = {
     initialPoolAmount: 250,
     triggerOdds: 50000,
     operatorShare: 15,
-    contributionMode: "split",
-    totalContributionType: "fixed",
-    totalContributionAmount: 0.15,
-    poolWeight: 60,
-    seedWeight: 20,
-    houseWeight: 20,
   },
 };
 
@@ -147,12 +135,6 @@ const mustDropHigh: SingleBlueprint = {
     mustDropPeriod: 1,
     triggerOdds: 0,
     operatorShare: 15,
-    contributionMode: "split",
-    totalContributionType: "fixed",
-    totalContributionAmount: 0.15,
-    poolWeight: 60,
-    seedWeight: 20,
-    houseWeight: 20,
   },
 };
 
@@ -175,12 +157,6 @@ const mustDropMid: SingleBlueprint = {
     mustDropPeriod: 1,
     triggerOdds: 0,
     operatorShare: 15,
-    contributionMode: "split",
-    totalContributionType: "fixed",
-    totalContributionAmount: 0.15,
-    poolWeight: 60,
-    seedWeight: 20,
-    houseWeight: 20,
   },
 };
 
@@ -265,11 +241,11 @@ const happyHigh: SingleBlueprint = {
         // FREQUENCY engine sees no inflow, which used to surface as the
         // dreaded "all-zeroes" Friday-Rush preset.
         contributionMode: "split",
-        totalContributionAmount: 0.15,
-        totalContributionType: "fixed",
-        poolWeight: 60,
-        seedWeight: 20,
-        houseWeight: 20,
+        totalContributionAmount: 5,
+        totalContributionType: "percentage",
+        poolWeight: 70,   // 3.5% of wager
+        seedWeight: 30,   // 1.5% of wager
+        houseWeight: 0,   // House cut handled via operatorShare top-skim
       },
       "WEEKLY",
       "FRIDAY",
@@ -306,11 +282,11 @@ const happyMid: SingleBlueprint = {
         // Active enterprise split — keeps pool & seed contributions non-zero
         // when the blueprint is hydrated into the simulator.
         contributionMode: "split",
-        totalContributionAmount: 0.15,
-        totalContributionType: "fixed",
-        poolWeight: 60,
-        seedWeight: 20,
-        houseWeight: 20,
+        totalContributionAmount: 4,
+        totalContributionType: "percentage",
+        poolWeight: 70,   // 2.8% of wager
+        seedWeight: 30,   // 1.2% of wager
+        houseWeight: 0,
       },
       "DAILY",
       "",
@@ -367,7 +343,7 @@ const multiHigh: MultiBlueprint = {
     "Four-tier network progressive — Mini → Mega — with a 100k Mega cap and slow pacing.",
   targetGameTypes: ["Slots", "Live Casino"],
   kind: "multi",
-  group: { contributionType: "fixed", masterPlayerPercent: 0.25, walletType: "external", operatorShare: 20 },
+  group: { contributionType: "percentage", masterPlayerPercent: 2.0, walletType: "external", operatorShare: 15 },
   tiers: [
     { tierName: "Mini", tierRank: 1, tierType: "classic", splitSharePct: 10, seedAmount: 50, reseedingAmount: 50, triggerOdds: 5000 },
     { tierName: "Minor", tierRank: 2, tierType: "classic", splitSharePct: 20, seedAmount: 250, reseedingAmount: 250, triggerOdds: 35000 },
@@ -385,7 +361,7 @@ const multiMid: MultiBlueprint = {
   objective: "Tight three-tier ladder — Bronze, Silver, Gold — with a capped Gold Elite drop.",
   targetGameTypes: ["Slots"],
   kind: "multi",
-  group: { contributionType: "fixed", masterPlayerPercent: 0.25, walletType: "external", operatorShare: 20 },
+  group: { contributionType: "percentage", masterPlayerPercent: 1.5, walletType: "external", operatorShare: 15 },
   tiers: [
     { tierName: "Bronze Mini", tierRank: 1, tierType: "classic", splitSharePct: 20, seedAmount: 25, reseedingAmount: 25, triggerOdds: 8000 },
     { tierName: "Silver Mid", tierRank: 2, tierType: "classic", splitSharePct: 30, seedAmount: 200, reseedingAmount: 200, triggerOdds: 45000 },

@@ -158,7 +158,6 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
 
   // ── v2: jackpot-level contribution split + trigger odds.
   const contributionMode = payload.contributionMode === "split" ? "split" : "legacy";
-  const houseFixedPerSpin = num((payload as any).houseFixedPerSpin, 0);
   const contribution =
     contributionMode === "split"
       ? {
@@ -171,11 +170,8 @@ export function mapPayloadToConfig(payload: JackpotSavePayload): JackpotConfigDT
           poolWeight: num(payload.poolWeight, 60),
           seedWeight: num(payload.seedWeight, 30),
           houseWeight: num(payload.houseWeight, 10),
-          ...(houseFixedPerSpin > 0 ? { houseFixed: houseFixedPerSpin } : {}),
         }
-      : houseFixedPerSpin > 0
-        ? { mode: "legacy" as const, houseFixed: houseFixedPerSpin }
-        : undefined;
+      : undefined;
 
   // Must-Drop / Frequency cannot carry trigger odds (validation already enforced).
   const triggerOdds = structuralType === "CLASSIC" ? num(payload.triggerOdds, 0) : 0;

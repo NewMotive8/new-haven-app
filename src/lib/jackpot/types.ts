@@ -91,13 +91,6 @@ export interface ContributionSplitDTO {
   poolWeight?: number;
   seedWeight?: number;
   houseWeight?: number;
-  /**
-   * Flat House rake in €/spin layered on top of the player-funded split.
-   * Drives the Corporate P&L card: jackpot rake yield = iterations × houseFixed.
-   * Not consumed by the contribution engine — pure corporate-accounting overlay
-   * so player contributions to the progressive stay whole (GLI-11).
-   */
-  houseFixed?: number;
   /** How this jackpot behaves when several active jackpots match the same spin. */
   overlappingRule?: "split" | "additive";
 }

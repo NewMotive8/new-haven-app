@@ -57,14 +57,11 @@ export interface MultiTierSpec {
 export interface MultiBlueprint extends BlueprintMeta {
   kind: "multi";
   group: {
-    contributionType: "percentage" | "fixed";
-    /** When contributionType="percentage" this is a %; when "fixed" it is €/spin. */
+    contributionType: "percentage";
     masterPlayerPercent: number;
     walletType: "internal" | "external";
     /** 0..100. Direct House skim of every player contribution. */
     operatorShare?: number;
-    /** Flat House rake in €/spin, layered on top of the player split. */
-    houseFixedPerSpin?: number;
   };
   tiers: MultiTierSpec[];
 }

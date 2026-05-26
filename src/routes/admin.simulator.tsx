@@ -53,12 +53,7 @@ export const SIMULATOR_TEMPLATES = [
       contributionAmount: 1.0,
     },
     contribution: {
-      mode: "split",
-      totalContributionType: "FIXED",
-      totalContributionAmount: 0.15,
-      poolWeight: 60,
-      seedWeight: 20,
-      houseWeight: 20,
+      houseWeight: 0.3,
     },
     enabled: true,
   },
@@ -79,12 +74,7 @@ export const SIMULATOR_TEMPLATES = [
       contributionAmount: 1.2,
     },
     contribution: {
-      mode: "split",
-      totalContributionType: "FIXED",
-      totalContributionAmount: 0.15,
-      poolWeight: 60,
-      seedWeight: 20,
-      houseWeight: 20,
+      houseWeight: 0.5,
     },
     enabled: true,
   },
@@ -107,12 +97,7 @@ export const SIMULATOR_TEMPLATES = [
       contributionAmount: 1.2,
     },
     contribution: {
-      mode: "split",
-      totalContributionType: "FIXED",
-      totalContributionAmount: 0.15,
-      poolWeight: 60,
-      seedWeight: 20,
-      houseWeight: 20,
+      houseWeight: 0.4,
     },
     enabled: true,
   },
@@ -135,12 +120,7 @@ export const SIMULATOR_TEMPLATES = [
       contributionAmount: 1.5,
     },
     contribution: {
-      mode: "split",
-      totalContributionType: "FIXED",
-      totalContributionAmount: 0.15,
-      poolWeight: 60,
-      seedWeight: 20,
-      houseWeight: 20,
+      houseWeight: 0.5,
     },
     timed: {
       lifespanMinutes: 10080,
@@ -1605,7 +1585,6 @@ function ComplianceDashboard({
     </>
   );
 }
-
 
 function ComplianceKpi({
   label,
