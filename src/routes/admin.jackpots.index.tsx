@@ -352,7 +352,7 @@ function JackpotsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-neutral-500 dark:text-neutral-400">Total Jackpots</p>
-                <p className="text-3xl font-semibold mt-2 text-white">{rows.length}</p>
+                <p className="text-3xl font-semibold mt-2 text-neutral-900 dark:text-white">{rows.length}</p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center text-2xl">🎰</div>
             </div>
@@ -361,7 +361,7 @@ function JackpotsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-neutral-500 dark:text-neutral-400">Current Pool Value</p>
-                <p className="text-3xl font-semibold mt-2 text-white">{formatCurrency(totalCurrentValue)}</p>
+                <p className="text-3xl font-semibold mt-2 text-neutral-900 dark:text-white">{formatCurrency(totalCurrentValue)}</p>
                 <p className="text-[10px] text-neutral-500 mt-1">page total · single jackpots</p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center text-2xl">💰</div>
@@ -371,7 +371,7 @@ function JackpotsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-neutral-500 dark:text-neutral-400">Total Payouts</p>
-                <p className="text-3xl font-semibold mt-2 text-white">—</p>
+                <p className="text-3xl font-semibold mt-2 text-neutral-900 dark:text-white">—</p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-purple-500/10 flex items-center justify-center text-2xl">💎</div>
             </div>
@@ -380,7 +380,7 @@ function JackpotsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-neutral-500 dark:text-neutral-400">Total Wins</p>
-                <p className="text-3xl font-semibold mt-2 text-white">—</p>
+                <p className="text-3xl font-semibold mt-2 text-neutral-900 dark:text-white">—</p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-yellow-500/10 flex items-center justify-center text-2xl">🏆</div>
             </div>
