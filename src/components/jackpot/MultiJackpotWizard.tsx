@@ -1227,6 +1227,19 @@ export function MultiJackpotWizard() {
           },
         ]);
       }
+      setLastSnapshot({
+        strategyId: null,
+        presetLabel: `Ladder preset · ${presetId}`,
+        tiers: suggestions.map((sug) => ({
+          tierRank: sug.tierRank,
+          splitShare: round2(sug.splitShare),
+          seedAmount: round2(sug.reseedingAmount),
+          reseedingAmount: round2(sug.reseedingAmount),
+          poolWeight: sug.poolWeight,
+          seedWeight: sug.seedWeight,
+          houseWeight: sug.houseWeight,
+        })),
+      });
       toast.success(`Created ${suggestions.length} tiers from preset.`);
     } catch (err: any) {
       toast.error(err?.response?.data?.error ?? err?.message ?? "Failed to build preset");
