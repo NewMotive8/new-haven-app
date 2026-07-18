@@ -509,6 +509,10 @@ export function MultiJackpotWizard() {
   const [suggestionPreview, setSuggestionPreview] =
     React.useState<{ tiers: SuggestedTier[]; strategy: StrategyId } | null>(null);
   const [applyingSuggestion, setApplyingSuggestion] = React.useState(false);
+  // Snapshot of the last preset / suggestion applied. Used to compute drift.
+  const [lastSnapshot, setLastSnapshot] = React.useState<LadderSnapshot | null>(null);
+  // When editing an existing tier, this holds its jackpot id. Null = create mode.
+  const [editingChildId, setEditingChildId] = React.useState<number | null>(null);
 
   const sharesTotal = React.useMemo(
     () => savedChildren.reduce((acc, c) => acc + c.splitShare, 0),
@@ -517,6 +521,14 @@ export function MultiJackpotWizard() {
   // Compare as integer hundredths to avoid float drift.
   const sharesValid =
     savedChildren.length > 0 && Math.round(sharesTotal * 100) === 10000;
+
+  const activeStrategy: StrategyId =
+    (STRATEGIES[suggestionIndex]?.id ?? "balanced") as StrategyId;
+  const drift = React.useMemo(
+    () => computeDrift(savedChildren, lastSnapshot, sharesTotal),
+    [savedChildren, lastSnapshot, sharesTotal],
+  );
+
 
   function nextRank() {
     return Math.max(0, ...savedChildren.map((c) => c.tierRank)) + 1;
