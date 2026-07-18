@@ -1755,12 +1755,12 @@ function TierLadder({
                 </div>
               </div>
               <div>
-                <div className="text-neutral-500 uppercase tracking-wider">Share</div>
+                <div className="text-neutral-500 uppercase tracking-wider">Cont. Share</div>
                 <div className="text-white font-mono">{c.splitShare.toFixed(2)}%</div>
               </div>
               <div>
                 <div className="text-neutral-500 uppercase tracking-wider">
-                  Derived
+                  Cont. Amount
                 </div>
                 <div className="text-white font-mono">
                   {formatDerivedRate(
