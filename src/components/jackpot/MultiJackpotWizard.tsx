@@ -1384,25 +1384,53 @@ export function MultiJackpotWizard() {
             />
 
 
-            {savedChildren.length >= 2 && (
-              <SuggestBar
+            {savedChildren.length > 0 && (
+              <SuggestionsPanel
+                drift={drift}
                 strategyIndex={suggestionIndex}
+                lastSnapshot={lastSnapshot}
+                canReSuggest={savedChildren.length >= 2}
+                busy={applyingSuggestion}
                 onCycle={cycleSuggestion}
-                onOpen={() => openSuggestionPreview(suggestionIndex)}
-                disabled={applyingSuggestion}
+                onReSuggest={() => openSuggestionPreview(suggestionIndex)}
+                onRebalance={() => {
+                  void rebalanceShares();
+                }}
               />
             )}
 
-            <TierLadder savedChildren={savedChildren} group={group} />
+            <TierLadder
+              savedChildren={savedChildren}
+              group={group}
+              snapshot={lastSnapshot}
+              onEdit={openEditDraft}
+              onRemove={(c) => {
+                void removeTier(c);
+              }}
+              editingChildId={editingChildId}
+            />
 
 
             {draft ? (
               <DraftTierCard
                 draft={draft}
                 group={group}
-                remaining={Math.max(0, 100 - sharesTotal)}
+                isEdit={editingChildId !== null}
+                remaining={Math.max(
+                  0,
+                  100 -
+                    (sharesTotal -
+                      (editingChildId !== null
+                        ? savedChildren.find(
+                            (c) => c.jackpotId === editingChildId,
+                          )?.splitShare ?? 0
+                        : 0)),
+                )}
                 onChange={patchDraft}
-                onCancel={() => setDraft(null)}
+                onCancel={() => {
+                  setDraft(null);
+                  setEditingChildId(null);
+                }}
                 onSave={saveDraft}
                 submitting={submitting}
               />
@@ -1415,6 +1443,7 @@ export function MultiJackpotWizard() {
                 <Plus className="w-5 h-5" /> Add New Tier
               </button>
             )}
+
 
             <div className="mt-10 flex items-center justify-between">
               <Button
