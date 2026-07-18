@@ -1114,6 +1114,21 @@ export function MultiJackpotWizard() {
           onActivate={handleActivate}
         />
       )}
+
+      {suggestionPreview && group && (
+        <SuggestionPreviewDialog
+          open={Boolean(suggestionPreview)}
+          onClose={() => setSuggestionPreview(null)}
+          tiers={suggestionPreview.tiers}
+          strategy={suggestionPreview.strategy}
+          group={group}
+          hasExisting={savedChildren.length > 0}
+          applying={applyingSuggestion}
+          onCycle={cycleSuggestion}
+          onApply={applySuggestion}
+          onSimulate={simulateSuggestion}
+        />
+      )}
     </div>
   );
 }
