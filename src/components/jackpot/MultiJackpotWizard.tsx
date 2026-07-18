@@ -826,8 +826,10 @@ export function MultiJackpotWizard() {
   async function applyLadderPreset(presetId: LadderPresetId) {
     if (!group) return;
     if (savedChildren.length > 0) {
-      toast.error("Ladder presets are only available when no tiers exist yet.");
-      return;
+      const ok = window.confirm(
+        `This will delete the ${savedChildren.length} existing tier(s) and rebuild them from the selected template. Continue?`,
+      );
+      if (!ok) return;
     }
     const suggestions = buildLadderPreset(
       presetId,
@@ -835,6 +837,21 @@ export function MultiJackpotWizard() {
       group.contributionType,
     );
     setApplyingSuggestion(true);
+    try {
+      // Wipe existing children first so the preset rebuilds cleanly.
+      for (const existing of savedChildren) {
+        try {
+          await axios.delete(`/api/v1/jackpots/${existing.jackpotId}`, {
+            headers: { brandId: String(brandId) },
+          });
+        } catch {
+          // Non-fatal: continue; server-side cascade will unlink from group.
+        }
+      }
+      setSavedChildren([]);
+    } catch {
+      /* ignore */
+    }
     try {
       for (let i = 0; i < suggestions.length; i += 1) {
         const sug = suggestions[i];
