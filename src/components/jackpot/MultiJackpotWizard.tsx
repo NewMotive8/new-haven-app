@@ -1484,9 +1484,14 @@ export function MultiJackpotWizard() {
           tiers={suggestionPreview.tiers}
           strategy={suggestionPreview.strategy}
           group={group}
+          tierCount={savedChildren.length}
           hasExisting={savedChildren.length > 0}
           applying={applyingSuggestion}
-          onCycle={cycleSuggestion}
+          onSelectStrategy={(sid) =>
+            openSuggestionPreview(
+              STRATEGIES.findIndex((s) => s.id === sid),
+            )
+          }
           onApply={applySuggestion}
           onSimulate={simulateSuggestion}
         />
