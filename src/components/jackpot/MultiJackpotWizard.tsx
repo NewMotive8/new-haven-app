@@ -46,6 +46,23 @@ import {
   DEFAULT_PRIZE_ECONOMY,
   type PrizeEconomyValue,
 } from "@/components/jackpot/PrizeEconomySelector";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  STRATEGIES,
+  LADDER_PRESETS,
+  suggestTierAllocation,
+  buildLadderPreset,
+  type StrategyId,
+  type LadderPresetId,
+  type SuggestedTier,
+} from "@/lib/jackpot/suggest-allocation";
 
 type ContributionSource = "player" | "operator";
 type ContributionType = "percentage" | "fixed";
