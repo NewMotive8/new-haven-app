@@ -1975,7 +1975,7 @@ function DraftTierCard({
           <span
             className={`px-2 py-0.5 text-[10px] uppercase tracking-wider rounded border ${theme.chip}`}
           >
-            {theme.label} · New tier
+            {theme.label} · {isEdit ? "Editing tier" : "New tier"}
           </span>
           <span className="text-sm text-neutral-400">
             Remaining allocation:{" "}
