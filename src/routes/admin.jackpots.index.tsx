@@ -125,7 +125,7 @@ function StatusBadge({ status }: { status: RowStatus }) {
   const styles: Record<RowStatus, string> = {
     active: "bg-green-500/10 text-green-400 border-green-500/30",
     draft: "bg-blue-500/10 text-blue-400 border-blue-500/30",
-    disabled: "bg-neutral-500/10 text-neutral-400 border-neutral-500/30",
+    disabled: "bg-neutral-500/10 text-neutral-500 dark:text-neutral-400 border-neutral-500/30",
   };
   return (
     <span className={`px-3 py-1 rounded-full text-xs font-medium border ${styles[status]}`}>
@@ -137,7 +137,7 @@ function StatusBadge({ status }: { status: RowStatus }) {
 function AssignedCell({ categories, gameIds }: { categories: string[]; gameIds: number[] }) {
   const total = categories.length + gameIds.length;
   if (total === 0) {
-    return <span className="text-neutral-600">—</span>;
+    return <span className="text-neutral-400 dark:text-neutral-600">—</span>;
   }
   const MAX = 3;
   const catShown = categories.slice(0, MAX);
@@ -164,13 +164,13 @@ function AssignedCell({ categories, gameIds }: { categories: string[]; gameIds: 
       {idsShown.map((id) => (
         <span
           key={`g-${id}`}
-          className="px-1.5 py-0.5 rounded-md text-[11px] font-mono border bg-neutral-800 text-neutral-300 border-neutral-700 shrink-0"
+          className="px-1.5 py-0.5 rounded-md text-[11px] font-mono border bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 shrink-0"
         >
           #{id}
         </span>
       ))}
       {overflow > 0 && (
-        <span className="px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-neutral-700/60 text-neutral-300 shrink-0">
+        <span className="px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-neutral-200 dark:bg-neutral-700/60 text-neutral-700 dark:text-neutral-300 shrink-0">
           +{overflow} more
         </span>
       )}
@@ -332,12 +332,12 @@ function JackpotsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100">
+    <div className="min-h-screen bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100">
       <main className="max-w-[1200px] mx-auto px-6 py-8 space-y-8">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-semibold">Jackpot Dashboard</h1>
-            <p className="text-neutral-400 mt-1 text-sm">Manage and monitor all your jackpots</p>
+            <p className="text-neutral-500 dark:text-neutral-400 mt-1 text-sm">Manage and monitor all your jackpots</p>
           </div>
           <Link to="/admin/jackpots/new">
             <Button size="lg" className="gap-2 bg-blue-500 hover:bg-blue-600 text-white">
@@ -348,38 +348,38 @@ function JackpotsPage() {
         </div>
 
         <div className="grid grid-cols-4 gap-6">
-          <Card className="p-6 bg-neutral-900/50 border-neutral-800">
+          <Card className="p-6 bg-white dark:bg-neutral-900/50 border-neutral-200 dark:border-neutral-800">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-neutral-400">Total Jackpots</p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">Total Jackpots</p>
                 <p className="text-3xl font-semibold mt-2 text-white">{rows.length}</p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center text-2xl">🎰</div>
             </div>
           </Card>
-          <Card className="p-6 bg-neutral-900/50 border-neutral-800">
+          <Card className="p-6 bg-white dark:bg-neutral-900/50 border-neutral-200 dark:border-neutral-800">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-neutral-400">Current Pool Value</p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">Current Pool Value</p>
                 <p className="text-3xl font-semibold mt-2 text-white">{formatCurrency(totalCurrentValue)}</p>
                 <p className="text-[10px] text-neutral-500 mt-1">page total · single jackpots</p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center text-2xl">💰</div>
             </div>
           </Card>
-          <Card className="p-6 bg-neutral-900/50 border-neutral-800">
+          <Card className="p-6 bg-white dark:bg-neutral-900/50 border-neutral-200 dark:border-neutral-800">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-neutral-400">Total Payouts</p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">Total Payouts</p>
                 <p className="text-3xl font-semibold mt-2 text-white">—</p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-purple-500/10 flex items-center justify-center text-2xl">💎</div>
             </div>
           </Card>
-          <Card className="p-6 bg-neutral-900/50 border-neutral-800">
+          <Card className="p-6 bg-white dark:bg-neutral-900/50 border-neutral-200 dark:border-neutral-800">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-neutral-400">Total Wins</p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">Total Wins</p>
                 <p className="text-3xl font-semibold mt-2 text-white">—</p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-yellow-500/10 flex items-center justify-center text-2xl">🏆</div>
@@ -401,7 +401,7 @@ function JackpotsPage() {
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   statusFilter === key
                     ? "bg-blue-500 text-white"
-                    : "bg-neutral-800 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700"
+                    : "bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:text-neutral-200 hover:bg-neutral-200 dark:bg-neutral-700"
                 }`}
               >
                 {label}
@@ -410,38 +410,38 @@ function JackpotsPage() {
           </div>
 
           <div className="relative w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500 dark:text-neutral-400" />
             <Input
               placeholder="Search jackpots..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-neutral-800 border-neutral-700 text-neutral-100 placeholder:text-neutral-500"
+              className="pl-10 bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-500"
             />
           </div>
         </div>
 
-        <Card className="bg-neutral-900/50 border-neutral-800 overflow-hidden">
+        <Card className="bg-white dark:bg-neutral-900/50 border-neutral-200 dark:border-neutral-800 overflow-hidden">
           {isError && (
             <div className="p-4 text-red-400 text-sm">
               Failed to load jackpots: {(error as Error)?.message}
             </div>
           )}
           {groupsQuery.isError && (
-            <div className="p-4 text-amber-400 text-sm border-t border-neutral-800">
+            <div className="p-4 text-amber-400 text-sm border-t border-neutral-200 dark:border-neutral-800">
               Failed to load MultiJackpots: {(groupsQuery.error as Error)?.message ?? "unknown error"}
             </div>
           )}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-neutral-700">
-                  <th className="text-left px-6 py-4 text-sm font-medium text-neutral-400">Name</th>
-                  <th className="text-left px-6 py-4 text-sm font-medium text-neutral-400">Type</th>
-                  <th className="text-left px-6 py-4 text-sm font-medium text-neutral-400">Games / Category</th>
-                  <th className="text-left px-6 py-4 text-sm font-medium text-neutral-400">Status</th>
-                  <th className="text-right px-6 py-4 text-sm font-medium text-neutral-400">Current Value</th>
-                  <th className="text-left px-6 py-4 text-sm font-medium text-neutral-400">Created</th>
-                  <th className="text-center px-6 py-4 text-sm font-medium text-neutral-400">Actions</th>
+                <tr className="border-b border-neutral-200 dark:border-neutral-700">
+                  <th className="text-left px-6 py-4 text-sm font-medium text-neutral-500 dark:text-neutral-400">Name</th>
+                  <th className="text-left px-6 py-4 text-sm font-medium text-neutral-500 dark:text-neutral-400">Type</th>
+                  <th className="text-left px-6 py-4 text-sm font-medium text-neutral-500 dark:text-neutral-400">Games / Category</th>
+                  <th className="text-left px-6 py-4 text-sm font-medium text-neutral-500 dark:text-neutral-400">Status</th>
+                  <th className="text-right px-6 py-4 text-sm font-medium text-neutral-500 dark:text-neutral-400">Current Value</th>
+                  <th className="text-left px-6 py-4 text-sm font-medium text-neutral-500 dark:text-neutral-400">Created</th>
+                  <th className="text-center px-6 py-4 text-sm font-medium text-neutral-500 dark:text-neutral-400">Actions</th>
 
                 </tr>
               </thead>
@@ -466,33 +466,33 @@ function JackpotsPage() {
                   const isActive = r.status === "active";
                   const isBusy = busyId === r.key;
                   return (
-                    <tr key={r.key} className="border-b border-neutral-700/50 hover:bg-neutral-800/30 transition-colors">
+                    <tr key={r.key} className="border-b border-neutral-200 dark:border-neutral-700/50 hover:bg-neutral-100 dark:bg-neutral-800/30 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           {r.kind === "group" && <Layers className="w-4 h-4 text-blue-400" />}
-                          <span className="font-medium text-neutral-100">{r.name}</span>
+                          <span className="font-medium text-neutral-900 dark:text-neutral-100">{r.name}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-sm text-neutral-400">{r.typeLabel}</span>
+                        <span className="text-sm text-neutral-500 dark:text-neutral-400">{r.typeLabel}</span>
                       </td>
                       <td className="px-6 py-4">
                         <AssignedCell categories={r.categories} gameIds={r.gameIds} />
                       </td>
                       <td className="px-6 py-4"><StatusBadge status={r.status} /></td>
                       <td className="px-6 py-4 text-right">
-                        <span className="font-medium text-neutral-100">
+                        <span className="font-medium text-neutral-900 dark:text-neutral-100">
                           {r.kind === "group" ? "—" : formatCurrency(r.poolBalance)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-neutral-400">{created}</td>
+                      <td className="px-6 py-4 text-sm text-neutral-500 dark:text-neutral-400">{created}</td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-center gap-2">
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={() => goView(r)}
-                            className="h-8 px-3 text-neutral-200 hover:text-blue-400"
+                            className="h-8 px-3 text-neutral-800 dark:text-neutral-200 hover:text-blue-400"
                           >
                             <Eye className="w-4 h-4 mr-1.5" /> View
                           </Button>
@@ -514,7 +514,7 @@ function JackpotsPage() {
                                   size="sm"
                                   variant="ghost"
                                   disabled={isBusy}
-                                  className="h-8 w-8 p-0 text-neutral-200 hover:text-blue-400"
+                                  className="h-8 w-8 p-0 text-neutral-800 dark:text-neutral-200 hover:text-blue-400"
                                   aria-label="More actions"
                                 >
                                   <MoreHorizontal className="w-4 h-4" />
@@ -522,7 +522,7 @@ function JackpotsPage() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent
                                 align="end"
-                                className="bg-neutral-900 border-neutral-700 text-neutral-100"
+                                className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100"
                               >
                                 <DropdownMenuItem onClick={() => goEdit(r)}>
                                   <Edit className="w-4 h-4 mr-2" /> Edit
@@ -533,7 +533,7 @@ function JackpotsPage() {
                                 <DropdownMenuItem onClick={() => runAction(r, "clone")}>
                                   <Copy className="w-4 h-4 mr-2" /> Clone
                                 </DropdownMenuItem>
-                                <DropdownMenuSeparator className="bg-neutral-700" />
+                                <DropdownMenuSeparator className="bg-neutral-200 dark:bg-neutral-700" />
                                 <DropdownMenuItem
                                   onClick={() => setConfirm(r)}
                                   className="text-red-400 focus:text-red-300 focus:bg-red-500/10"
@@ -564,41 +564,41 @@ function JackpotsPage() {
             <select
               value={size}
               onChange={(e) => { setSize(Number(e.target.value)); setPage(0); }}
-              className="bg-neutral-800 border border-neutral-700 text-neutral-200 rounded-md px-2 py-1 text-xs"
+              className="bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-md px-2 py-1 text-xs"
             >
               {[10, 20, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
             <button onClick={() => setPage(0)} disabled={!data || data.first}
-              className="px-2 py-1 rounded-md border border-neutral-700 bg-neutral-800 text-neutral-300 disabled:opacity-40 text-xs">« First</button>
+              className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 disabled:opacity-40 text-xs">« First</button>
             <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={!data || data.first}
-              className="px-2 py-1 rounded-md border border-neutral-700 bg-neutral-800 text-neutral-300 disabled:opacity-40 text-xs">‹ Prev</button>
+              className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 disabled:opacity-40 text-xs">‹ Prev</button>
             <span className="min-w-[90px] text-center text-xs">
               Page {(data?.number ?? page) + 1} of {data?.totalPages || 1}
             </span>
             <button onClick={() => setPage((p) => p + 1)} disabled={!data || data.last}
-              className="px-2 py-1 rounded-md border border-neutral-700 bg-neutral-800 text-neutral-300 disabled:opacity-40 text-xs">Next ›</button>
+              className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 disabled:opacity-40 text-xs">Next ›</button>
             <button onClick={() => data && setPage(Math.max(0, data.totalPages - 1))} disabled={!data || data.last}
-              className="px-2 py-1 rounded-md border border-neutral-700 bg-neutral-800 text-neutral-300 disabled:opacity-40 text-xs">Last »</button>
+              className="px-2 py-1 rounded-md border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 disabled:opacity-40 text-xs">Last »</button>
           </div>
         </div>
       </main>
 
       <AlertDialog open={confirm != null} onOpenChange={(o) => !o && setConfirm(null)}>
-        <AlertDialogContent className="bg-neutral-900 border-neutral-700 text-neutral-100">
+        <AlertDialogContent className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100">
           <AlertDialogHeader>
             <AlertDialogTitle>
               Delete {confirm?.kind === "group" ? "MultiJackpot" : "Jackpot"}?
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-neutral-400">
+            <AlertDialogDescription className="text-neutral-500 dark:text-neutral-400">
               This permanently removes{" "}
-              <span className="font-semibold text-neutral-200">
+              <span className="font-semibold text-neutral-800 dark:text-neutral-200">
                 {confirm?.name ?? ""}
               </span>
               . This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-neutral-800 border-neutral-700 hover:bg-neutral-700">
+            <AlertDialogCancel className="bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-200 dark:bg-neutral-700">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
