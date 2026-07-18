@@ -2285,7 +2285,7 @@ function DraftTierCard({
           disabled={submitting || !draft.tierName.trim() || shareInvalid}
           className="bg-blue-500 hover:bg-blue-600"
         >
-          Save tier
+          {isEdit ? "Save changes" : "Save tier"}
         </Button>
       </div>
     </div>
