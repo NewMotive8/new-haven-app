@@ -534,12 +534,76 @@ export function MultiJackpotWizard() {
     return Math.max(0, ...savedChildren.map((c) => c.tierRank)) + 1;
   }
 
+  /**
+   * Open a fresh draft for a new tier. Pre-fill values from the current
+   * suggestion strategy for the projected tier count so the user gets a
+   * sensible baseline they can then hand-tune before saving.
+   */
   function openDraft() {
-    setDraft(newChildDraft(nextRank()));
+    const rank = nextRank();
+    const d = newChildDraft(rank);
+    if (group) {
+      try {
+        const suggestions = suggestTierAllocation({
+          tierCount: savedChildren.length + 1,
+          masterValue: group.masterContributionValue,
+          masterType: group.contributionType,
+          strategy: activeStrategy,
+        });
+        const sug = suggestions.find((s) => s.tierRank === rank);
+        if (sug) {
+          d.tierName = sug.suggestedName;
+          d.splitShare = sug.splitShare.toFixed(2);
+          d.initialPoolAmount = sug.initialPoolAmount.toFixed(2);
+          d.seedAmount = sug.reseedingAmount.toFixed(2);
+          d.reseedingAmount = sug.reseedingAmount.toFixed(2);
+          d.maxPoolAmount = sug.maxPoolAmount.toFixed(2);
+          d.poolWeight = sug.poolWeight;
+          d.seedWeight = sug.seedWeight;
+          d.houseWeight = sug.houseWeight;
+          d.spinsInterval = String(sug.spinsInterval);
+        }
+      } catch {
+        /* fall back to defaults */
+      }
+    }
+    setEditingChildId(null);
+    setDraft(d);
   }
+
+  /**
+   * Open the draft card in edit mode, prefilled from an existing saved tier.
+   * On save, we PUT the existing jackpot and POST the /children upsert
+   * instead of creating a new record.
+   */
+  function openEditDraft(child: SavedChild) {
+    const d = newChildDraft(child.tierRank);
+    d.tierName = child.tierName;
+    d.tierType = child.tierType;
+    d.splitShare = child.splitShare.toFixed(2);
+    d.seedAmount = child.seedAmount.toFixed(2);
+    d.reseedingAmount = child.reseedingAmount.toFixed(2);
+    d.initialPoolAmount = child.reseedingAmount.toFixed(2);
+    d.poolWeight = child.poolWeight;
+    d.seedWeight = child.seedWeight;
+    d.houseWeight = child.houseWeight;
+    if (child.probability > 0) {
+      const spins = Math.max(1, Math.round(1 / child.probability));
+      d.spinsInterval = String(spins);
+    }
+    if (child.maxWinAmount != null) d.maxWinAmount = String(child.maxWinAmount);
+    if (child.fixedWinAmount != null) d.fixedWinAmount = String(child.fixedWinAmount);
+    if (child.maxNumberOfWins != null) d.maxNumberOfWins = String(child.maxNumberOfWins);
+    if (child.maxTotalPayout != null) d.maxTotalPayout = String(child.maxTotalPayout);
+    d.volatility = child.volatility;
+    setEditingChildId(child.jackpotId);
+    setDraft(d);
+  }
+
   function patchDraft(patch: Partial<ChildDraft>) {
     setDraft((prev) => (prev ? { ...prev, ...patch } : prev));
   }
+
 
   // "Master value" persisted to the API mirrors the Single form's logic:
   // store fraction for percent (1% → 0.01), absolute amount for fixed.
