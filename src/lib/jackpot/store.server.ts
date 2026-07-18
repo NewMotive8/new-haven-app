@@ -1110,6 +1110,15 @@ export async function deleteGroup(
     .eq("group_id", id);
   if (detachErr) throw new Error(detachErr.message);
 
+  // Null out the group_id on immutable audit rows so the FK doesn't block
+  // the delete. jackpot_transactions preserves history; the column is
+  // nullable specifically for this cleanup path.
+  const { error: txErr } = await supabaseAdmin
+    .from("jackpot_transactions" as any)
+    .update({ group_id: null } as any)
+    .eq("group_id", id);
+  if (txErr) throw new Error(txErr.message);
+
   const { error } = await supabaseAdmin
     .from("jackpot_groups" as any)
     .delete()
