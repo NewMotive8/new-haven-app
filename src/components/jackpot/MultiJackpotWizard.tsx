@@ -1104,7 +1104,7 @@ export function MultiJackpotWizard() {
               <Button
                 variant="outline"
                 onClick={() => setStep(1)}
-                className="border-neutral-700 text-neutral-200"
+                className="border-neutral-700 bg-neutral-900 text-neutral-200 hover:bg-neutral-800 hover:text-white"
               >
                 <ChevronLeft className="w-4 h-4 mr-1" /> Back
               </Button>
@@ -2168,7 +2168,7 @@ function LaunchGate({
         <Button
           variant="outline"
           onClick={onBack}
-          className="border-neutral-700 text-neutral-200"
+          className="border-neutral-700 bg-neutral-900 text-neutral-200 hover:bg-neutral-800 hover:text-white"
         >
           <ChevronLeft className="w-4 h-4 mr-1" /> Back
         </Button>
@@ -3175,7 +3175,7 @@ function SuggestBar({
           size="sm"
           disabled={disabled}
           onClick={onCycle}
-          className="border-violet-500/40 text-violet-100 hover:bg-violet-500/10"
+          className="border-violet-500/40 bg-neutral-900 text-violet-100 hover:bg-violet-500/20 hover:text-white"
         >
           Cycle strategy
         </Button>
@@ -3283,7 +3283,7 @@ function SuggestionPreviewDialog({
             variant="outline"
             onClick={onCycle}
             disabled={applying}
-            className="border-neutral-700 text-neutral-200"
+            className="border-neutral-700 bg-neutral-900 text-neutral-200 hover:bg-neutral-800 hover:text-white"
           >
             Try another strategy
           </Button>
@@ -3292,7 +3292,7 @@ function SuggestionPreviewDialog({
             variant="outline"
             onClick={onSimulate}
             disabled={applying}
-            className="border-violet-500/40 text-violet-100"
+            className="border-violet-500/40 bg-neutral-900 text-violet-100 hover:bg-violet-500/20 hover:text-white"
           >
             Simulate 10k spins
           </Button>
