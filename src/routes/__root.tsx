@@ -1,3 +1,4 @@
+import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -106,6 +107,12 @@ function RootShell({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var t=localStorage.getItem('incentiv8-theme');if(t!=='light')t='dark';document.documentElement.classList.toggle('dark',t==='dark');document.documentElement.setAttribute('data-theme',t);document.documentElement.style.colorScheme=t;}catch(e){}})();",
+          }}
+        />
         {children}
         <Scripts />
       </body>
@@ -147,12 +154,34 @@ function SandboxBanner() {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const [theme, setTheme] = React.useState<"light" | "dark">("dark");
+  React.useEffect(() => {
+    const read = () => {
+      const stored = window.localStorage.getItem("incentiv8-theme");
+      const t = stored === "light" ? "light" : "dark";
+      setTheme(t);
+    };
+    read();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "incentiv8-theme") read();
+    };
+    window.addEventListener("storage", onStorage);
+    // Poll the html class as an in-tab signal since ThemeToggle mutates it directly.
+    const obs = new MutationObserver(() => {
+      setTheme(document.documentElement.classList.contains("dark") ? "dark" : "light");
+    });
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      obs.disconnect();
+    };
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
       <SandboxBanner />
       <Outlet />
-      <SonnerToaster richColors position="top-right" theme="dark" />
+      <SonnerToaster richColors position="top-right" theme={theme} />
     </QueryClientProvider>
   );
 }
