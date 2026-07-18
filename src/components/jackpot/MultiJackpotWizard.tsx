@@ -1484,9 +1484,14 @@ export function MultiJackpotWizard() {
           tiers={suggestionPreview.tiers}
           strategy={suggestionPreview.strategy}
           group={group}
+          tierCount={savedChildren.length}
           hasExisting={savedChildren.length > 0}
           applying={applyingSuggestion}
-          onCycle={cycleSuggestion}
+          onSelectStrategy={(sid) =>
+            openSuggestionPreview(
+              STRATEGIES.findIndex((s) => s.id === sid),
+            )
+          }
           onApply={applySuggestion}
           onSimulate={simulateSuggestion}
         />
@@ -3682,66 +3687,55 @@ function LadderPresetStrip({
 /* ────────────────────────────────────────────────────────────────── */
 /* Suggest bar (visible with 2+ saved tiers)                           */
 /* ────────────────────────────────────────────────────────────────── */
-function SuggestBar({
-  strategyIndex,
-  onCycle,
-  onOpen,
-  disabled,
-}: {
-  strategyIndex: number;
-  onCycle: () => void;
-  onOpen: () => void;
-  disabled: boolean;
-}) {
-  const strat = STRATEGIES[strategyIndex] ?? STRATEGIES[0];
+/* ────────────────────────────────────────────────────────────────── */
+/* Suggestion preview dialog — compare-3 strategies at a glance        */
+/* ────────────────────────────────────────────────────────────────── */
+
+function fmtCurrency(n: number): string {
+  if (!Number.isFinite(n)) return "—";
+  const abs = Math.abs(n);
+  const digits = abs >= 100 ? 0 : abs >= 10 ? 1 : 2;
+  return `€${n.toLocaleString(undefined, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })}`;
+}
+
+function ShapeSparkline({ values }: { values: number[] }) {
+  const max = Math.max(...values, 1);
   return (
-    <div className="mb-4 rounded-lg border border-violet-500/30 bg-violet-500/5 p-3 flex items-center justify-between gap-3 flex-wrap">
-      <div className="flex items-center gap-2">
-        <Zap className="w-4 h-4 text-violet-300" />
-        <div className="text-sm text-violet-100">
-          Suggest allocation
-          <span className="ml-2 text-xs px-2 py-0.5 rounded-full border border-violet-500/40 bg-violet-500/10 text-violet-200 font-mono">
-            {strat.label}
-          </span>
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={disabled}
-          onClick={onCycle}
-          className="border-violet-500/40 bg-neutral-900 text-violet-100 hover:bg-violet-500/20 hover:text-white"
-        >
-          Cycle strategy
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          disabled={disabled}
-          onClick={onOpen}
-          className="bg-violet-500 hover:bg-violet-600"
-        >
-          Preview suggestion
-        </Button>
-      </div>
+    <div className="flex items-end gap-1 h-8">
+      {values.map((v, i) => {
+        const h = Math.max(6, Math.round((v / max) * 32));
+        return (
+          <div
+            key={i}
+            className="w-2 rounded-sm bg-violet-400/70"
+            style={{ height: `${h}px` }}
+            aria-hidden
+          />
+        );
+      })}
     </div>
   );
 }
 
-/* ────────────────────────────────────────────────────────────────── */
-/* Suggestion preview dialog                                           */
-/* ────────────────────────────────────────────────────────────────── */
+function shortShape(id: StrategyId): string {
+  if (id === "top_heavy") return "Steep — huge top, small base";
+  if (id === "flat_frequent") return "Shallow — even tier sizes";
+  return "Moderate — mid top, steady base";
+}
+
 function SuggestionPreviewDialog({
   open,
   onClose,
   tiers,
   strategy,
   group,
+  tierCount,
   hasExisting,
   applying,
-  onCycle,
+  onSelectStrategy,
   onApply,
   onSimulate,
 }: {
@@ -3750,80 +3744,182 @@ function SuggestionPreviewDialog({
   tiers: SuggestedTier[];
   strategy: StrategyId;
   group: GroupDTO;
+  tierCount: number;
   hasExisting: boolean;
   applying: boolean;
-  onCycle: () => void;
+  onSelectStrategy: (sid: StrategyId) => void;
   onApply: () => void;
   onSimulate: () => void;
 }) {
-  const strat = STRATEGIES.find((s) => s.id === strategy) ?? STRATEGIES[0];
-  const sorted = [...tiers].sort((a, b) => b.tierRank - a.tierRank); // top → bottom
+  const [showDetails, setShowDetails] = React.useState(false);
+
+  // Precompute suggestions for all three strategies so switching is instant.
+  const allSuggestions = React.useMemo(() => {
+    const count = Math.max(2, tierCount || tiers.length || 2);
+    return STRATEGIES.map((s) => {
+      try {
+        return {
+          id: s.id,
+          label: s.label,
+          aggregate: s.aggregateHitOne,
+          tiers: suggestTierAllocation({
+            tierCount: count,
+            masterValue: group.masterContributionValue,
+            masterType: group.contributionType,
+            strategy: s.id,
+          }),
+        };
+      } catch {
+        return { id: s.id, label: s.label, aggregate: s.aggregateHitOne, tiers: [] };
+      }
+    });
+  }, [group.masterContributionValue, group.contributionType, tierCount, tiers.length]);
+
+  const selectedLabel =
+    STRATEGIES.find((s) => s.id === strategy)?.label ?? "Balanced";
+  const sortedSelected = [...tiers].sort((a, b) => b.tierRank - a.tierRank);
+
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-3xl bg-neutral-950 border-neutral-800 text-white">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-violet-300" />
-            Suggested allocation · {strat.label}
+            Pick an allocation strategy
           </DialogTitle>
           <DialogDescription className="text-neutral-400">
-            {strat.description} Aggregate hit rate ≈ 1 in {strat.aggregateHitOne.toLocaleString()} spins.
+            Compare three ladder shapes for your {tierCount} tiers. Click a card to select it.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="overflow-x-auto rounded border border-neutral-800">
-          <table className="w-full text-sm">
-            <thead className="bg-neutral-900 text-neutral-400">
-              <tr>
-                <th className="text-left px-3 py-2 font-medium">Tier</th>
-                <th className="text-right px-3 py-2 font-medium">Share %</th>
-                <th className="text-right px-3 py-2 font-medium">1-in-N</th>
-                <th className="text-right px-3 py-2 font-medium">Reseed</th>
-                <th className="text-right px-3 py-2 font-medium">Max pool</th>
-                <th className="text-right px-3 py-2 font-medium">Avg prize</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((t) => {
-                const theme = rankTheme(t.tierRank);
-                return (
-                  <tr key={t.tierRank} className="border-t border-neutral-800">
-                    <td className="px-3 py-2">
-                      <span
-                        className={`px-2 py-0.5 text-[10px] uppercase tracking-wider rounded border ${theme.chip}`}
-                      >
-                        {theme.label} · {t.suggestedName}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono">{t.splitShare.toFixed(2)}%</td>
-                    <td className="px-3 py-2 text-right font-mono">{t.spinsInterval.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right font-mono">{t.reseedingAmount.toFixed(2)}</td>
-                    <td className="px-3 py-2 text-right font-mono">{t.maxPoolAmount.toFixed(2)}</td>
-                    <td className="px-3 py-2 text-right font-mono">{t.expectedAvgPrize.toFixed(2)}</td>
+        {/* Three comparison cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {allSuggestions.map((s) => {
+            const selected = s.id === strategy;
+            const top = [...s.tiers].sort((a, b) => b.tierRank - a.tierRank)[0];
+            const prizes = [...s.tiers]
+              .sort((a, b) => a.tierRank - b.tierRank)
+              .map((t) => t.expectedAvgPrize);
+            const topPrize = top?.expectedAvgPrize ?? 0;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => onSelectStrategy(s.id)}
+                disabled={applying}
+                className={[
+                  "text-left rounded-lg border p-3 transition-all",
+                  selected
+                    ? "border-violet-400 bg-violet-500/10 ring-2 ring-violet-400/50"
+                    : "border-neutral-800 bg-neutral-900 hover:border-neutral-700 hover:bg-neutral-800/60",
+                ].join(" ")}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-semibold text-white">{s.label}</div>
+                  {selected ? (
+                    <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-violet-500 text-white font-medium">
+                      Selected
+                    </span>
+                  ) : (
+                    <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border border-neutral-700 text-neutral-400">
+                      Pick
+                    </span>
+                  )}
+                </div>
+
+                <div className="mb-2">
+                  <div className="text-[10px] uppercase tracking-wider text-neutral-500">
+                    Top prize
+                  </div>
+                  <div className="text-lg font-bold font-mono text-white leading-tight">
+                    {fmtCurrency(topPrize)}
+                  </div>
+                </div>
+
+                <div className="mb-2">
+                  <div className="text-[10px] uppercase tracking-wider text-neutral-500">
+                    Hit cadence
+                  </div>
+                  <div className="text-sm text-neutral-200">
+                    ~1 in {s.aggregate.toLocaleString()} spins
+                  </div>
+                </div>
+
+                <div className="mb-1">
+                  <div className="text-[10px] uppercase tracking-wider text-neutral-500 mb-1">
+                    Prize shape
+                  </div>
+                  <ShapeSparkline values={prizes} />
+                </div>
+
+                <div className="text-[11px] text-neutral-400 mt-1">
+                  {shortShape(s.id)}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Progressive disclosure: per-tier breakdown */}
+        <div className="mt-1">
+          <button
+            type="button"
+            onClick={() => setShowDetails((v) => !v)}
+            className="text-xs text-neutral-400 hover:text-white flex items-center gap-1"
+          >
+            <ChevronRight
+              className={`w-3.5 h-3.5 transition-transform ${showDetails ? "rotate-90" : ""}`}
+            />
+            {showDetails ? "Hide" : "Show"} per-tier breakdown for {selectedLabel}
+          </button>
+
+          {showDetails && (
+            <div className="mt-2 overflow-x-auto rounded border border-neutral-800">
+              <table className="w-full text-sm">
+                <thead className="bg-neutral-900 text-neutral-400">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium">Tier</th>
+                    <th className="text-right px-3 py-2 font-medium">Share %</th>
+                    <th className="text-right px-3 py-2 font-medium">1-in-N</th>
+                    <th className="text-right px-3 py-2 font-medium">Reseed</th>
+                    <th className="text-right px-3 py-2 font-medium">Max pool</th>
+                    <th className="text-right px-3 py-2 font-medium">Avg prize</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                </thead>
+                <tbody>
+                  {sortedSelected.map((t) => {
+                    const theme = rankTheme(t.tierRank);
+                    return (
+                      <tr key={t.tierRank} className="border-t border-neutral-800">
+                        <td className="px-3 py-2">
+                          <span
+                            className={`px-2 py-0.5 text-[10px] uppercase tracking-wider rounded border ${theme.chip}`}
+                          >
+                            {theme.label} · {t.suggestedName}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono">{t.splitShare.toFixed(2)}%</td>
+                        <td className="px-3 py-2 text-right font-mono">{t.spinsInterval.toLocaleString()}</td>
+                        <td className="px-3 py-2 text-right font-mono">{t.reseedingAmount.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right font-mono">{t.maxPoolAmount.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right font-mono">{t.expectedAvgPrize.toFixed(2)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {hasExisting && (
-          <div className="text-xs text-amber-300 flex items-start gap-1.5 mt-2">
+          <div className="text-xs text-amber-300 flex items-start gap-1.5 mt-1">
             <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
             Applying will overwrite split shares, seeds, pool sizes and weights on {tiers.length} existing tier(s).
           </div>
         )}
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onCycle}
-            disabled={applying}
-            className="border-neutral-700 bg-neutral-900 text-neutral-200 hover:bg-neutral-800 hover:text-white"
-          >
-            Try another strategy
-          </Button>
           <Button
             type="button"
             variant="outline"
@@ -3839,7 +3935,7 @@ function SuggestionPreviewDialog({
             disabled={applying}
             className="bg-blue-500 hover:bg-blue-600"
           >
-            {applying ? "Applying…" : "Apply to all tiers"}
+            {applying ? "Applying…" : `Apply ${selectedLabel} to all tiers`}
           </Button>
         </DialogFooter>
       </DialogContent>
