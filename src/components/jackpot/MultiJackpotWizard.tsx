@@ -1672,9 +1672,17 @@ function MasterRecap({ group }: { group: GroupDTO }) {
 function TierLadder({
   savedChildren,
   group,
+  snapshot,
+  onEdit,
+  onRemove,
+  editingChildId,
 }: {
   savedChildren: SavedChild[];
   group: GroupDTO;
+  snapshot: LadderSnapshot | null;
+  onEdit: (child: SavedChild) => void;
+  onRemove: (child: SavedChild) => void;
+  editingChildId: number | null;
 }) {
   if (savedChildren.length === 0) {
     return (
@@ -1693,10 +1701,12 @@ function TierLadder({
       {sorted.map((c, idx) => {
         const theme = rankTheme(c.tierRank);
         const { Icon } = theme;
+        const edited = isRowEdited(c, snapshot);
+        const isEditing = editingChildId === c.jackpotId;
         return (
           <div
             key={c.jackpotId}
-            className={`relative rounded-xl border bg-neutral-900/60 p-4 flex items-center gap-4 ${theme.border}`}
+            className={`relative rounded-xl border bg-neutral-900/60 p-4 flex items-center gap-4 ${theme.border} ${isEditing ? "ring-2 ring-blue-500/60" : ""}`}
           >
             <div
               className={`absolute inset-y-0 left-0 w-1 rounded-l-xl bg-gradient-to-b ${theme.bar}`}
@@ -1717,6 +1727,15 @@ function TierLadder({
                 {idx === 0 && (
                   <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border border-blue-400/40 bg-blue-400/10 text-blue-200">
                     Top tier
+                  </span>
+                )}
+                {edited && (
+                  <span
+                    title="Edited since last suggestion"
+                    className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border border-amber-400/40 bg-amber-400/10 text-amber-200"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-300" />
+                    Edited
                   </span>
                 )}
               </div>
@@ -1752,6 +1771,26 @@ function TierLadder({
                 </div>
               </div>
             </div>
+            <div className="flex items-center gap-1 ml-2 shrink-0">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onEdit(c)}
+                className="h-8 px-2 text-neutral-300 hover:text-white hover:bg-neutral-800"
+              >
+                Edit
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onRemove(c)}
+                className="h-8 px-2 text-red-300 hover:text-red-100 hover:bg-red-500/10"
+              >
+                Delete
+              </Button>
+            </div>
           </div>
         );
       })}
@@ -1760,11 +1799,148 @@ function TierLadder({
 }
 
 /* ────────────────────────────────────────────────────────────────── */
+/* Suggestions Panel — drift-aware controls                           */
+/* ────────────────────────────────────────────────────────────────── */
+function SuggestionsPanel({
+  drift,
+  strategyIndex,
+  lastSnapshot,
+  canReSuggest,
+  busy,
+  onCycle,
+  onReSuggest,
+  onRebalance,
+}: {
+  drift: {
+    status: DriftStatus;
+    sharesOff: boolean;
+    editedCount: number;
+    countDelta: number;
+  };
+  strategyIndex: number;
+  lastSnapshot: LadderSnapshot | null;
+  canReSuggest: boolean;
+  busy: boolean;
+  onCycle: () => void;
+  onReSuggest: () => void;
+  onRebalance: () => void;
+}) {
+  const strategy = STRATEGIES[strategyIndex % STRATEGIES.length];
+  const { statusLabel, statusTone, detail } = describeDrift(drift, lastSnapshot);
+  return (
+    <div className="mb-4 rounded-xl border border-neutral-800 bg-neutral-950/60 p-4 flex flex-wrap items-center gap-3">
+      <div className="flex items-center gap-2 min-w-0">
+        <span
+          className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border ${statusTone}`}
+        >
+          {statusLabel}
+        </span>
+        <div className="text-sm text-neutral-300 truncate">{detail}</div>
+      </div>
+      <div className="ml-auto flex flex-wrap items-center gap-2">
+        {drift.sharesOff && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={onRebalance}
+            disabled={busy}
+            className="border-amber-400/40 bg-neutral-900 text-amber-200 hover:bg-amber-500/10"
+          >
+            Rebalance shares to 100%
+          </Button>
+        )}
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={onCycle}
+          disabled={busy}
+          className="border-neutral-700 bg-neutral-900 text-neutral-200 hover:bg-neutral-800"
+        >
+          Strategy: {strategy.label} · Cycle
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          onClick={onReSuggest}
+          disabled={busy || !canReSuggest}
+          className="bg-blue-500 hover:bg-blue-600"
+          title={
+            canReSuggest
+              ? "Preview a full re-suggested ladder"
+              : "Add at least two tiers to unlock re-suggest"
+          }
+        >
+          Re-suggest all tiers
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function describeDrift(
+  drift: {
+    status: DriftStatus;
+    sharesOff: boolean;
+    editedCount: number;
+    countDelta: number;
+  },
+  snap: LadderSnapshot | null,
+): { statusLabel: string; statusTone: string; detail: string } {
+  const base = snap?.presetLabel ? ` from “${snap.presetLabel}”` : "";
+  switch (drift.status) {
+    case "empty":
+      return {
+        statusLabel: "No tiers",
+        statusTone: "border-neutral-700 bg-neutral-800/60 text-neutral-300",
+        detail: "Add a tier or apply a ladder preset to get started.",
+      };
+    case "no_snapshot":
+      return {
+        statusLabel: "No baseline",
+        statusTone: "border-neutral-700 bg-neutral-800/60 text-neutral-300",
+        detail: drift.sharesOff
+          ? "Manual ladder — shares don't add up to 100%."
+          : "Manual ladder — apply a preset or re-suggest to lock a baseline.",
+      };
+    case "in_sync":
+      return {
+        statusLabel: "In sync",
+        statusTone: "border-emerald-400/40 bg-emerald-500/10 text-emerald-200",
+        detail: `Ladder matches the last suggestion${base}.`,
+      };
+    case "value_drift": {
+      const bits: string[] = [];
+      if (drift.editedCount > 0)
+        bits.push(
+          `${drift.editedCount} tier${drift.editedCount === 1 ? "" : "s"} edited`,
+        );
+      if (drift.sharesOff) bits.push("shares off 100%");
+      return {
+        statusLabel: "Edited",
+        statusTone: "border-amber-400/40 bg-amber-500/10 text-amber-200",
+        detail: `${bits.join(" · ")}${base}.`,
+      };
+    }
+    case "structural":
+      return {
+        statusLabel: "Structural change",
+        statusTone: "border-fuchsia-400/40 bg-fuchsia-500/10 text-fuchsia-200",
+        detail: `${drift.countDelta > 0 ? "+" : ""}${drift.countDelta} tier${
+          Math.abs(drift.countDelta) === 1 ? "" : "s"
+        }${base}. Re-suggest to refit the ladder.`,
+      };
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────── */
 /* Inline draft tier card                                             */
 /* ────────────────────────────────────────────────────────────────── */
 function DraftTierCard({
   draft,
   group,
+  isEdit,
   remaining,
   onChange,
   onCancel,
@@ -1773,12 +1949,14 @@ function DraftTierCard({
 }: {
   draft: ChildDraft;
   group: GroupDTO;
+  isEdit: boolean;
   remaining: number;
   onChange: (patch: Partial<ChildDraft>) => void;
   onCancel: () => void;
   onSave: () => void;
   submitting: boolean;
 }) {
+
   const theme = rankTheme(Number(draft.tierRank) || 1);
   const splitShare = Number.parseFloat(draft.splitShare) || 0;
   const derivedText = formatDerivedRate(
