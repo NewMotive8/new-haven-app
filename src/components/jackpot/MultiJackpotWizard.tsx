@@ -1061,12 +1061,12 @@ export function MultiJackpotWizard() {
 
             <MasterRecap group={group} />
 
-            {savedChildren.length === 0 && (
-              <LadderPresetStrip
-                onPick={applyLadderPreset}
-                busy={applyingSuggestion}
-              />
-            )}
+            <LadderPresetStrip
+              onPick={applyLadderPreset}
+              busy={applyingSuggestion}
+              hasChildren={savedChildren.length > 0}
+            />
+
 
             {savedChildren.length >= 2 && (
               <SuggestBar
