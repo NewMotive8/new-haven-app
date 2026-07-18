@@ -313,10 +313,11 @@ interface LadderSnapshotRow {
   houseWeight: number;
 }
 interface LadderSnapshot {
-  strategyId: StrategyId;
+  strategyId: StrategyId | null;
   presetLabel: string;
   tiers: LadderSnapshotRow[];
 }
+
 
 function snapshotRowFromChild(c: SavedChild): LadderSnapshotRow {
   return {
