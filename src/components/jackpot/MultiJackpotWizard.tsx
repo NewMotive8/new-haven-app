@@ -1044,7 +1044,24 @@ export function MultiJackpotWizard() {
 
             <MasterRecap group={group} />
 
+            {savedChildren.length === 0 && (
+              <LadderPresetStrip
+                onPick={applyLadderPreset}
+                busy={applyingSuggestion}
+              />
+            )}
+
+            {savedChildren.length >= 2 && (
+              <SuggestBar
+                strategyIndex={suggestionIndex}
+                onCycle={cycleSuggestion}
+                onOpen={() => openSuggestionPreview(suggestionIndex)}
+                disabled={applyingSuggestion}
+              />
+            )}
+
             <TierLadder savedChildren={savedChildren} group={group} />
+
 
             {draft ? (
               <DraftTierCard
