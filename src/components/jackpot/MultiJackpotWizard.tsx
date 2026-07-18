@@ -1045,8 +1045,26 @@ export function MultiJackpotWizard() {
         });
         return Array.from(byRank.values()).sort((a, b) => a.tierRank - b.tierRank);
       });
+      // Persist a snapshot so subsequent edits register as drift.
+      const stratLabel =
+        STRATEGIES.find((s) => s.id === suggestionPreview.strategy)?.label ??
+        suggestionPreview.strategy;
+      setLastSnapshot({
+        strategyId: suggestionPreview.strategy,
+        presetLabel: `${stratLabel} suggestion`,
+        tiers: suggestions.map((sug, i) => ({
+          tierRank: sortedChildren[i].tierRank,
+          splitShare: round2(sug.splitShare),
+          seedAmount: round2(sug.reseedingAmount),
+          reseedingAmount: round2(sug.reseedingAmount),
+          poolWeight: sug.poolWeight,
+          seedWeight: sug.seedWeight,
+          houseWeight: sug.houseWeight,
+        })),
+      });
       toast.success("Suggestion applied — you can still tweak any tier manually.");
       setSuggestionPreview(null);
+
     } catch (err: any) {
       toast.error(err?.response?.data?.error ?? err?.message ?? "Failed to apply suggestion");
     } finally {
