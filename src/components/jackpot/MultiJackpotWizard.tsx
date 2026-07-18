@@ -1743,8 +1743,14 @@ function TierLadder({
               <div className="text-xs text-neutral-500 mt-0.5 truncate">
                 {c.triggerSummary}
               </div>
+              <div className="text-xs text-neutral-500 mt-0.5 truncate md:hidden">
+                Drop rate:{" "}
+                {c.probability > 0
+                  ? `1 in ${Math.max(1, Math.round(1 / c.probability)).toLocaleString()} spins`
+                  : "—"}
+              </div>
             </div>
-            <div className="hidden md:grid grid-cols-3 gap-6 text-right text-xs">
+            <div className="hidden md:grid grid-cols-4 gap-6 text-right text-xs">
               <div>
                 <div className="text-neutral-500 uppercase tracking-wider">Seed</div>
                 <div className="text-white font-mono">
@@ -1768,6 +1774,14 @@ function TierLadder({
                     group.masterContributionValue,
                     c.splitShare,
                   )}
+                </div>
+              </div>
+              <div>
+                <div className="text-neutral-500 uppercase tracking-wider">Drop Rate</div>
+                <div className="text-white font-mono">
+                  {c.probability > 0
+                    ? `1 in ${Math.max(1, Math.round(1 / c.probability)).toLocaleString()} spins`
+                    : "—"}
                 </div>
               </div>
             </div>
