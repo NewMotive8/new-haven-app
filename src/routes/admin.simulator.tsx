@@ -2186,5 +2186,12 @@ function ReSeedEventLog({
 
 export const Route = createFileRoute("/admin/simulator")({
   ssr: false,
+  validateSearch: (raw: Record<string, unknown>): { preset?: string } => {
+    const out: { preset?: string } = {};
+    if (typeof raw.preset === "string" && raw.preset.length > 0 && raw.preset.length < 20000) {
+      out.preset = raw.preset;
+    }
+    return out;
+  },
   component: SimulatorPage,
 });
