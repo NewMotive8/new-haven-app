@@ -184,9 +184,24 @@ const input: React.CSSProperties = {
 function SimulatorPage() {
   const { brandId } = React.useContext(BrandContext);
   const navigate = useNavigate();
+  const search = Route.useSearch();
   const incoming = useRouterState({
     select: (s) => s.location.state as { jackpotConfig?: JackpotSavePayload } | undefined,
   });
+
+  // Decode ?preset=<b64> — a MultiJackpot Suggest-flow handshake that
+  // pre-loads the textarea with a suggested tier config.
+  const presetConfig = React.useMemo<JackpotConfigDTO | undefined>(() => {
+    if (!search.preset || typeof window === "undefined") return undefined;
+    try {
+      const decoded = atob(search.preset);
+      return JSON.parse(decoded) as JackpotConfigDTO;
+    } catch {
+      return undefined;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const hydratedPayload = React.useMemo<JackpotSavePayload | undefined>(() => {
     if (incoming?.jackpotConfig) return incoming.jackpotConfig;
     if (typeof window === 'undefined') return undefined;
@@ -206,6 +221,7 @@ function SimulatorPage() {
   const [initError, setInitError] = React.useState<string | null>(null);
   const initialConfig = React.useMemo<JackpotConfigDTO>(
     () => {
+      if (presetConfig) return presetConfig;
       if (!hydratedPayload) return DEFAULT_CONFIG;
       try {
         return mapPayloadToConfig(hydratedPayload);
@@ -221,6 +237,7 @@ function SimulatorPage() {
   );
 
   const cameFromCreationFlow = Boolean(originalPayloadRef.current);
+  const cameFromPreset = Boolean(presetConfig);
   const [selectedTemplateIndex, setSelectedTemplateIndex] = React.useState<number>(1);
   // Realistic mass-market wager baseline. Iteration scaling (not wager
   // inflation) is what guarantees the curve engine sees enough volume.
@@ -236,7 +253,7 @@ function SimulatorPage() {
   const [savingDraft, setSavingDraft] = React.useState(false);
 
   React.useEffect(() => {
-    if (cameFromCreationFlow) return;
+    if (cameFromCreationFlow || cameFromPreset) return;
     if (!Number.isFinite(selectedTemplateIndex) || !SIMULATOR_TEMPLATES[selectedTemplateIndex]) return;
     const cfg = materializeTemplate(SIMULATOR_TEMPLATES[selectedTemplateIndex], selectedTemplateIndex);
     const text = JSON.stringify(cfg, null, 2);
@@ -249,7 +266,7 @@ function SimulatorPage() {
     // wager input to a stable 1.00 baseline so comparisons across templates
     // start from the same per-spin economic footing.
     setWager(1);
-  }, [selectedTemplateIndex, cameFromCreationFlow]);
+  }, [selectedTemplateIndex, cameFromCreationFlow, cameFromPreset]);
 
   async function persistJackpot(asDraft: boolean) {
     const payload = originalPayloadRef.current;
@@ -2186,5 +2203,12 @@ function ReSeedEventLog({
 
 export const Route = createFileRoute("/admin/simulator")({
   ssr: false,
+  validateSearch: (raw: Record<string, unknown>): { preset?: string } => {
+    const out: { preset?: string } = {};
+    if (typeof raw.preset === "string" && raw.preset.length > 0 && raw.preset.length < 20000) {
+      out.preset = raw.preset;
+    }
+    return out;
+  },
   component: SimulatorPage,
 });

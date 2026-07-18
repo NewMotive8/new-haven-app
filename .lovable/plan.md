@@ -1,60 +1,78 @@
+# MultiJackpot "Suggest" auto-allocator + ladder presets + simulator handshake
 
-# Verdict on the seed-reserve statement
+Give the admin one-click ways to configure a multi-level jackpot without hand-calculating shares, probabilities, seeds and pool caps.
 
-**Short answer: the mechanic he describes is compliant in principle, but the way he phrased it hides three things an auditor (GLI-12 / MGA / UKGC) will absolutely ask about. If any of those three aren't true in his implementation, it fails.**
+## UX
 
-His model, restated:
-- Fixed seed share per bet: 0.032 SC of every 0.12 SC contribution.
-- All seed shares accumulate in one uncapped "seed reserve" bucket.
-- On a tier win, the tier's full seed amount is deducted from the bucket; pool resets.
-- Surplus stays in the bucket forever — never returns to pools, never returned to players.
+Three cooperating features on the MultiJackpot creation flow.
 
-## Where this is fine
+### A. Ladder Presets (Step 1 → Step 2 handoff)
 
-- **Uncapped seed reserve is not itself a violation.** GLI-12 and MGA don't require a cap on the reserve; they require that every SC collected from players is *accounted for* and *eventually returned to players in aggregate* via jackpot payouts (contributes to game RTP). A running balance = collected − paid is a standard, auditable pattern.
-- **Fixed split (0.032 / 0.12 ≈ 26.67%) is fine** as long as it's disclosed in the paytable/rules and the total theoretical RTP (base game + jackpot contribution routed back as wins) meets the jurisdiction's minimum.
-- **Deterministic deduction on win** (full tier seed comes out of the reserve at reset) is exactly how our engine treats reseed — see `src/lib/jackpot/simulator.ts` waterfall + `live-engine.ts` reset path. Same shape.
+At the top of **Step 2 (Tier Allocation)**, when no tiers exist yet, show a "Quick start" strip with 3 preset cards:
+- **Bronze / Silver / Gold** — 3 tiers, balanced ladder.
+- **4-tier Mega Ladder** — Bronze / Silver / Gold / Platinum, top-heavy.
+- **Twin Tier** — 2 tiers, flat-frequent.
 
-## The three things that decide pass/fail
+Clicking a preset creates and saves all tiers in one shot with sensible defaults (names, ranks, shares, seeds, weights). Admin lands in Step 2 with a fully filled ladder they can tune. The Suggest button (below) then just re-tunes.
 
-An auditor will not accept the statement as written. He needs to prove:
+Manual "Add tier" remains available for admins who want full control.
 
-### 1. The surplus is mathematically bounded / actuarially returned
-"Never goes back to pools or players" is a **red flag phrase**. If seed-share rate × expected bet volume > expected seed-payout frequency × tier seed, the bucket grows without bound → that surplus is effectively operator retention on money collected as "jackpot contribution." That's the classic finding auditors write up as *misleading contribution disclosure* (GLI-12 §2.2, MGA RTS 8/9).
+### B. "Suggest allocation" button
 
-Ask him:
-- What's the steady-state expected value of the reserve at his configured hit rate and bet mix? Show the math.
-- Under what condition does the reserve drain? Is there a documented overflow rule (reseed next tier early, roll into pool, community drop, operator liability write-down)?
-- If the answer is "it just grows," that's a compliance problem regardless of what the paytable says — because contribution was advertised as funding jackpots.
+Sits in the Step 2 header next to the SharesBar. Enabled when ≥ 2 saved tiers exist.
 
-### 2. The reserve is a segregated player-liability balance, not operator revenue
-Same money, different accounting treatment = different legal status.
+- Each click cycles through **3 strategies** in a loop; badge shows which is active:
+  1. **Balanced** — geometric ladder, moderate spread.
+  2. **Top-heavy** — steeper; top prize much larger and rarer.
+  3. **Flat-frequent** — shallow; tiers hit at closer frequencies.
+- Opens a **preview dialog** with a table: Tier · Share % · Derived rate · Suggested reseed · Suggested pool cap · Expected hit frequency · Expected avg prize.
+- Buttons: **Apply to all tiers** / **Cancel** / **Simulate this suggestion** (see C).
+- Applying rewrites `splitShare`, `initialPoolAmount`, `reseedingAmount`, `poolWeight/seedWeight/houseWeight`, and trigger probability of every saved tier (and the open draft) via the existing PATCH endpoint. If tiers were customised, a "This will overwrite N tiers" confirmation appears first.
+- Toast: "Suggestion applied — you can still tweak any tier manually."
 
-Ask him:
-- Is the reserve booked as a **player liability** on the operator's balance sheet (like unpaid jackpot obligations)?
-- If the jackpot is decommissioned / migrated / the license is surrendered, what happens to the reserve? (GLI-12 and every serious regulator require it goes to players — forced drop, transfer to successor jackpot, or refund. "Kept by house" fails.)
-- Is it ring-fenced in the ledger, distinct from the House slice?
+### C. Simulator handshake
 
-### 3. Every SC in and out of the bucket is immutable and reconcilable
-Ask him:
-- Append-only ledger of every seed-share credit (per bet) and every seed-reset debit (per win)?
-- Independent reconciliation: `Σ seed_credits − Σ seed_debits == current_reserve_balance` at any point in time, matches the DB?
-- Retention period ≥ jurisdiction requirement (typically 5 years EU / MGA)?
+Inside the Suggest preview dialog, a **"Simulate 10k spins"** button opens `/admin/simulator` in a new tab with the suggested config pre-loaded, so the admin can see the expected hit distribution before applying.
 
-## How this project handles it (reference)
+Wire-up: serialize the suggested config into the same JSON shape the simulator's textarea already accepts, base64-encode it, and pass via `?preset=<b64>` query param. The simulator route reads the param on mount and hydrates the textarea + runs once. No change to how the simulator engine works — only its bootstrap.
 
-Our engine treats the seed pot differently in a way worth pointing out to him:
+## Math model (`src/lib/jackpot/suggest-allocation.ts`, new)
 
-- `src/lib/jackpot/ledger.ts → resolveContributionSlice()` splits every wager into **pool / seed / house** as three explicit, auditable slices. Seed and house are separate — a colleague describing seed surplus as "stays in the bucket, never returns to players" is at risk of blurring seed and house.
-- `src/lib/jackpot/simulator.ts` (waterfall / overflow) treats seed overflow as a **routed** value — surplus above what's needed to reseed the next tier has a defined destination (reseed higher tier / roll into pool / community — configurable, but always **routed back to a player-facing bucket**, never silently retained).
-- `src/lib/jackpot/live-engine.ts` enforces the reset deterministically and the minimum-win gate — the "full tier seed out of the bucket on win" behavior he describes matches ours, so that part is fine.
+Inputs: number of tiers `N`, master contribution (fixed amount or %), strategy id.
 
-The material difference: **we require every SC in the seed slice to have a documented player-facing fate.** His statement leaves that undefined.
+Geometric ladder parameterised by spread factor `r`:
+- Balanced: `r = 4`
+- Top-heavy: `r = 10`
+- Flat-frequent: `r = 2`
 
-## What to tell him
+For tier rank `k` (1 = bottom, N = top):
+- Relative weight `w_k = r^(k-1)`.
+- **Split share %** = `w_k / Σw · 100`, **inverted** so the top tier gets the smallest ongoing share (rarely explodes; accrues over many spins). Bottom tier gets the largest share (frequent small hits).
+- **Trigger probability** ∝ `1 / r^(k-1)`; base tuned so aggregate hit rate stays ~1 per 500–2000 spins.
+- **Reseed amount** ∝ `r^(k-1)` — top tier has the largest floor.
+- **Initial pool** = reseed × 1.5.
+- **Pool / Seed / House weights** default 70 / 25 / 5 uniformly (GLI-friendly baseline).
 
-> "The uncapped reserve and fixed seed share are OK. The statement 'surplus stays there forever, never returned to pools or players' is a compliance red flag as written. Please document (a) the steady-state EV of the reserve and its bounding condition, (b) that the reserve is booked as a player liability and its disposition on decommission, and (c) the append-only ledger + reconciliation for every credit/debit. Without those three, an auditor will treat the surplus as undisclosed operator retention against funds collected as jackpot contribution."
+Preset ladders (feature A) call this same function with the strategy that matches their character (Bronze/Silver/Gold → Balanced, Mega Ladder → Top-heavy, Twin Tier → Flat-frequent).
 
----
+Module exports:
+```ts
+suggestTierAllocation({ tierCount, masterValue, masterType, strategyIndex }): SuggestedTier[]
+buildLadderPreset(preset: "bronze-silver-gold" | "mega-ladder" | "twin-tier", masterValue, masterType): SuggestedTier[]
+```
 
-*No code changes in this project. Deliverable is this chat verdict only — approve to finalize.*
+## Files touched
+
+- `src/lib/jackpot/suggest-allocation.ts` — new pure module + colocated unit test.
+- `src/components/jackpot/MultiJackpotWizard.tsx`:
+  - `suggestionIndex` state, `SuggestButton` + preview dialog.
+  - Quick-start preset strip when `savedChildren.length === 0`.
+  - Handler mapping `SuggestedTier[]` → sequential PATCH calls on `/api/v1/jackpots/:id`, then refetch group.
+- `src/routes/admin.simulator.tsx` — read `?preset=<b64>` on mount, decode, hydrate textarea, auto-run once.
+- No changes to `build-create-body.ts`, `dto-to-payload.ts`, `live-engine.ts`, or DB schema — only fields that already round-trip.
+
+## Out of scope
+
+- No auto-recalculation on every contribution edit (opt-in via button only).
+- No changes to Classic/single wizard.
+- Must-Drop and Community payout remain out of scope.

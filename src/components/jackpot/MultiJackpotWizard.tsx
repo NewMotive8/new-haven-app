@@ -46,6 +46,23 @@ import {
   DEFAULT_PRIZE_ECONOMY,
   type PrizeEconomyValue,
 } from "@/components/jackpot/PrizeEconomySelector";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  STRATEGIES,
+  LADDER_PRESETS,
+  suggestTierAllocation,
+  buildLadderPreset,
+  type StrategyId,
+  type LadderPresetId,
+  type SuggestedTier,
+} from "@/lib/jackpot/suggest-allocation";
 
 type ContributionSource = "player" | "operator";
 type ContributionType = "percentage" | "fixed";
@@ -406,6 +423,11 @@ export function MultiJackpotWizard() {
   // Step 2 — Tier Allocation
   const [draft, setDraft] = React.useState<ChildDraft | null>(null);
   const [savedChildren, setSavedChildren] = React.useState<SavedChild[]>([]);
+  // Suggest-allocator UI state
+  const [suggestionIndex, setSuggestionIndex] = React.useState<number>(0);
+  const [suggestionPreview, setSuggestionPreview] =
+    React.useState<{ tiers: SuggestedTier[]; strategy: StrategyId } | null>(null);
+  const [applyingSuggestion, setApplyingSuggestion] = React.useState(false);
 
   const sharesTotal = React.useMemo(
     () => savedChildren.reduce((acc, c) => acc + c.splitShare, 0),
@@ -637,6 +659,263 @@ export function MultiJackpotWizard() {
     }
   }
 
+  /* ───────────────── Suggest allocation ───────────────── */
+  function openSuggestionPreview(strategyIdx: number) {
+    if (!group || savedChildren.length < 2) return;
+    const strategy = STRATEGIES[strategyIdx % STRATEGIES.length];
+    const tiers = suggestTierAllocation({
+      tierCount: savedChildren.length,
+      masterValue: group.masterContributionValue,
+      masterType: group.contributionType,
+      strategy: strategy.id,
+    });
+    setSuggestionIndex(strategyIdx % STRATEGIES.length);
+    setSuggestionPreview({ tiers, strategy: strategy.id });
+  }
+
+  function cycleSuggestion() {
+    openSuggestionPreview((suggestionIndex + 1) % STRATEGIES.length);
+  }
+
+  /**
+   * Apply a suggested ladder to already-saved children. Maps suggestions to
+   * existing tiers by rank (bottom→top), then POSTs the /children upsert
+   * endpoint to update splitShare + triggerProbability, and PUTs each jackpot
+   * to refresh reseed / initial pool / weights.
+   */
+  async function applySuggestion() {
+    if (!group || !suggestionPreview) return;
+    const sortedChildren = [...savedChildren].sort((a, b) => a.tierRank - b.tierRank);
+    const suggestions = suggestionPreview.tiers; // rank 1 = bottom
+    if (suggestions.length !== sortedChildren.length) {
+      toast.error("Suggestion count does not match saved tier count.");
+      return;
+    }
+    setApplyingSuggestion(true);
+    try {
+      for (let i = 0; i < sortedChildren.length; i += 1) {
+        const child = sortedChildren[i];
+        const sug = suggestions[i];
+        // Update split share + probability via the children upsert endpoint.
+        await axios.post(
+          `/api/v1/jackpot-groups/${group.id}/children`,
+          {
+            jackpotId: child.jackpotId,
+            tierRank: child.tierRank,
+            triggerProbability: sug.triggerProbability,
+            splitShare: sug.splitShare,
+          },
+          {
+            headers: {
+              brandId: String(brandId),
+              "Content-Type": "application/json",
+            },
+          },
+        );
+        // Update pool / seed / weights via the jackpot PUT endpoint.
+        await axios.put(
+          `/api/v1/jackpots/${child.jackpotId}`,
+          {
+            seedAmount: sug.reseedingAmount,
+            poolBalance: sug.initialPoolAmount,
+            config: {
+              tierType: "classic",
+              triggerModel: "pure_chance",
+              spinsInterval: sug.spinsInterval,
+              triggerOdds: sug.spinsInterval,
+              initialPoolAmount: sug.initialPoolAmount,
+              reseedingAmount: sug.reseedingAmount,
+              maxPoolAmount: sug.maxPoolAmount,
+              contributionMode: "split",
+              poolWeight: sug.poolWeight,
+              seedWeight: sug.seedWeight,
+              houseWeight: sug.houseWeight,
+            },
+          },
+          {
+            headers: {
+              brandId: String(brandId),
+              "Content-Type": "application/json",
+            },
+          },
+        );
+      }
+      // Reflect changes in local state.
+      setSavedChildren((prev) => {
+        const byRank = new Map(prev.map((c) => [c.tierRank, c]));
+        sortedChildren.forEach((c, i) => {
+          const sug = suggestions[i];
+          const existing = byRank.get(c.tierRank);
+          if (!existing) return;
+          byRank.set(c.tierRank, {
+            ...existing,
+            splitShare: sug.splitShare,
+            reseedingAmount: sug.reseedingAmount,
+            seedAmount: sug.reseedingAmount,
+            poolWeight: sug.poolWeight,
+            seedWeight: sug.seedWeight,
+            houseWeight: sug.houseWeight,
+            probability: sug.triggerProbability,
+            triggerSummary: `Classic · 1 in ${sug.spinsInterval.toLocaleString()} spins`,
+          });
+        });
+        return Array.from(byRank.values()).sort((a, b) => a.tierRank - b.tierRank);
+      });
+      toast.success("Suggestion applied — you can still tweak any tier manually.");
+      setSuggestionPreview(null);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error ?? err?.message ?? "Failed to apply suggestion");
+    } finally {
+      setApplyingSuggestion(false);
+    }
+  }
+
+  /**
+   * Open the admin simulator in a new tab, pre-loaded with the *aggregate*
+   * suggested config (sum of tier contributions, biggest reseed as pool
+   * floor). Uses base64-encoded query string handoff.
+   */
+  function simulateSuggestion() {
+    if (!group || !suggestionPreview) return;
+    const tiers = suggestionPreview.tiers;
+    const master = group.masterContributionValue;
+    // Aggregate contribution rate the simulator understands: pool + seed %.
+    const totalContribution =
+      group.contributionType === "percentage"
+        ? master * 100 // fraction → percentage number
+        : tiers.reduce((sum, t) => sum + t.derivedRate, 0);
+    const biggestReseed = tiers.reduce((m, t) => Math.max(m, t.reseedingAmount), 0);
+    const biggestPool = tiers.reduce((m, t) => Math.max(m, t.maxPoolAmount), 0);
+    // Weighted avg trigger odds (harmonic-ish): use the mid-tier's.
+    const midTier = tiers[Math.floor(tiers.length / 2)];
+    const cfg = {
+      id: "suggested-preview",
+      name: `${group.name} · Suggested (${suggestionPreview.strategy})`,
+      structuralType: "CLASSIC",
+      type: "AVERAGE",
+      triggerOdds: midTier?.spinsInterval ?? 5000,
+      pool: {
+        currentAmount: biggestReseed * 1.5,
+        minimumAmount: biggestReseed * 0.5,
+        maximumAmount: biggestPool,
+        contributionAmount: (totalContribution * 0.7).toFixed(4),
+      },
+      seed: {
+        currentAmount: biggestReseed,
+        minimumSeedAmount: biggestReseed * 0.5,
+        maximumSeedAmount: biggestReseed * 2,
+        targetAmount: biggestReseed * 2,
+        contributionAmount: (totalContribution * 0.25).toFixed(4),
+      },
+      contribution: {
+        houseWeight: totalContribution * 0.05,
+      },
+      volatility: 5,
+      enabled: true,
+    };
+    const encoded =
+      typeof window !== "undefined" ? window.btoa(JSON.stringify(cfg)) : "";
+    if (!encoded) return;
+    window.open(`/admin/simulator?preset=${encodeURIComponent(encoded)}`, "_blank", "noopener");
+  }
+
+  /**
+   * Apply a named ladder preset from a clean slate: creates + attaches each
+   * suggested tier as a new jackpot child.
+   */
+  async function applyLadderPreset(presetId: LadderPresetId) {
+    if (!group) return;
+    if (savedChildren.length > 0) {
+      toast.error("Ladder presets are only available when no tiers exist yet.");
+      return;
+    }
+    const suggestions = buildLadderPreset(
+      presetId,
+      group.masterContributionValue,
+      group.contributionType,
+    );
+    setApplyingSuggestion(true);
+    try {
+      for (let i = 0; i < suggestions.length; i += 1) {
+        const sug = suggestions[i];
+        const tierName = sug.suggestedName;
+        // 1) Create child jackpot.
+        const createRes = await axios.post<JackpotDTO>(
+          "/api/v1/jackpots",
+          {
+            name: tierName,
+            enabled: true,
+            seedAmount: sug.reseedingAmount,
+            poolBalance: sug.initialPoolAmount,
+            triggerThreshold: sug.initialPoolAmount * 2,
+            assignedCategories: [],
+            assignedGameIds: [],
+            config: {
+              triggerModel: "pure_chance",
+              tierType: "classic",
+              spinsInterval: sug.spinsInterval,
+              triggerOdds: sug.spinsInterval,
+              initialPoolAmount: sug.initialPoolAmount,
+              reseedingAmount: sug.reseedingAmount,
+              maxPoolAmount: sug.maxPoolAmount,
+              contributionMode: "split",
+              poolWeight: sug.poolWeight,
+              seedWeight: sug.seedWeight,
+              houseWeight: sug.houseWeight,
+              volatility: 5,
+            },
+          },
+          {
+            headers: { brandId: String(brandId), "Content-Type": "application/json" },
+          },
+        );
+        const newJackpotId = createRes.data?.id;
+        if (typeof newJackpotId !== "number") {
+          throw new Error(`Failed to create tier "${tierName}"`);
+        }
+        // 2) Attach to group.
+        await axios.post(
+          `/api/v1/jackpot-groups/${group.id}/children`,
+          {
+            jackpotId: newJackpotId,
+            tierRank: sug.tierRank,
+            triggerProbability: sug.triggerProbability,
+            splitShare: sug.splitShare,
+            name: tierName,
+          },
+          {
+            headers: { brandId: String(brandId), "Content-Type": "application/json" },
+          },
+        );
+        setSavedChildren((prev) => [
+          ...prev,
+          {
+            jackpotId: newJackpotId,
+            tierRank: sug.tierRank,
+            jackpotName: tierName,
+            tierName,
+            tierType: "classic",
+            splitShare: sug.splitShare,
+            seedAmount: sug.reseedingAmount,
+            reseedingAmount: sug.reseedingAmount,
+            poolWeight: sug.poolWeight,
+            seedWeight: sug.seedWeight,
+            houseWeight: sug.houseWeight,
+            triggerSummary: `Classic · 1 in ${sug.spinsInterval.toLocaleString()} spins`,
+            probability: sug.triggerProbability,
+            volatility: 5,
+          },
+        ]);
+      }
+      toast.success(`Created ${suggestions.length} tiers from preset.`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error ?? err?.message ?? "Failed to build preset");
+    } finally {
+      setApplyingSuggestion(false);
+    }
+  }
+
+
   /* ───────────────── Step 3 ───────────────── */
   async function handleActivate() {
     if (!group) return;
@@ -765,7 +1044,24 @@ export function MultiJackpotWizard() {
 
             <MasterRecap group={group} />
 
+            {savedChildren.length === 0 && (
+              <LadderPresetStrip
+                onPick={applyLadderPreset}
+                busy={applyingSuggestion}
+              />
+            )}
+
+            {savedChildren.length >= 2 && (
+              <SuggestBar
+                strategyIndex={suggestionIndex}
+                onCycle={cycleSuggestion}
+                onOpen={() => openSuggestionPreview(suggestionIndex)}
+                disabled={applyingSuggestion}
+              />
+            )}
+
             <TierLadder savedChildren={savedChildren} group={group} />
+
 
             {draft ? (
               <DraftTierCard
@@ -816,6 +1112,21 @@ export function MultiJackpotWizard() {
           submitting={submitting}
           onBack={() => setStep(2)}
           onActivate={handleActivate}
+        />
+      )}
+
+      {suggestionPreview && group && (
+        <SuggestionPreviewDialog
+          open={Boolean(suggestionPreview)}
+          onClose={() => setSuggestionPreview(null)}
+          tiers={suggestionPreview.tiers}
+          strategy={suggestionPreview.strategy}
+          group={group}
+          hasExisting={savedChildren.length > 0}
+          applying={applyingSuggestion}
+          onCycle={cycleSuggestion}
+          onApply={applySuggestion}
+          onSimulate={simulateSuggestion}
         />
       )}
     </div>
@@ -2767,5 +3078,210 @@ function PlayerTargetingSection({
         )}
       </Card>
     </section>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────── */
+/* Ladder preset strip (empty-state quick-start)                       */
+/* ────────────────────────────────────────────────────────────────── */
+function LadderPresetStrip({
+  onPick,
+  busy,
+}: {
+  onPick: (id: LadderPresetId) => void;
+  busy: boolean;
+}) {
+  return (
+    <div className="mb-4 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Sparkles className="w-4 h-4 text-blue-300" />
+        <div className="text-sm font-medium text-blue-200">Quick start — pick a ladder preset</div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {LADDER_PRESETS.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            disabled={busy}
+            onClick={() => onPick(p.id)}
+            className="text-left rounded-lg border border-neutral-700 bg-neutral-900/60 hover:border-blue-500/60 hover:bg-blue-500/10 transition-colors p-3 disabled:opacity-50"
+          >
+            <div className="text-white text-sm font-medium">{p.label}</div>
+            <div className="text-xs text-neutral-400 mt-1">{p.description}</div>
+          </button>
+        ))}
+      </div>
+      <div className="mt-2 text-xs text-neutral-500">
+        Each preset auto-creates every tier with sensible share, seed and pool defaults. You can tune anything after.
+      </div>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────── */
+/* Suggest bar (visible with 2+ saved tiers)                           */
+/* ────────────────────────────────────────────────────────────────── */
+function SuggestBar({
+  strategyIndex,
+  onCycle,
+  onOpen,
+  disabled,
+}: {
+  strategyIndex: number;
+  onCycle: () => void;
+  onOpen: () => void;
+  disabled: boolean;
+}) {
+  const strat = STRATEGIES[strategyIndex] ?? STRATEGIES[0];
+  return (
+    <div className="mb-4 rounded-lg border border-violet-500/30 bg-violet-500/5 p-3 flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-center gap-2">
+        <Zap className="w-4 h-4 text-violet-300" />
+        <div className="text-sm text-violet-100">
+          Suggest allocation
+          <span className="ml-2 text-xs px-2 py-0.5 rounded-full border border-violet-500/40 bg-violet-500/10 text-violet-200 font-mono">
+            {strat.label}
+          </span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          onClick={onCycle}
+          className="border-violet-500/40 text-violet-100 hover:bg-violet-500/10"
+        >
+          Cycle strategy
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          disabled={disabled}
+          onClick={onOpen}
+          className="bg-violet-500 hover:bg-violet-600"
+        >
+          Preview suggestion
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────── */
+/* Suggestion preview dialog                                           */
+/* ────────────────────────────────────────────────────────────────── */
+function SuggestionPreviewDialog({
+  open,
+  onClose,
+  tiers,
+  strategy,
+  group,
+  hasExisting,
+  applying,
+  onCycle,
+  onApply,
+  onSimulate,
+}: {
+  open: boolean;
+  onClose: () => void;
+  tiers: SuggestedTier[];
+  strategy: StrategyId;
+  group: GroupDTO;
+  hasExisting: boolean;
+  applying: boolean;
+  onCycle: () => void;
+  onApply: () => void;
+  onSimulate: () => void;
+}) {
+  const strat = STRATEGIES.find((s) => s.id === strategy) ?? STRATEGIES[0];
+  const sorted = [...tiers].sort((a, b) => b.tierRank - a.tierRank); // top → bottom
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-3xl bg-neutral-950 border-neutral-800 text-white">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-violet-300" />
+            Suggested allocation · {strat.label}
+          </DialogTitle>
+          <DialogDescription className="text-neutral-400">
+            {strat.description} Aggregate hit rate ≈ 1 in {strat.aggregateHitOne.toLocaleString()} spins.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="overflow-x-auto rounded border border-neutral-800">
+          <table className="w-full text-sm">
+            <thead className="bg-neutral-900 text-neutral-400">
+              <tr>
+                <th className="text-left px-3 py-2 font-medium">Tier</th>
+                <th className="text-right px-3 py-2 font-medium">Share %</th>
+                <th className="text-right px-3 py-2 font-medium">1-in-N</th>
+                <th className="text-right px-3 py-2 font-medium">Reseed</th>
+                <th className="text-right px-3 py-2 font-medium">Max pool</th>
+                <th className="text-right px-3 py-2 font-medium">Avg prize</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((t) => {
+                const theme = rankTheme(t.tierRank);
+                return (
+                  <tr key={t.tierRank} className="border-t border-neutral-800">
+                    <td className="px-3 py-2">
+                      <span
+                        className={`px-2 py-0.5 text-[10px] uppercase tracking-wider rounded border ${theme.chip}`}
+                      >
+                        {theme.label} · {t.suggestedName}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono">{t.splitShare.toFixed(2)}%</td>
+                    <td className="px-3 py-2 text-right font-mono">{t.spinsInterval.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right font-mono">{t.reseedingAmount.toFixed(2)}</td>
+                    <td className="px-3 py-2 text-right font-mono">{t.maxPoolAmount.toFixed(2)}</td>
+                    <td className="px-3 py-2 text-right font-mono">{t.expectedAvgPrize.toFixed(2)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {hasExisting && (
+          <div className="text-xs text-amber-300 flex items-start gap-1.5 mt-2">
+            <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+            Applying will overwrite split shares, seeds, pool sizes and weights on {tiers.length} existing tier(s).
+          </div>
+        )}
+
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCycle}
+            disabled={applying}
+            className="border-neutral-700 text-neutral-200"
+          >
+            Try another strategy
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onSimulate}
+            disabled={applying}
+            className="border-violet-500/40 text-violet-100"
+          >
+            Simulate 10k spins
+          </Button>
+          <Button
+            type="button"
+            onClick={onApply}
+            disabled={applying}
+            className="bg-blue-500 hover:bg-blue-600"
+          >
+            {applying ? "Applying…" : "Apply to all tiers"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
