@@ -669,10 +669,15 @@ export function MultiJackpotWizard() {
   /* ───────────────── Step 2 ───────────────── */
   async function saveDraft() {
     if (!group || !draft) return;
+    const isEdit = editingChildId !== null;
     const tierName = draft.tierName.trim();
     if (!tierName) return toast.error("Tier Name is required");
     const tierRank = Math.max(0, Math.trunc(Number(draft.tierRank) || 0));
-    if (savedChildren.some((c) => c.tierRank === tierRank)) {
+    if (
+      savedChildren.some(
+        (c) => c.tierRank === tierRank && c.jackpotId !== editingChildId,
+      )
+    ) {
       return toast.error(`Tier rank ${tierRank} is already in use`);
     }
     const splitShare = Number.parseFloat(draft.splitShare) || 0;
@@ -687,15 +692,19 @@ export function MultiJackpotWizard() {
     }
     const initialPoolAmount = Number.parseFloat(draft.initialPoolAmount) || 0;
     const reseedingAmount = Number.parseFloat(draft.reseedingAmount) || 0;
-    // Seed bucket mirrors the re-seeding amount (single operator-facing value).
     const seedAmount = reseedingAmount;
     const probability = probabilityFromDraft(draft);
     const triggerProbability = Number(probability.toFixed(8));
 
-    const projected = sharesTotal + splitShare;
+    // For edits, subtract the tier's current share from the running total so
+    // the "would push over 100%" guard uses the delta instead of a double-count.
+    const existingShare = isEdit
+      ? savedChildren.find((c) => c.jackpotId === editingChildId)?.splitShare ?? 0
+      : 0;
+    const projected = sharesTotal - existingShare + splitShare;
     if (Math.round(projected * 100) > 10000) {
       return toast.error(
-        `Adding ${splitShare.toFixed(2)}% would push the total to ${projected.toFixed(2)}%. Max is 100.00%.`,
+        `This tier's ${splitShare.toFixed(2)}% would push the total to ${projected.toFixed(2)}%. Max is 100.00%.`,
       );
     }
 
@@ -715,79 +724,84 @@ export function MultiJackpotWizard() {
       ? Math.max(0, Number(draft.fixedWinAmount))
       : undefined;
 
+    const jackpotConfig = {
+      ...buildTriggerCondition(draft),
+      tierType: draft.tierType,
+      initialPoolAmount,
+      reseedingAmount,
+      contributionMode: "split" as const,
+      poolWeight: draft.poolWeight,
+      seedWeight: draft.seedWeight,
+      houseWeight: draft.houseWeight,
+      volatility: draft.volatility,
+      ...(maxWin !== undefined ? { maxWinAmount: maxWin } : {}),
+      ...(fixedWin !== undefined ? { fixedWinAmount: fixedWin } : {}),
+      ...(maxWins !== undefined ? { maxNumberOfWins: maxWins } : {}),
+      ...(maxPayout !== undefined ? { maxTotalPayout: maxPayout } : {}),
+      ...(maxPool !== undefined ? { maxPoolAmount: maxPool } : {}),
+    };
+    const headers = {
+      brandId: String(brandId),
+      "Content-Type": "application/json",
+    };
+
     setSubmitting(true);
     try {
-      // 1) Create child jackpot. Trigger config + safeguards + reseed + tier
-      //    extras travel via `config` → server merges into `trigger_condition`.
-      const createRes = await axios.post<JackpotDTO>(
-        "/api/v1/jackpots",
-        {
-          name: tierName,
-          enabled: true,
-          seedAmount,
-          poolBalance: initialPoolAmount || seedAmount,
-          triggerThreshold: (initialPoolAmount || seedAmount) * 2,
-          assignedCategories: [],
-          assignedGameIds: [],
-          config: {
-            ...buildTriggerCondition(draft),
-            tierType: draft.tierType,
-            initialPoolAmount,
-            reseedingAmount,
-            // Per-tier contribution weights (Pool / Seed / House).
-            contributionMode: "split",
-            poolWeight: draft.poolWeight,
-            seedWeight: draft.seedWeight,
-            houseWeight: draft.houseWeight,
-            // Per-tier extras
-            volatility: draft.volatility,
-            ...(maxWin !== undefined ? { maxWinAmount: maxWin } : {}),
-            ...(fixedWin !== undefined ? { fixedWinAmount: fixedWin } : {}),
-            ...(maxWins !== undefined ? { maxNumberOfWins: maxWins } : {}),
-            ...(maxPayout !== undefined ? { maxTotalPayout: maxPayout } : {}),
-            ...(maxPool !== undefined ? { maxPoolAmount: maxPool } : {}),
+      let targetJackpotId: number;
+      if (isEdit && editingChildId != null) {
+        // PUT the existing jackpot with new config + reseed / pool values.
+        await axios.put(
+          `/api/v1/jackpots/${editingChildId}`,
+          {
+            name: tierName,
+            seedAmount,
+            poolBalance: initialPoolAmount || seedAmount,
+            config: jackpotConfig,
           },
-        },
-        {
-          headers: {
-            brandId: String(brandId),
-            "Content-Type": "application/json",
+          { headers },
+        );
+        targetJackpotId = editingChildId;
+      } else {
+        const createRes = await axios.post<JackpotDTO>(
+          "/api/v1/jackpots",
+          {
+            name: tierName,
+            enabled: true,
+            seedAmount,
+            poolBalance: initialPoolAmount || seedAmount,
+            triggerThreshold: (initialPoolAmount || seedAmount) * 2,
+            assignedCategories: [],
+            assignedGameIds: [],
+            config: jackpotConfig,
           },
-        },
-      );
-      const created = (createRes.data ?? {}) as Partial<JackpotDTO>;
-      if (typeof created.id !== "number") {
-        toast.error("Server did not return a jackpot id while creating the tier");
-        return;
+          { headers },
+        );
+        const created = (createRes.data ?? {}) as Partial<JackpotDTO>;
+        if (typeof created.id !== "number") {
+          toast.error("Server did not return a jackpot id while creating the tier");
+          return;
+        }
+        targetJackpotId = created.id;
       }
-      const newJackpotId = created.id;
 
-      // 2) Attach to the parent group with split share.
-      const attachRes = await axios.post(
+      // Upsert attachment so splitShare / probability / rank are current.
+      await axios.post(
         `/api/v1/jackpot-groups/${group.id}/children`,
         {
-          jackpotId: newJackpotId,
+          jackpotId: targetJackpotId,
           tierRank,
           triggerProbability,
           splitShare,
           name: tierName,
         },
-        {
-          headers: {
-            brandId: String(brandId),
-            "Content-Type": "application/json",
-          },
-        },
+        { headers },
       );
-      const attached = (attachRes.data ?? {}) as Partial<JackpotDTO>;
-      const jackpotName = attached.name ?? created.name ?? tierName;
 
-      setSavedChildren((prev) => [
-        ...prev,
-        {
-          jackpotId: newJackpotId,
+      setSavedChildren((prev) => {
+        const nextRow: SavedChild = {
+          jackpotId: targetJackpotId,
           tierRank,
-          jackpotName,
+          jackpotName: tierName,
           tierName,
           tierType: draft.tierType,
           splitShare,
@@ -803,18 +817,131 @@ export function MultiJackpotWizard() {
           fixedWinAmount: fixedWin,
           maxNumberOfWins: maxWins,
           maxTotalPayout: maxPayout,
-        },
-      ]);
+        };
+        if (isEdit) {
+          return prev
+            .map((c) => (c.jackpotId === targetJackpotId ? nextRow : c))
+            .sort((a, b) => a.tierRank - b.tierRank);
+        }
+        return [...prev, nextRow];
+      });
       setDraft(null);
-      toast.success(`Created tier "${tierName}" at rank ${tierRank}`);
+      setEditingChildId(null);
+      toast.success(
+        isEdit
+          ? `Updated tier "${tierName}"`
+          : `Created tier "${tierName}" at rank ${tierRank}`,
+      );
     } catch (err: any) {
       toast.error(
-        err?.response?.data?.error ?? err?.message ?? "Failed to create child tier",
+        err?.response?.data?.error ?? err?.message ?? "Failed to save tier",
       );
     } finally {
       setSubmitting(false);
     }
   }
+
+  /* ───────────────── Tier remove + share rebalance ───────────────── */
+  async function removeTier(child: SavedChild) {
+    if (!group) return;
+    const ok = window.confirm(
+      `Delete tier "${child.tierName}"? This also removes its jackpot record.`,
+    );
+    if (!ok) return;
+    try {
+      await axios.delete(`/api/v1/jackpots/${child.jackpotId}`, {
+        headers: { brandId: String(brandId) },
+      });
+      const remaining = savedChildren.filter(
+        (c) => c.jackpotId !== child.jackpotId,
+      );
+      setSavedChildren(remaining);
+      if (editingChildId === child.jackpotId) {
+        setEditingChildId(null);
+        setDraft(null);
+      }
+      const total = remaining.reduce((s, c) => s + c.splitShare, 0);
+      if (remaining.length > 0 && Math.round(total * 100) !== 10000) {
+        toast(`Tier removed. Shares now total ${total.toFixed(2)}%.`, {
+          description: "Shares must sum to 100% before activation.",
+          action: {
+            label: "Rebalance",
+            onClick: () => {
+              void rebalanceShares();
+            },
+          },
+        });
+      } else {
+        toast.success("Tier removed.");
+      }
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.error ?? err?.message ?? "Failed to remove tier",
+      );
+    }
+  }
+
+  /**
+   * One-click proportional re-balance: keeps every tier's other values as-is
+   * and only rescales `splitShare` so the ladder sums to exactly 100.00%.
+   * Non-destructive vs seed / pool / weights / odds.
+   */
+  async function rebalanceShares() {
+    if (!group || savedChildren.length === 0) return;
+    const current = [...savedChildren].sort((a, b) => a.tierRank - b.tierRank);
+    const total = current.reduce((s, c) => s + c.splitShare, 0);
+    const updates: { jackpotId: number; tierRank: number; splitShare: number }[] =
+      total <= 0
+        ? current.map((c) => ({
+            jackpotId: c.jackpotId,
+            tierRank: c.tierRank,
+            splitShare: round2(100 / current.length),
+          }))
+        : current.map((c) => ({
+            jackpotId: c.jackpotId,
+            tierRank: c.tierRank,
+            splitShare: round2((c.splitShare / total) * 100),
+          }));
+    // Correct rounding residue so the final sum is exactly 100.00.
+    const sum = updates.reduce((s, u) => s + u.splitShare, 0);
+    const residue = round2(100 - sum);
+    if (updates.length > 0 && Math.abs(residue) > 0) {
+      updates[updates.length - 1] = {
+        ...updates[updates.length - 1],
+        splitShare: round2(updates[updates.length - 1].splitShare + residue),
+      };
+    }
+    setApplyingSuggestion(true);
+    try {
+      for (const u of updates) {
+        await axios.post(
+          `/api/v1/jackpot-groups/${group.id}/children`,
+          u,
+          {
+            headers: {
+              brandId: String(brandId),
+              "Content-Type": "application/json",
+            },
+          },
+        );
+      }
+      const byId = new Map(updates.map((u) => [u.jackpotId, u.splitShare]));
+      setSavedChildren((prev) =>
+        prev.map((c) =>
+          byId.has(c.jackpotId) ? { ...c, splitShare: byId.get(c.jackpotId)! } : c,
+        ),
+      );
+      toast.success("Shares rebalanced to 100.00%.");
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.error ?? err?.message ?? "Rebalance failed",
+      );
+    } finally {
+      setApplyingSuggestion(false);
+    }
+  }
+
+
 
   /* ───────────────── Suggest allocation ───────────────── */
   function openSuggestionPreview(strategyIdx: number) {
