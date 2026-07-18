@@ -826,8 +826,10 @@ export function MultiJackpotWizard() {
   async function applyLadderPreset(presetId: LadderPresetId) {
     if (!group) return;
     if (savedChildren.length > 0) {
-      toast.error("Ladder presets are only available when no tiers exist yet.");
-      return;
+      const ok = window.confirm(
+        `This will delete the ${savedChildren.length} existing tier(s) and rebuild them from the selected template. Continue?`,
+      );
+      if (!ok) return;
     }
     const suggestions = buildLadderPreset(
       presetId,
@@ -835,6 +837,21 @@ export function MultiJackpotWizard() {
       group.contributionType,
     );
     setApplyingSuggestion(true);
+    try {
+      // Wipe existing children first so the preset rebuilds cleanly.
+      for (const existing of savedChildren) {
+        try {
+          await axios.delete(`/api/v1/jackpots/${existing.jackpotId}`, {
+            headers: { brandId: String(brandId) },
+          });
+        } catch {
+          // Non-fatal: continue; server-side cascade will unlink from group.
+        }
+      }
+      setSavedChildren([]);
+    } catch {
+      /* ignore */
+    }
     try {
       for (let i = 0; i < suggestions.length; i += 1) {
         const sug = suggestions[i];
@@ -1044,12 +1061,12 @@ export function MultiJackpotWizard() {
 
             <MasterRecap group={group} />
 
-            {savedChildren.length === 0 && (
-              <LadderPresetStrip
-                onPick={applyLadderPreset}
-                busy={applyingSuggestion}
-              />
-            )}
+            <LadderPresetStrip
+              onPick={applyLadderPreset}
+              busy={applyingSuggestion}
+              hasChildren={savedChildren.length > 0}
+            />
+
 
             {savedChildren.length >= 2 && (
               <SuggestBar
@@ -1087,7 +1104,7 @@ export function MultiJackpotWizard() {
               <Button
                 variant="outline"
                 onClick={() => setStep(1)}
-                className="border-neutral-700 text-neutral-200"
+                className="border-neutral-700 bg-neutral-900 text-neutral-200 hover:bg-neutral-800 hover:text-white"
               >
                 <ChevronLeft className="w-4 h-4 mr-1" /> Back
               </Button>
@@ -2151,7 +2168,7 @@ function LaunchGate({
         <Button
           variant="outline"
           onClick={onBack}
-          className="border-neutral-700 text-neutral-200"
+          className="border-neutral-700 bg-neutral-900 text-neutral-200 hover:bg-neutral-800 hover:text-white"
         >
           <ChevronLeft className="w-4 h-4 mr-1" /> Back
         </Button>
@@ -3087,15 +3104,19 @@ function PlayerTargetingSection({
 function LadderPresetStrip({
   onPick,
   busy,
+  hasChildren,
 }: {
   onPick: (id: LadderPresetId) => void;
   busy: boolean;
+  hasChildren?: boolean;
 }) {
   return (
     <div className="mb-4 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="w-4 h-4 text-blue-300" />
-        <div className="text-sm font-medium text-blue-200">Quick start — pick a ladder preset</div>
+        <div className="text-sm font-medium text-blue-200">
+          {hasChildren ? "Change starting template" : "Quick start — pick a ladder preset"}
+        </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {LADDER_PRESETS.map((p) => (
@@ -3112,11 +3133,14 @@ function LadderPresetStrip({
         ))}
       </div>
       <div className="mt-2 text-xs text-neutral-500">
-        Each preset auto-creates every tier with sensible share, seed and pool defaults. You can tune anything after.
+        {hasChildren
+          ? "Selecting a template will delete the existing tiers and rebuild them from the preset. You can tune anything after."
+          : "Each preset auto-creates every tier with sensible share, seed and pool defaults. You can tune anything after."}
       </div>
     </div>
   );
 }
+
 
 /* ────────────────────────────────────────────────────────────────── */
 /* Suggest bar (visible with 2+ saved tiers)                           */
@@ -3151,7 +3175,7 @@ function SuggestBar({
           size="sm"
           disabled={disabled}
           onClick={onCycle}
-          className="border-violet-500/40 text-violet-100 hover:bg-violet-500/10"
+          className="border-violet-500/40 bg-neutral-900 text-violet-100 hover:bg-violet-500/20 hover:text-white"
         >
           Cycle strategy
         </Button>
@@ -3259,7 +3283,7 @@ function SuggestionPreviewDialog({
             variant="outline"
             onClick={onCycle}
             disabled={applying}
-            className="border-neutral-700 text-neutral-200"
+            className="border-neutral-700 bg-neutral-900 text-neutral-200 hover:bg-neutral-800 hover:text-white"
           >
             Try another strategy
           </Button>
@@ -3268,7 +3292,7 @@ function SuggestionPreviewDialog({
             variant="outline"
             onClick={onSimulate}
             disabled={applying}
-            className="border-violet-500/40 text-violet-100"
+            className="border-violet-500/40 bg-neutral-900 text-violet-100 hover:bg-violet-500/20 hover:text-white"
           >
             Simulate 10k spins
           </Button>
