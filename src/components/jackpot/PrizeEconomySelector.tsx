@@ -41,6 +41,8 @@ export const ISO_REAL_MONEY_CURRENCIES: Array<{ id: string; label: string }> = [
   { id: "JPY", label: "JPY — Japanese Yen" },
   { id: "CAD", label: "CAD — Canadian Dollar" },
   { id: "AUD", label: "AUD — Australian Dollar" },
+  { id: "SC", label: "SC — Sweep Coin" },
+  { id: "GC", label: "GC — Gold Coin" },
 ];
 
 export function normalizePrizeEconomy(
