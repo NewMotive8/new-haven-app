@@ -301,6 +301,87 @@ function formatDerivedRate(
 }
 
 /* ────────────────────────────────────────────────────────────────── */
+/* Ladder snapshot + drift detection                                   */
+/* ────────────────────────────────────────────────────────────────── */
+interface LadderSnapshotRow {
+  tierRank: number;
+  splitShare: number;
+  seedAmount: number;
+  reseedingAmount: number;
+  poolWeight: number;
+  seedWeight: number;
+  houseWeight: number;
+}
+interface LadderSnapshot {
+  strategyId: StrategyId;
+  presetLabel: string;
+  tiers: LadderSnapshotRow[];
+}
+
+function snapshotRowFromChild(c: SavedChild): LadderSnapshotRow {
+  return {
+    tierRank: c.tierRank,
+    splitShare: round2(c.splitShare),
+    seedAmount: round2(c.seedAmount),
+    reseedingAmount: round2(c.reseedingAmount),
+    poolWeight: c.poolWeight,
+    seedWeight: c.seedWeight,
+    houseWeight: c.houseWeight,
+  };
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function isRowEdited(c: SavedChild, snap: LadderSnapshot | null): boolean {
+  if (!snap) return false;
+  const s = snap.tiers.find((t) => t.tierRank === c.tierRank);
+  if (!s) return true;
+  return (
+    round2(c.splitShare) !== s.splitShare ||
+    round2(c.seedAmount) !== s.seedAmount ||
+    round2(c.reseedingAmount) !== s.reseedingAmount ||
+    c.poolWeight !== s.poolWeight ||
+    c.seedWeight !== s.seedWeight ||
+    c.houseWeight !== s.houseWeight
+  );
+}
+
+type DriftStatus = "empty" | "no_snapshot" | "in_sync" | "value_drift" | "structural";
+
+function computeDrift(
+  children: SavedChild[],
+  snap: LadderSnapshot | null,
+  sharesTotal: number,
+): {
+  status: DriftStatus;
+  sharesOff: boolean;
+  editedCount: number;
+  countDelta: number;
+} {
+  const sharesOff =
+    children.length > 0 && Math.round(sharesTotal * 100) !== 10000;
+  if (children.length === 0)
+    return { status: "empty", sharesOff: false, editedCount: 0, countDelta: 0 };
+  if (!snap)
+    return {
+      status: "no_snapshot",
+      sharesOff,
+      editedCount: 0,
+      countDelta: 0,
+    };
+  const countDelta = children.length - snap.tiers.length;
+  if (countDelta !== 0)
+    return { status: "structural", sharesOff, editedCount: 0, countDelta };
+  const edited = children.filter((c) => isRowEdited(c, snap)).length;
+  if (edited > 0 || sharesOff)
+    return { status: "value_drift", sharesOff, editedCount: edited, countDelta: 0 };
+  return { status: "in_sync", sharesOff: false, editedCount: 0, countDelta: 0 };
+}
+
+
+/* ────────────────────────────────────────────────────────────────── */
 /* Trigger condition assembly + summary                               */
 /* ────────────────────────────────────────────────────────────────── */
 function buildTriggerCondition(d: ChildDraft): Record<string, unknown> {
