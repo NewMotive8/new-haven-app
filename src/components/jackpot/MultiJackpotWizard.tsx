@@ -301,6 +301,88 @@ function formatDerivedRate(
 }
 
 /* ────────────────────────────────────────────────────────────────── */
+/* Ladder snapshot + drift detection                                   */
+/* ────────────────────────────────────────────────────────────────── */
+interface LadderSnapshotRow {
+  tierRank: number;
+  splitShare: number;
+  seedAmount: number;
+  reseedingAmount: number;
+  poolWeight: number;
+  seedWeight: number;
+  houseWeight: number;
+}
+interface LadderSnapshot {
+  strategyId: StrategyId | null;
+  presetLabel: string;
+  tiers: LadderSnapshotRow[];
+}
+
+
+function snapshotRowFromChild(c: SavedChild): LadderSnapshotRow {
+  return {
+    tierRank: c.tierRank,
+    splitShare: round2(c.splitShare),
+    seedAmount: round2(c.seedAmount),
+    reseedingAmount: round2(c.reseedingAmount),
+    poolWeight: c.poolWeight,
+    seedWeight: c.seedWeight,
+    houseWeight: c.houseWeight,
+  };
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function isRowEdited(c: SavedChild, snap: LadderSnapshot | null): boolean {
+  if (!snap) return false;
+  const s = snap.tiers.find((t) => t.tierRank === c.tierRank);
+  if (!s) return true;
+  return (
+    round2(c.splitShare) !== s.splitShare ||
+    round2(c.seedAmount) !== s.seedAmount ||
+    round2(c.reseedingAmount) !== s.reseedingAmount ||
+    c.poolWeight !== s.poolWeight ||
+    c.seedWeight !== s.seedWeight ||
+    c.houseWeight !== s.houseWeight
+  );
+}
+
+type DriftStatus = "empty" | "no_snapshot" | "in_sync" | "value_drift" | "structural";
+
+function computeDrift(
+  children: SavedChild[],
+  snap: LadderSnapshot | null,
+  sharesTotal: number,
+): {
+  status: DriftStatus;
+  sharesOff: boolean;
+  editedCount: number;
+  countDelta: number;
+} {
+  const sharesOff =
+    children.length > 0 && Math.round(sharesTotal * 100) !== 10000;
+  if (children.length === 0)
+    return { status: "empty", sharesOff: false, editedCount: 0, countDelta: 0 };
+  if (!snap)
+    return {
+      status: "no_snapshot",
+      sharesOff,
+      editedCount: 0,
+      countDelta: 0,
+    };
+  const countDelta = children.length - snap.tiers.length;
+  if (countDelta !== 0)
+    return { status: "structural", sharesOff, editedCount: 0, countDelta };
+  const edited = children.filter((c) => isRowEdited(c, snap)).length;
+  if (edited > 0 || sharesOff)
+    return { status: "value_drift", sharesOff, editedCount: edited, countDelta: 0 };
+  return { status: "in_sync", sharesOff: false, editedCount: 0, countDelta: 0 };
+}
+
+
+/* ────────────────────────────────────────────────────────────────── */
 /* Trigger condition assembly + summary                               */
 /* ────────────────────────────────────────────────────────────────── */
 function buildTriggerCondition(d: ChildDraft): Record<string, unknown> {
@@ -428,6 +510,10 @@ export function MultiJackpotWizard() {
   const [suggestionPreview, setSuggestionPreview] =
     React.useState<{ tiers: SuggestedTier[]; strategy: StrategyId } | null>(null);
   const [applyingSuggestion, setApplyingSuggestion] = React.useState(false);
+  // Snapshot of the last preset / suggestion applied. Used to compute drift.
+  const [lastSnapshot, setLastSnapshot] = React.useState<LadderSnapshot | null>(null);
+  // When editing an existing tier, this holds its jackpot id. Null = create mode.
+  const [editingChildId, setEditingChildId] = React.useState<number | null>(null);
 
   const sharesTotal = React.useMemo(
     () => savedChildren.reduce((acc, c) => acc + c.splitShare, 0),
@@ -437,16 +523,88 @@ export function MultiJackpotWizard() {
   const sharesValid =
     savedChildren.length > 0 && Math.round(sharesTotal * 100) === 10000;
 
+  const activeStrategy: StrategyId =
+    (STRATEGIES[suggestionIndex]?.id ?? "balanced") as StrategyId;
+  const drift = React.useMemo(
+    () => computeDrift(savedChildren, lastSnapshot, sharesTotal),
+    [savedChildren, lastSnapshot, sharesTotal],
+  );
+
+
   function nextRank() {
     return Math.max(0, ...savedChildren.map((c) => c.tierRank)) + 1;
   }
 
+  /**
+   * Open a fresh draft for a new tier. Pre-fill values from the current
+   * suggestion strategy for the projected tier count so the user gets a
+   * sensible baseline they can then hand-tune before saving.
+   */
   function openDraft() {
-    setDraft(newChildDraft(nextRank()));
+    const rank = nextRank();
+    const d = newChildDraft(rank);
+    if (group) {
+      try {
+        const suggestions = suggestTierAllocation({
+          tierCount: savedChildren.length + 1,
+          masterValue: group.masterContributionValue,
+          masterType: group.contributionType,
+          strategy: activeStrategy,
+        });
+        const sug = suggestions.find((s) => s.tierRank === rank);
+        if (sug) {
+          d.tierName = sug.suggestedName;
+          d.splitShare = sug.splitShare.toFixed(2);
+          d.initialPoolAmount = sug.initialPoolAmount.toFixed(2);
+          d.seedAmount = sug.reseedingAmount.toFixed(2);
+          d.reseedingAmount = sug.reseedingAmount.toFixed(2);
+          d.maxPoolAmount = sug.maxPoolAmount.toFixed(2);
+          d.poolWeight = sug.poolWeight;
+          d.seedWeight = sug.seedWeight;
+          d.houseWeight = sug.houseWeight;
+          d.spinsInterval = String(sug.spinsInterval);
+        }
+      } catch {
+        /* fall back to defaults */
+      }
+    }
+    setEditingChildId(null);
+    setDraft(d);
   }
+
+  /**
+   * Open the draft card in edit mode, prefilled from an existing saved tier.
+   * On save, we PUT the existing jackpot and POST the /children upsert
+   * instead of creating a new record.
+   */
+  function openEditDraft(child: SavedChild) {
+    const d = newChildDraft(child.tierRank);
+    d.tierName = child.tierName;
+    d.tierType = child.tierType;
+    d.splitShare = child.splitShare.toFixed(2);
+    d.seedAmount = child.seedAmount.toFixed(2);
+    d.reseedingAmount = child.reseedingAmount.toFixed(2);
+    d.initialPoolAmount = child.reseedingAmount.toFixed(2);
+    d.poolWeight = child.poolWeight;
+    d.seedWeight = child.seedWeight;
+    d.houseWeight = child.houseWeight;
+    if (child.probability > 0) {
+      const spins = Math.max(1, Math.round(1 / child.probability));
+      d.spinsInterval = String(spins);
+    }
+    if (child.maxWinAmount != null) d.maxWinAmount = String(child.maxWinAmount);
+    if (child.fixedWinAmount != null) d.fixedWinAmount = String(child.fixedWinAmount);
+    if (child.maxNumberOfWins != null) d.maxNumberOfWins = String(child.maxNumberOfWins);
+    if (child.maxTotalPayout != null) d.maxTotalPayout = String(child.maxTotalPayout);
+    d.volatility = child.volatility;
+    setEditingChildId(child.jackpotId);
+    setDraft(d);
+  }
+
   function patchDraft(patch: Partial<ChildDraft>) {
     setDraft((prev) => (prev ? { ...prev, ...patch } : prev));
   }
+
 
   // "Master value" persisted to the API mirrors the Single form's logic:
   // store fraction for percent (1% → 0.01), absolute amount for fixed.
@@ -512,10 +670,15 @@ export function MultiJackpotWizard() {
   /* ───────────────── Step 2 ───────────────── */
   async function saveDraft() {
     if (!group || !draft) return;
+    const isEdit = editingChildId !== null;
     const tierName = draft.tierName.trim();
     if (!tierName) return toast.error("Tier Name is required");
     const tierRank = Math.max(0, Math.trunc(Number(draft.tierRank) || 0));
-    if (savedChildren.some((c) => c.tierRank === tierRank)) {
+    if (
+      savedChildren.some(
+        (c) => c.tierRank === tierRank && c.jackpotId !== editingChildId,
+      )
+    ) {
       return toast.error(`Tier rank ${tierRank} is already in use`);
     }
     const splitShare = Number.parseFloat(draft.splitShare) || 0;
@@ -530,15 +693,19 @@ export function MultiJackpotWizard() {
     }
     const initialPoolAmount = Number.parseFloat(draft.initialPoolAmount) || 0;
     const reseedingAmount = Number.parseFloat(draft.reseedingAmount) || 0;
-    // Seed bucket mirrors the re-seeding amount (single operator-facing value).
     const seedAmount = reseedingAmount;
     const probability = probabilityFromDraft(draft);
     const triggerProbability = Number(probability.toFixed(8));
 
-    const projected = sharesTotal + splitShare;
+    // For edits, subtract the tier's current share from the running total so
+    // the "would push over 100%" guard uses the delta instead of a double-count.
+    const existingShare = isEdit
+      ? savedChildren.find((c) => c.jackpotId === editingChildId)?.splitShare ?? 0
+      : 0;
+    const projected = sharesTotal - existingShare + splitShare;
     if (Math.round(projected * 100) > 10000) {
       return toast.error(
-        `Adding ${splitShare.toFixed(2)}% would push the total to ${projected.toFixed(2)}%. Max is 100.00%.`,
+        `This tier's ${splitShare.toFixed(2)}% would push the total to ${projected.toFixed(2)}%. Max is 100.00%.`,
       );
     }
 
@@ -558,79 +725,84 @@ export function MultiJackpotWizard() {
       ? Math.max(0, Number(draft.fixedWinAmount))
       : undefined;
 
+    const jackpotConfig = {
+      ...buildTriggerCondition(draft),
+      tierType: draft.tierType,
+      initialPoolAmount,
+      reseedingAmount,
+      contributionMode: "split" as const,
+      poolWeight: draft.poolWeight,
+      seedWeight: draft.seedWeight,
+      houseWeight: draft.houseWeight,
+      volatility: draft.volatility,
+      ...(maxWin !== undefined ? { maxWinAmount: maxWin } : {}),
+      ...(fixedWin !== undefined ? { fixedWinAmount: fixedWin } : {}),
+      ...(maxWins !== undefined ? { maxNumberOfWins: maxWins } : {}),
+      ...(maxPayout !== undefined ? { maxTotalPayout: maxPayout } : {}),
+      ...(maxPool !== undefined ? { maxPoolAmount: maxPool } : {}),
+    };
+    const headers = {
+      brandId: String(brandId),
+      "Content-Type": "application/json",
+    };
+
     setSubmitting(true);
     try {
-      // 1) Create child jackpot. Trigger config + safeguards + reseed + tier
-      //    extras travel via `config` → server merges into `trigger_condition`.
-      const createRes = await axios.post<JackpotDTO>(
-        "/api/v1/jackpots",
-        {
-          name: tierName,
-          enabled: true,
-          seedAmount,
-          poolBalance: initialPoolAmount || seedAmount,
-          triggerThreshold: (initialPoolAmount || seedAmount) * 2,
-          assignedCategories: [],
-          assignedGameIds: [],
-          config: {
-            ...buildTriggerCondition(draft),
-            tierType: draft.tierType,
-            initialPoolAmount,
-            reseedingAmount,
-            // Per-tier contribution weights (Pool / Seed / House).
-            contributionMode: "split",
-            poolWeight: draft.poolWeight,
-            seedWeight: draft.seedWeight,
-            houseWeight: draft.houseWeight,
-            // Per-tier extras
-            volatility: draft.volatility,
-            ...(maxWin !== undefined ? { maxWinAmount: maxWin } : {}),
-            ...(fixedWin !== undefined ? { fixedWinAmount: fixedWin } : {}),
-            ...(maxWins !== undefined ? { maxNumberOfWins: maxWins } : {}),
-            ...(maxPayout !== undefined ? { maxTotalPayout: maxPayout } : {}),
-            ...(maxPool !== undefined ? { maxPoolAmount: maxPool } : {}),
+      let targetJackpotId: number;
+      if (isEdit && editingChildId != null) {
+        // PUT the existing jackpot with new config + reseed / pool values.
+        await axios.put(
+          `/api/v1/jackpots/${editingChildId}`,
+          {
+            name: tierName,
+            seedAmount,
+            poolBalance: initialPoolAmount || seedAmount,
+            config: jackpotConfig,
           },
-        },
-        {
-          headers: {
-            brandId: String(brandId),
-            "Content-Type": "application/json",
+          { headers },
+        );
+        targetJackpotId = editingChildId;
+      } else {
+        const createRes = await axios.post<JackpotDTO>(
+          "/api/v1/jackpots",
+          {
+            name: tierName,
+            enabled: true,
+            seedAmount,
+            poolBalance: initialPoolAmount || seedAmount,
+            triggerThreshold: (initialPoolAmount || seedAmount) * 2,
+            assignedCategories: [],
+            assignedGameIds: [],
+            config: jackpotConfig,
           },
-        },
-      );
-      const created = (createRes.data ?? {}) as Partial<JackpotDTO>;
-      if (typeof created.id !== "number") {
-        toast.error("Server did not return a jackpot id while creating the tier");
-        return;
+          { headers },
+        );
+        const created = (createRes.data ?? {}) as Partial<JackpotDTO>;
+        if (typeof created.id !== "number") {
+          toast.error("Server did not return a jackpot id while creating the tier");
+          return;
+        }
+        targetJackpotId = created.id;
       }
-      const newJackpotId = created.id;
 
-      // 2) Attach to the parent group with split share.
-      const attachRes = await axios.post(
+      // Upsert attachment so splitShare / probability / rank are current.
+      await axios.post(
         `/api/v1/jackpot-groups/${group.id}/children`,
         {
-          jackpotId: newJackpotId,
+          jackpotId: targetJackpotId,
           tierRank,
           triggerProbability,
           splitShare,
           name: tierName,
         },
-        {
-          headers: {
-            brandId: String(brandId),
-            "Content-Type": "application/json",
-          },
-        },
+        { headers },
       );
-      const attached = (attachRes.data ?? {}) as Partial<JackpotDTO>;
-      const jackpotName = attached.name ?? created.name ?? tierName;
 
-      setSavedChildren((prev) => [
-        ...prev,
-        {
-          jackpotId: newJackpotId,
+      setSavedChildren((prev) => {
+        const nextRow: SavedChild = {
+          jackpotId: targetJackpotId,
           tierRank,
-          jackpotName,
+          jackpotName: tierName,
           tierName,
           tierType: draft.tierType,
           splitShare,
@@ -646,18 +818,131 @@ export function MultiJackpotWizard() {
           fixedWinAmount: fixedWin,
           maxNumberOfWins: maxWins,
           maxTotalPayout: maxPayout,
-        },
-      ]);
+        };
+        if (isEdit) {
+          return prev
+            .map((c) => (c.jackpotId === targetJackpotId ? nextRow : c))
+            .sort((a, b) => a.tierRank - b.tierRank);
+        }
+        return [...prev, nextRow];
+      });
       setDraft(null);
-      toast.success(`Created tier "${tierName}" at rank ${tierRank}`);
+      setEditingChildId(null);
+      toast.success(
+        isEdit
+          ? `Updated tier "${tierName}"`
+          : `Created tier "${tierName}" at rank ${tierRank}`,
+      );
     } catch (err: any) {
       toast.error(
-        err?.response?.data?.error ?? err?.message ?? "Failed to create child tier",
+        err?.response?.data?.error ?? err?.message ?? "Failed to save tier",
       );
     } finally {
       setSubmitting(false);
     }
   }
+
+  /* ───────────────── Tier remove + share rebalance ───────────────── */
+  async function removeTier(child: SavedChild) {
+    if (!group) return;
+    const ok = window.confirm(
+      `Delete tier "${child.tierName}"? This also removes its jackpot record.`,
+    );
+    if (!ok) return;
+    try {
+      await axios.delete(`/api/v1/jackpots/${child.jackpotId}`, {
+        headers: { brandId: String(brandId) },
+      });
+      const remaining = savedChildren.filter(
+        (c) => c.jackpotId !== child.jackpotId,
+      );
+      setSavedChildren(remaining);
+      if (editingChildId === child.jackpotId) {
+        setEditingChildId(null);
+        setDraft(null);
+      }
+      const total = remaining.reduce((s, c) => s + c.splitShare, 0);
+      if (remaining.length > 0 && Math.round(total * 100) !== 10000) {
+        toast(`Tier removed. Shares now total ${total.toFixed(2)}%.`, {
+          description: "Shares must sum to 100% before activation.",
+          action: {
+            label: "Rebalance",
+            onClick: () => {
+              void rebalanceShares();
+            },
+          },
+        });
+      } else {
+        toast.success("Tier removed.");
+      }
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.error ?? err?.message ?? "Failed to remove tier",
+      );
+    }
+  }
+
+  /**
+   * One-click proportional re-balance: keeps every tier's other values as-is
+   * and only rescales `splitShare` so the ladder sums to exactly 100.00%.
+   * Non-destructive vs seed / pool / weights / odds.
+   */
+  async function rebalanceShares() {
+    if (!group || savedChildren.length === 0) return;
+    const current = [...savedChildren].sort((a, b) => a.tierRank - b.tierRank);
+    const total = current.reduce((s, c) => s + c.splitShare, 0);
+    const updates: { jackpotId: number; tierRank: number; splitShare: number }[] =
+      total <= 0
+        ? current.map((c) => ({
+            jackpotId: c.jackpotId,
+            tierRank: c.tierRank,
+            splitShare: round2(100 / current.length),
+          }))
+        : current.map((c) => ({
+            jackpotId: c.jackpotId,
+            tierRank: c.tierRank,
+            splitShare: round2((c.splitShare / total) * 100),
+          }));
+    // Correct rounding residue so the final sum is exactly 100.00.
+    const sum = updates.reduce((s, u) => s + u.splitShare, 0);
+    const residue = round2(100 - sum);
+    if (updates.length > 0 && Math.abs(residue) > 0) {
+      updates[updates.length - 1] = {
+        ...updates[updates.length - 1],
+        splitShare: round2(updates[updates.length - 1].splitShare + residue),
+      };
+    }
+    setApplyingSuggestion(true);
+    try {
+      for (const u of updates) {
+        await axios.post(
+          `/api/v1/jackpot-groups/${group.id}/children`,
+          u,
+          {
+            headers: {
+              brandId: String(brandId),
+              "Content-Type": "application/json",
+            },
+          },
+        );
+      }
+      const byId = new Map(updates.map((u) => [u.jackpotId, u.splitShare]));
+      setSavedChildren((prev) =>
+        prev.map((c) =>
+          byId.has(c.jackpotId) ? { ...c, splitShare: byId.get(c.jackpotId)! } : c,
+        ),
+      );
+      toast.success("Shares rebalanced to 100.00%.");
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.error ?? err?.message ?? "Rebalance failed",
+      );
+    } finally {
+      setApplyingSuggestion(false);
+    }
+  }
+
+
 
   /* ───────────────── Suggest allocation ───────────────── */
   function openSuggestionPreview(strategyIdx: number) {
@@ -761,8 +1046,26 @@ export function MultiJackpotWizard() {
         });
         return Array.from(byRank.values()).sort((a, b) => a.tierRank - b.tierRank);
       });
+      // Persist a snapshot so subsequent edits register as drift.
+      const stratLabel =
+        STRATEGIES.find((s) => s.id === suggestionPreview.strategy)?.label ??
+        suggestionPreview.strategy;
+      setLastSnapshot({
+        strategyId: suggestionPreview.strategy,
+        presetLabel: `${stratLabel} suggestion`,
+        tiers: suggestions.map((sug, i) => ({
+          tierRank: sortedChildren[i].tierRank,
+          splitShare: round2(sug.splitShare),
+          seedAmount: round2(sug.reseedingAmount),
+          reseedingAmount: round2(sug.reseedingAmount),
+          poolWeight: sug.poolWeight,
+          seedWeight: sug.seedWeight,
+          houseWeight: sug.houseWeight,
+        })),
+      });
       toast.success("Suggestion applied — you can still tweak any tier manually.");
       setSuggestionPreview(null);
+
     } catch (err: any) {
       toast.error(err?.response?.data?.error ?? err?.message ?? "Failed to apply suggestion");
     } finally {
@@ -924,6 +1227,19 @@ export function MultiJackpotWizard() {
           },
         ]);
       }
+      setLastSnapshot({
+        strategyId: null,
+        presetLabel: `Ladder preset · ${presetId}`,
+        tiers: suggestions.map((sug) => ({
+          tierRank: sug.tierRank,
+          splitShare: round2(sug.splitShare),
+          seedAmount: round2(sug.reseedingAmount),
+          reseedingAmount: round2(sug.reseedingAmount),
+          poolWeight: sug.poolWeight,
+          seedWeight: sug.seedWeight,
+          houseWeight: sug.houseWeight,
+        })),
+      });
       toast.success(`Created ${suggestions.length} tiers from preset.`);
     } catch (err: any) {
       toast.error(err?.response?.data?.error ?? err?.message ?? "Failed to build preset");
@@ -1068,25 +1384,53 @@ export function MultiJackpotWizard() {
             />
 
 
-            {savedChildren.length >= 2 && (
-              <SuggestBar
+            {savedChildren.length > 0 && (
+              <SuggestionsPanel
+                drift={drift}
                 strategyIndex={suggestionIndex}
+                lastSnapshot={lastSnapshot}
+                canReSuggest={savedChildren.length >= 2}
+                busy={applyingSuggestion}
                 onCycle={cycleSuggestion}
-                onOpen={() => openSuggestionPreview(suggestionIndex)}
-                disabled={applyingSuggestion}
+                onReSuggest={() => openSuggestionPreview(suggestionIndex)}
+                onRebalance={() => {
+                  void rebalanceShares();
+                }}
               />
             )}
 
-            <TierLadder savedChildren={savedChildren} group={group} />
+            <TierLadder
+              savedChildren={savedChildren}
+              group={group}
+              snapshot={lastSnapshot}
+              onEdit={openEditDraft}
+              onRemove={(c) => {
+                void removeTier(c);
+              }}
+              editingChildId={editingChildId}
+            />
 
 
             {draft ? (
               <DraftTierCard
                 draft={draft}
                 group={group}
-                remaining={Math.max(0, 100 - sharesTotal)}
+                isEdit={editingChildId !== null}
+                remaining={Math.max(
+                  0,
+                  100 -
+                    (sharesTotal -
+                      (editingChildId !== null
+                        ? savedChildren.find(
+                            (c) => c.jackpotId === editingChildId,
+                          )?.splitShare ?? 0
+                        : 0)),
+                )}
                 onChange={patchDraft}
-                onCancel={() => setDraft(null)}
+                onCancel={() => {
+                  setDraft(null);
+                  setEditingChildId(null);
+                }}
                 onSave={saveDraft}
                 submitting={submitting}
               />
@@ -1099,6 +1443,7 @@ export function MultiJackpotWizard() {
                 <Plus className="w-5 h-5" /> Add New Tier
               </button>
             )}
+
 
             <div className="mt-10 flex items-center justify-between">
               <Button
@@ -1327,9 +1672,17 @@ function MasterRecap({ group }: { group: GroupDTO }) {
 function TierLadder({
   savedChildren,
   group,
+  snapshot,
+  onEdit,
+  onRemove,
+  editingChildId,
 }: {
   savedChildren: SavedChild[];
   group: GroupDTO;
+  snapshot: LadderSnapshot | null;
+  onEdit: (child: SavedChild) => void;
+  onRemove: (child: SavedChild) => void;
+  editingChildId: number | null;
 }) {
   if (savedChildren.length === 0) {
     return (
@@ -1348,10 +1701,12 @@ function TierLadder({
       {sorted.map((c, idx) => {
         const theme = rankTheme(c.tierRank);
         const { Icon } = theme;
+        const edited = isRowEdited(c, snapshot);
+        const isEditing = editingChildId === c.jackpotId;
         return (
           <div
             key={c.jackpotId}
-            className={`relative rounded-xl border bg-neutral-900/60 p-4 flex items-center gap-4 ${theme.border}`}
+            className={`relative rounded-xl border bg-neutral-900/60 p-4 flex items-center gap-4 ${theme.border} ${isEditing ? "ring-2 ring-blue-500/60" : ""}`}
           >
             <div
               className={`absolute inset-y-0 left-0 w-1 rounded-l-xl bg-gradient-to-b ${theme.bar}`}
@@ -1372,6 +1727,15 @@ function TierLadder({
                 {idx === 0 && (
                   <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border border-blue-400/40 bg-blue-400/10 text-blue-200">
                     Top tier
+                  </span>
+                )}
+                {edited && (
+                  <span
+                    title="Edited since last suggestion"
+                    className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border border-amber-400/40 bg-amber-400/10 text-amber-200"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-300" />
+                    Edited
                   </span>
                 )}
               </div>
@@ -1407,6 +1771,26 @@ function TierLadder({
                 </div>
               </div>
             </div>
+            <div className="flex items-center gap-1 ml-2 shrink-0">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onEdit(c)}
+                className="h-8 px-2 text-neutral-300 hover:text-white hover:bg-neutral-800"
+              >
+                Edit
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onRemove(c)}
+                className="h-8 px-2 text-red-300 hover:text-red-100 hover:bg-red-500/10"
+              >
+                Delete
+              </Button>
+            </div>
           </div>
         );
       })}
@@ -1415,11 +1799,148 @@ function TierLadder({
 }
 
 /* ────────────────────────────────────────────────────────────────── */
+/* Suggestions Panel — drift-aware controls                           */
+/* ────────────────────────────────────────────────────────────────── */
+function SuggestionsPanel({
+  drift,
+  strategyIndex,
+  lastSnapshot,
+  canReSuggest,
+  busy,
+  onCycle,
+  onReSuggest,
+  onRebalance,
+}: {
+  drift: {
+    status: DriftStatus;
+    sharesOff: boolean;
+    editedCount: number;
+    countDelta: number;
+  };
+  strategyIndex: number;
+  lastSnapshot: LadderSnapshot | null;
+  canReSuggest: boolean;
+  busy: boolean;
+  onCycle: () => void;
+  onReSuggest: () => void;
+  onRebalance: () => void;
+}) {
+  const strategy = STRATEGIES[strategyIndex % STRATEGIES.length];
+  const { statusLabel, statusTone, detail } = describeDrift(drift, lastSnapshot);
+  return (
+    <div className="mb-4 rounded-xl border border-neutral-800 bg-neutral-950/60 p-4 flex flex-wrap items-center gap-3">
+      <div className="flex items-center gap-2 min-w-0">
+        <span
+          className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border ${statusTone}`}
+        >
+          {statusLabel}
+        </span>
+        <div className="text-sm text-neutral-300 truncate">{detail}</div>
+      </div>
+      <div className="ml-auto flex flex-wrap items-center gap-2">
+        {drift.sharesOff && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={onRebalance}
+            disabled={busy}
+            className="border-amber-400/40 bg-neutral-900 text-amber-200 hover:bg-amber-500/10"
+          >
+            Rebalance shares to 100%
+          </Button>
+        )}
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={onCycle}
+          disabled={busy}
+          className="border-neutral-700 bg-neutral-900 text-neutral-200 hover:bg-neutral-800"
+        >
+          Strategy: {strategy.label} · Cycle
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          onClick={onReSuggest}
+          disabled={busy || !canReSuggest}
+          className="bg-blue-500 hover:bg-blue-600"
+          title={
+            canReSuggest
+              ? "Preview a full re-suggested ladder"
+              : "Add at least two tiers to unlock re-suggest"
+          }
+        >
+          Re-suggest all tiers
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function describeDrift(
+  drift: {
+    status: DriftStatus;
+    sharesOff: boolean;
+    editedCount: number;
+    countDelta: number;
+  },
+  snap: LadderSnapshot | null,
+): { statusLabel: string; statusTone: string; detail: string } {
+  const base = snap?.presetLabel ? ` from “${snap.presetLabel}”` : "";
+  switch (drift.status) {
+    case "empty":
+      return {
+        statusLabel: "No tiers",
+        statusTone: "border-neutral-700 bg-neutral-800/60 text-neutral-300",
+        detail: "Add a tier or apply a ladder preset to get started.",
+      };
+    case "no_snapshot":
+      return {
+        statusLabel: "No baseline",
+        statusTone: "border-neutral-700 bg-neutral-800/60 text-neutral-300",
+        detail: drift.sharesOff
+          ? "Manual ladder — shares don't add up to 100%."
+          : "Manual ladder — apply a preset or re-suggest to lock a baseline.",
+      };
+    case "in_sync":
+      return {
+        statusLabel: "In sync",
+        statusTone: "border-emerald-400/40 bg-emerald-500/10 text-emerald-200",
+        detail: `Ladder matches the last suggestion${base}.`,
+      };
+    case "value_drift": {
+      const bits: string[] = [];
+      if (drift.editedCount > 0)
+        bits.push(
+          `${drift.editedCount} tier${drift.editedCount === 1 ? "" : "s"} edited`,
+        );
+      if (drift.sharesOff) bits.push("shares off 100%");
+      return {
+        statusLabel: "Edited",
+        statusTone: "border-amber-400/40 bg-amber-500/10 text-amber-200",
+        detail: `${bits.join(" · ")}${base}.`,
+      };
+    }
+    case "structural":
+      return {
+        statusLabel: "Structural change",
+        statusTone: "border-fuchsia-400/40 bg-fuchsia-500/10 text-fuchsia-200",
+        detail: `${drift.countDelta > 0 ? "+" : ""}${drift.countDelta} tier${
+          Math.abs(drift.countDelta) === 1 ? "" : "s"
+        }${base}. Re-suggest to refit the ladder.`,
+      };
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────── */
 /* Inline draft tier card                                             */
 /* ────────────────────────────────────────────────────────────────── */
 function DraftTierCard({
   draft,
   group,
+  isEdit,
   remaining,
   onChange,
   onCancel,
@@ -1428,12 +1949,14 @@ function DraftTierCard({
 }: {
   draft: ChildDraft;
   group: GroupDTO;
+  isEdit: boolean;
   remaining: number;
   onChange: (patch: Partial<ChildDraft>) => void;
   onCancel: () => void;
   onSave: () => void;
   submitting: boolean;
 }) {
+
   const theme = rankTheme(Number(draft.tierRank) || 1);
   const splitShare = Number.parseFloat(draft.splitShare) || 0;
   const derivedText = formatDerivedRate(
@@ -1452,7 +1975,7 @@ function DraftTierCard({
           <span
             className={`px-2 py-0.5 text-[10px] uppercase tracking-wider rounded border ${theme.chip}`}
           >
-            {theme.label} · New tier
+            {theme.label} · {isEdit ? "Editing tier" : "New tier"}
           </span>
           <span className="text-sm text-neutral-400">
             Remaining allocation:{" "}
@@ -1762,7 +2285,7 @@ function DraftTierCard({
           disabled={submitting || !draft.tierName.trim() || shareInvalid}
           className="bg-blue-500 hover:bg-blue-600"
         >
-          Save tier
+          {isEdit ? "Save changes" : "Save tier"}
         </Button>
       </div>
     </div>
