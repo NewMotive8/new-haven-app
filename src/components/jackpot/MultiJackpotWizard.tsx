@@ -3104,15 +3104,19 @@ function PlayerTargetingSection({
 function LadderPresetStrip({
   onPick,
   busy,
+  hasChildren,
 }: {
   onPick: (id: LadderPresetId) => void;
   busy: boolean;
+  hasChildren?: boolean;
 }) {
   return (
     <div className="mb-4 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="w-4 h-4 text-blue-300" />
-        <div className="text-sm font-medium text-blue-200">Quick start — pick a ladder preset</div>
+        <div className="text-sm font-medium text-blue-200">
+          {hasChildren ? "Change starting template" : "Quick start — pick a ladder preset"}
+        </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {LADDER_PRESETS.map((p) => (
@@ -3129,11 +3133,14 @@ function LadderPresetStrip({
         ))}
       </div>
       <div className="mt-2 text-xs text-neutral-500">
-        Each preset auto-creates every tier with sensible share, seed and pool defaults. You can tune anything after.
+        {hasChildren
+          ? "Selecting a template will delete the existing tiers and rebuild them from the preset. You can tune anything after."
+          : "Each preset auto-creates every tier with sensible share, seed and pool defaults. You can tune anything after."}
       </div>
     </div>
   );
 }
+
 
 /* ────────────────────────────────────────────────────────────────── */
 /* Suggest bar (visible with 2+ saved tiers)                           */
