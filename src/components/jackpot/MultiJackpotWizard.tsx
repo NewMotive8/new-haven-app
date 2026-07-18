@@ -423,6 +423,11 @@ export function MultiJackpotWizard() {
   // Step 2 — Tier Allocation
   const [draft, setDraft] = React.useState<ChildDraft | null>(null);
   const [savedChildren, setSavedChildren] = React.useState<SavedChild[]>([]);
+  // Suggest-allocator UI state
+  const [suggestionIndex, setSuggestionIndex] = React.useState<number>(0);
+  const [suggestionPreview, setSuggestionPreview] =
+    React.useState<{ tiers: SuggestedTier[]; strategy: StrategyId } | null>(null);
+  const [applyingSuggestion, setApplyingSuggestion] = React.useState(false);
 
   const sharesTotal = React.useMemo(
     () => savedChildren.reduce((acc, c) => acc + c.splitShare, 0),
