@@ -1378,6 +1378,40 @@ export function MultiJackpotWizard({ initialGroup, startAtStep }: MultiJackpotWi
     }
   }
 
+  /* Edit-mode save: PATCH group profile with current Step-1 values,
+     then return to the MultiJackpots dashboard. Tier edits already
+     persist inline via the /children endpoint. */
+  async function handleSaveAndReturn() {
+    if (!group) return;
+    if (brandId == null) return toast.error("No brand selected");
+    setSubmitting(true);
+    try {
+      await axios.patch(
+        `/api/v1/jackpot-groups/${group.id}`,
+        {
+          name: name.trim() || group.name,
+          contributionSource,
+          contributionType,
+          masterContributionValue: masterValueAsStored(),
+          assignedCategories: assignment.assignedCategories,
+          assignedGameIds: assignment.assignedGameIds,
+        },
+        {
+          headers: {
+            brandId: String(brandId),
+            "Content-Type": "application/json",
+          },
+        },
+      );
+      toast.success("MultiJackpot saved");
+      navigate({ to: "/admin/jackpot-groups" });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error ?? err?.message ?? "Save failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   /* ───────────────── render ───────────────── */
   return (
     <div className="space-y-8">
