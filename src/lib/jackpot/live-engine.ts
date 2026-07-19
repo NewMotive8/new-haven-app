@@ -94,14 +94,32 @@ export function evaluateLiveSpin(
 
   const winAmount = applyPayoutOverrides(poolCurrent, fixedWin, maxWin);
 
+  // Compliance invariant (GLI-11 §2.3 / GLI-19): every wager consults the RNG
+  // exactly once. We consume the sample up-front so the audit trail records an
+  // RNG call for this bet even if downstream logic later suppresses the win.
+  const rngSample = rng();
+
   // ── 1. Forced-hit gate (operator pool cap reached). ─────────────────────
   if (poolMaxRaw > 0 && poolCurrent >= poolMaxRaw) {
     // Respect the minimum-win gate even on a forced hit — never settle below
-    // the floor; reject quietly back to "no win" so the pool keeps growing.
+    // the floor; suppress the win but log the reason for the audit trail.
     if (minWin > 0 && poolCurrent < minWin) {
-      return { won: false, forcedHit: false, winAmount, hitChance: 0 };
+      return {
+        won: false,
+        forcedHit: false,
+        winAmount,
+        hitChance: 0,
+        rngConsulted: true,
+        suppressionReason: "forced_hit_below_min_win_floor",
+      };
     }
-    return { won: true, forcedHit: true, winAmount, hitChance: 1 };
+    return {
+      won: true,
+      forcedHit: true,
+      winAmount,
+      hitChance: 1,
+      rngConsulted: true,
+    };
   }
 
   // ── 2/3. Compute per-spin hit probability. ──────────────────────────────
@@ -139,12 +157,21 @@ export function evaluateLiveSpin(
   }
 
   hitChance = Math.max(0, Math.min(1, Number.isFinite(hitChance) ? hitChance : 0));
-  const won = rng() < hitChance;
+  const won = rngSample < hitChance;
 
-  // Min-win safety gate on RNG wins.
+  // Min-win safety gate on RNG wins — record the suppression reason so the
+  // ledger can distinguish "player did not win" from "player won but the pool
+  // was under the disclosed minimum-win floor".
   if (won && minWin > 0 && poolCurrent < minWin) {
-    return { won: false, forcedHit: false, winAmount, hitChance };
+    return {
+      won: false,
+      forcedHit: false,
+      winAmount,
+      hitChance,
+      rngConsulted: true,
+      suppressionReason: "pool_below_min_win_floor",
+    };
   }
 
-  return { won, forcedHit: false, winAmount, hitChance };
+  return { won, forcedHit: false, winAmount, hitChance, rngConsulted: true };
 }
