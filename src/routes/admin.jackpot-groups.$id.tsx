@@ -139,7 +139,7 @@ function JackpotGroupDetailPage() {
         <p className="text-red-400">
           Failed to load MultiJackpot: {(query.error as any)?.message ?? "not found"}
         </p>
-        <Link to="/admin/jackpot-groups" className="text-blue-400 underline mt-4 inline-block">
+        <Link to="/admin/jackpots" className="text-blue-400 underline mt-4 inline-block">
           ← Back to MultiJackpots
         </Link>
       </div>
@@ -157,7 +157,7 @@ function JackpotGroupDetailPage() {
       <div className="max-w-7xl mx-auto px-6 py-10 space-y-6">
         <div>
           <Link
-            to="/admin/jackpot-groups"
+            to="/admin/jackpots"
             className="inline-flex items-center text-sm text-neutral-400 hover:text-white"
           >
             <ArrowLeft className="w-4 h-4 mr-1" /> All MultiJackpots
