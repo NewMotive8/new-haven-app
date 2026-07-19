@@ -18,6 +18,17 @@ import {
 } from "./math";
 import type { JackpotConfigDTO } from "./types";
 
+/**
+ * Reason a spin was suppressed after the RNG roll.
+ *
+ * Compliance (GLI-11 §2.3 / GLI-19): every wager MUST consult the RNG, and
+ * any post-RNG suppression MUST carry a machine-readable reason so the
+ * regulator's audit trail can reconstruct why a rolled win was not paid.
+ */
+export type SuppressionReason =
+  | "pool_below_min_win_floor"
+  | "forced_hit_below_min_win_floor";
+
 export interface LiveSpinResult {
   /** True when the spin wins (either RNG-triggered or forced by pool cap). */
   won: boolean;
@@ -27,6 +38,10 @@ export interface LiveSpinResult {
   winAmount: number;
   /** Effective per-spin hit probability (1.0 when forcedHit). */
   hitChance: number;
+  /** True when the RNG was consulted for this spin (always true except on forced hits). */
+  rngConsulted: boolean;
+  /** Present only when a rolled/forced win was suppressed by a liquidity gate. */
+  suppressionReason?: SuppressionReason;
 }
 
 function applyPayoutOverrides(rawWin: number, fixed: number, max: number): number {
