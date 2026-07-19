@@ -120,7 +120,7 @@ function JackpotGroupDetailPage() {
       });
       toast.success("MultiJackpot deleted");
       await queryClient.invalidateQueries(["jackpot-groups"]);
-      navigate({ to: "/admin/jackpot-groups" });
+      navigate({ to: "/admin/jackpots" });
     } catch (err: any) {
       toast.error(err?.response?.data?.error ?? err?.message ?? "Delete failed");
       setBusy(false);
