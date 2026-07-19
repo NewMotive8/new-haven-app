@@ -1437,10 +1437,10 @@ function SandboxDemoPage() {
               </div>
               <div className="flex flex-wrap items-center gap-2 text-[11px]">
                 <a
-                  href="/admin/jackpot-groups"
+                  href="/admin/jackpots"
                   className="px-2.5 py-1 rounded border border-current/40 hover:bg-white/5 transition"
                 >
-                  Manage jackpot groups →
+                  Manage jackpots →
                 </a>
               </div>
             </div>
