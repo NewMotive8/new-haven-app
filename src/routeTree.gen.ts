@@ -20,7 +20,6 @@ import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminSimulatorRouteImport } from './routes/admin.simulator'
 import { Route as AdminJackpotsRouteImport } from './routes/admin.jackpots'
 import { Route as AdminJackpotsIndexRouteImport } from './routes/admin.jackpots.index'
-import { Route as AdminJackpotGroupsIndexRouteImport } from './routes/admin.jackpot-groups.index'
 import { Route as AdminJackpotsNewRouteImport } from './routes/admin.jackpots.new'
 import { Route as AdminJackpotGroupsIdRouteImport } from './routes/admin.jackpot-groups.$id'
 import { Route as ApiV2JackpotsIndexRouteImport } from './routes/api/v2/jackpots/index'
@@ -94,11 +93,6 @@ const AdminJackpotsIndexRoute = AdminJackpotsIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AdminJackpotsRoute,
-} as any)
-const AdminJackpotGroupsIndexRoute = AdminJackpotGroupsIndexRouteImport.update({
-  id: '/jackpot-groups/',
-  path: '/jackpot-groups/',
-  getParentRoute: () => AdminRoute,
 } as any)
 const AdminJackpotsNewRoute = AdminJackpotsNewRouteImport.update({
   id: '/new',
@@ -207,7 +201,6 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/admin/jackpot-groups/$id': typeof AdminJackpotGroupsIdRoute
   '/admin/jackpots/new': typeof AdminJackpotsNewRoute
-  '/admin/jackpot-groups/': typeof AdminJackpotGroupsIndexRoute
   '/admin/jackpots/': typeof AdminJackpotsIndexRoute
   '/api/v1/event/bet': typeof ApiV1EventBetRouteWithChildren
   '/api/v1/event/simulate': typeof ApiV1EventSimulateRoute
@@ -237,7 +230,6 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/admin/jackpot-groups/$id': typeof AdminJackpotGroupsIdRoute
   '/admin/jackpots/new': typeof AdminJackpotsNewRoute
-  '/admin/jackpot-groups': typeof AdminJackpotGroupsIndexRoute
   '/admin/jackpots': typeof AdminJackpotsIndexRoute
   '/api/v1/event/bet': typeof ApiV1EventBetRouteWithChildren
   '/api/v1/event/simulate': typeof ApiV1EventSimulateRoute
@@ -270,7 +262,6 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/admin/jackpot-groups/$id': typeof AdminJackpotGroupsIdRoute
   '/admin/jackpots/new': typeof AdminJackpotsNewRoute
-  '/admin/jackpot-groups/': typeof AdminJackpotGroupsIndexRoute
   '/admin/jackpots/': typeof AdminJackpotsIndexRoute
   '/api/v1/event/bet': typeof ApiV1EventBetRouteWithChildren
   '/api/v1/event/simulate': typeof ApiV1EventSimulateRoute
@@ -304,7 +295,6 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/admin/jackpot-groups/$id'
     | '/admin/jackpots/new'
-    | '/admin/jackpot-groups/'
     | '/admin/jackpots/'
     | '/api/v1/event/bet'
     | '/api/v1/event/simulate'
@@ -334,7 +324,6 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin/jackpot-groups/$id'
     | '/admin/jackpots/new'
-    | '/admin/jackpot-groups'
     | '/admin/jackpots'
     | '/api/v1/event/bet'
     | '/api/v1/event/simulate'
@@ -366,7 +355,6 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/admin/jackpot-groups/$id'
     | '/admin/jackpots/new'
-    | '/admin/jackpot-groups/'
     | '/admin/jackpots/'
     | '/api/v1/event/bet'
     | '/api/v1/event/simulate'
@@ -485,13 +473,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/jackpots/'
       preLoaderRoute: typeof AdminJackpotsIndexRouteImport
       parentRoute: typeof AdminJackpotsRoute
-    }
-    '/admin/jackpot-groups/': {
-      id: '/admin/jackpot-groups/'
-      path: '/jackpot-groups'
-      fullPath: '/admin/jackpot-groups/'
-      preLoaderRoute: typeof AdminJackpotGroupsIndexRouteImport
-      parentRoute: typeof AdminRoute
     }
     '/admin/jackpots/new': {
       id: '/admin/jackpots/new'
@@ -642,7 +623,6 @@ interface AdminRouteChildren {
   AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminJackpotGroupsIdRoute: typeof AdminJackpotGroupsIdRoute
-  AdminJackpotGroupsIndexRoute: typeof AdminJackpotGroupsIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
@@ -651,7 +631,6 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminJackpotGroupsIdRoute: AdminJackpotGroupsIdRoute,
-  AdminJackpotGroupsIndexRoute: AdminJackpotGroupsIndexRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
