@@ -605,7 +605,7 @@ export function MultiJackpotWizard({ initialGroup, startAtStep }: MultiJackpotWi
     );
     setPlayerSharePct(initialGroup.contributionSource === "operator" ? 0 : 100);
     setAssignment({
-      assignedCategories: initialGroup.assignedCategories ?? [],
+      assignedCategories: (initialGroup.assignedCategories ?? []) as GameAssignmentValue["assignedCategories"],
       assignedGameIds: initialGroup.assignedGameIds ?? [],
     });
     setGroup({
