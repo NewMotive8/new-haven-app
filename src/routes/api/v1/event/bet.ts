@@ -397,6 +397,29 @@ function readCommunityConfig(jp: JackpotDTO) {
 const secureRandomFloat = () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
 
 /**
+ * Emit a structured audit log line when the engine suppresses a rolled or
+ * forced win because of a liquidity gate. GLI-11 §2.3 / GLI-19 require every
+ * suppression to be reconstructible from operator logs.
+ */
+function logSpinSuppression(args: {
+  transactionId: string;
+  brandId: number | string | null;
+  jackpotId: number | string | null;
+  reason: string;
+  hitChance: number;
+  wager: number;
+}) {
+  console.warn(
+    JSON.stringify({
+      event: "jackpot.spin.suppressed",
+      compliance: "GLI-11",
+      ...args,
+      at: new Date().toISOString(),
+    }),
+  );
+}
+
+/**
  * Wager-proportional trigger probability for Classic / Fixed-Odds jackpots.
  *
  * Compliance: a $10 bet must have 10x the per-spin win chance of a $1 bet.
@@ -621,6 +644,16 @@ export const Route = createFileRoute("/api/v1/event/bet")({
           for (const child of ranked) {
             const childCfg = cfgByJackpotId.get(child.id) ?? inlineConfigFromDto(child);
             const spin = evaluateLiveSpin(childCfg, wager, rng);
+            if (spin.suppressionReason) {
+              logSpinSuppression({
+                transactionId: body.transactionId,
+                brandId: brand,
+                jackpotId: child.id,
+                reason: spin.suppressionReason,
+                hitChance: spin.hitChance,
+                wager,
+              });
+            }
             if (spin.won) {
               const winAmount = spin.winAmount;
               const community = readCommunityConfig(child);
@@ -790,6 +823,16 @@ export const Route = createFileRoute("/api/v1/event/bet")({
           let win: Record<string, unknown> | null = null;
           {
             const spin = evaluateLiveSpin(cfg, wager, rng);
+            if (spin.suppressionReason) {
+              logSpinSuppression({
+                transactionId: body.transactionId,
+                brandId: brand,
+                jackpotId: jpDto ? jpDto.id : cfg.id ?? null,
+                reason: spin.suppressionReason,
+                hitChance: spin.hitChance,
+                wager,
+              });
+            }
             if (spin.won) {
               const winAmount = spin.winAmount;
               const jackpotId = jpDto ? jpDto.id : cfg.id;
@@ -915,6 +958,16 @@ export const Route = createFileRoute("/api/v1/event/bet")({
           const jpDto = dtos[i];
           const cfg = configs[i] ?? inlineConfigFromDto(jpDto);
           const spin = evaluateLiveSpin(cfg, wager, rng);
+          if (spin.suppressionReason) {
+            logSpinSuppression({
+              transactionId: body.transactionId,
+              brandId: brand,
+              jackpotId: jpDto.id,
+              reason: spin.suppressionReason,
+              hitChance: spin.hitChance,
+              wager,
+            });
+          }
           if (spin.won) {
             const winAmount = spin.winAmount;
             const community = readCommunityConfig(jpDto);
