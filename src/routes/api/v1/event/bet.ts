@@ -823,6 +823,16 @@ export const Route = createFileRoute("/api/v1/event/bet")({
           let win: Record<string, unknown> | null = null;
           {
             const spin = evaluateLiveSpin(cfg, wager, rng);
+            if (spin.suppressionReason) {
+              logSpinSuppression({
+                transactionId: body.transactionId,
+                brandId: brand,
+                jackpotId: jpDto ? jpDto.id : cfg.id ?? null,
+                reason: spin.suppressionReason,
+                hitChance: spin.hitChance,
+                wager,
+              });
+            }
             if (spin.won) {
               const winAmount = spin.winAmount;
               const jackpotId = jpDto ? jpDto.id : cfg.id;
@@ -948,6 +958,16 @@ export const Route = createFileRoute("/api/v1/event/bet")({
           const jpDto = dtos[i];
           const cfg = configs[i] ?? inlineConfigFromDto(jpDto);
           const spin = evaluateLiveSpin(cfg, wager, rng);
+          if (spin.suppressionReason) {
+            logSpinSuppression({
+              transactionId: body.transactionId,
+              brandId: brand,
+              jackpotId: jpDto.id,
+              reason: spin.suppressionReason,
+              hitChance: spin.hitChance,
+              wager,
+            });
+          }
           if (spin.won) {
             const winAmount = spin.winAmount;
             const community = readCommunityConfig(jpDto);
