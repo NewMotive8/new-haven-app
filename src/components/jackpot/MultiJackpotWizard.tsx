@@ -1368,7 +1368,7 @@ export function MultiJackpotWizard({ initialGroup, startAtStep }: MultiJackpotWi
         },
       );
       toast.success(`MultiJackpot "${group.name}" is now active`);
-      navigate({ to: "/admin/jackpot-groups" });
+      navigate({ to: "/admin/jackpots" });
     } catch (err: any) {
       toast.error(
         err?.response?.data?.error ?? err?.message ?? "Failed to activate",
@@ -1404,7 +1404,7 @@ export function MultiJackpotWizard({ initialGroup, startAtStep }: MultiJackpotWi
         },
       );
       toast.success("MultiJackpot saved");
-      navigate({ to: "/admin/jackpot-groups" });
+      navigate({ to: "/admin/jackpots" });
     } catch (err: any) {
       toast.error(err?.response?.data?.error ?? err?.message ?? "Save failed");
     } finally {
@@ -1581,7 +1581,7 @@ export function MultiJackpotWizard({ initialGroup, startAtStep }: MultiJackpotWi
                 variant="outline"
                 onClick={() =>
                   initialGroup
-                    ? navigate({ to: "/admin/jackpot-groups" })
+                    ? navigate({ to: "/admin/jackpots" })
                     : setStep(1)
                 }
                 className="border-neutral-700 bg-neutral-900 text-neutral-200 hover:bg-neutral-800 hover:text-white"

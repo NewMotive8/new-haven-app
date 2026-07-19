@@ -260,3 +260,69 @@ html[data-theme="light"] .bg-violet-500\/10,
 html[data-theme="light"] .bg-purple-500\/10 { background-color: #ede9fe !important; }
 
 
+
+/* ── Light-mode polish v2 ─────────────────────────────────────────────
+   More brand color, less flat grey. Guards against dark-on-dark text
+   after the remaps above. */
+
+html[data-theme="light"] body { background-color: #f4f7fc !important; }
+
+html[data-theme="light"] .bg-white { border-color: #e0e7f2; }
+
+html[data-theme="light"] .bg-neutral-100,
+html[data-theme="light"] .bg-neutral-200 { background-color: #eaf1fb !important; }
+html[data-theme="light"] .text-neutral-600,
+html[data-theme="light"] .text-neutral-700,
+html[data-theme="light"] .text-neutral-800,
+html[data-theme="light"] .text-neutral-900 { color: #0f172a !important; }
+
+/* Guard: solid brand-colored buttons/badges keep white text after remaps */
+html[data-theme="light"] .bg-blue-500,
+html[data-theme="light"] .bg-blue-600,
+html[data-theme="light"] .bg-blue-700,
+html[data-theme="light"] .bg-indigo-500,
+html[data-theme="light"] .bg-indigo-600,
+html[data-theme="light"] .bg-red-500,
+html[data-theme="light"] .bg-red-600,
+html[data-theme="light"] .bg-emerald-500,
+html[data-theme="light"] .bg-emerald-600,
+html[data-theme="light"] .bg-green-500,
+html[data-theme="light"] .bg-green-600 { color: #ffffff !important; }
+html[data-theme="light"] .bg-blue-500 *,
+html[data-theme="light"] .bg-blue-600 *,
+html[data-theme="light"] .bg-blue-700 *,
+html[data-theme="light"] .bg-indigo-500 *,
+html[data-theme="light"] .bg-indigo-600 *,
+html[data-theme="light"] .bg-red-500 *,
+html[data-theme="light"] .bg-red-600 *,
+html[data-theme="light"] .bg-emerald-500 *,
+html[data-theme="light"] .bg-emerald-600 *,
+html[data-theme="light"] .bg-green-500 *,
+html[data-theme="light"] .bg-green-600 * { color: #ffffff !important; }
+
+html[data-theme="light"] .bg-neutral-800\/40,
+html[data-theme="light"] .bg-neutral-800\/30,
+html[data-theme="light"] .bg-neutral-800\/20 { background-color: #eef4ff !important; }
+
+html[data-theme="light"] .text-sky-300,
+html[data-theme="light"] .text-sky-400,
+html[data-theme="light"] .text-cyan-300,
+html[data-theme="light"] .text-cyan-400,
+html[data-theme="light"] .text-teal-300,
+html[data-theme="light"] .text-teal-400 { color: #0369a1 !important; }
+html[data-theme="light"] .bg-sky-500\/10,
+html[data-theme="light"] .bg-cyan-500\/10,
+html[data-theme="light"] .bg-teal-500\/10 { background-color: #e0f2fe !important; }
+
+html[data-theme="light"] .text-green-300,
+html[data-theme="light"] .text-green-400 { color: #047857 !important; }
+html[data-theme="light"] .bg-green-500\/10,
+html[data-theme="light"] .bg-green-500\/20 { background-color: #d1fae5 !important; }
+
+html[data-theme="light"] .text-pink-300,
+html[data-theme="light"] .text-pink-400,
+html[data-theme="light"] .text-rose-300,
+html[data-theme="light"] .text-rose-400 { color: #be185d !important; }
+
+html[data-theme="light"] .ring-white\/10,
+html[data-theme="light"] .ring-white\/20 { --tw-ring-color: rgba(59, 130, 246, 0.35) !important; }
