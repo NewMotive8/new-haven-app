@@ -1,58 +1,40 @@
-# Advisor Handover + Pre-Approved Implementation Plan
+## Goal
+Make `/admin/jackpot-groups/$id` reuse the full **MultiJackpotWizard** (same UI as the create flow at `/admin/jackpots/new?tab=multi`), pre-hydrated with the saved group + tiers. The current compact editor is replaced.
 
-Two short documents, both saved to `/mnt/documents/` in DOCX **and** PDF. No code changes in this task.
+## Changes
 
-## Deliverable 1 — Advisor Handover
+### 1. `src/components/jackpot/MultiJackpotWizard.tsx` — accept initial data
+Add optional props:
+```ts
+type Props = {
+  initialGroup?: JackpotGroupWithChildrenDTO;
+  startAtStep?: 1 | 2 | 3;   // defaults to 1
+  onExit?: () => void;       // for a "back to list" affordance in edit mode
+};
+```
 
-**File:** `Advisor_Handover_PreRNG_Gate.docx` / `.pdf`
-**Length:** 1 page (~450 words)
+On mount when `initialGroup` is present:
+- Hydrate step‑1 state (`name`, `contributionType`, `totalContributionAmount` — invert the `/100` for percent, `playerSharePct` from `contributionSource`, `prizeEconomy` from `walletType`/`currencyId`, `assignment` from `assignedCategories`/`assignedGameIds`).
+- Set `group` to the loaded DTO (skip `handleCreateGroup`).
+- Map `initialGroup.children` → `SavedChild[]` (already have `poolWeight`, `seedWeight`, `houseWeight`, `splitShare`, `triggerProbability`, seed/reseed amounts on the DTO) and set `savedChildren`.
+- Jump to `startAtStep ?? 2`.
 
-Sections:
-1. **Header** — Project (Incentiv8 Jackpot Engine), scope (Classic Progressive only), date, prepared-by.
-2. **The specific question** (1 sentence)
-   *"Is it compliant to skip the RNG draw on wagers where the seed reservoir is below its minimum funded floor, while still collecting the pool contribution?"*
-3. **Current implementation** (5 factual bullets — RNG source, contribution timing, gate location in `live-engine.ts`, no suppression log, no disclosure).
-4. **Why it was built this way** (2 sentences — GLI-12 liquidity safety; auditability implication not evaluated at build time).
-5. **The concern to rule on** (3 bullets — player fairness, audit trail, RTP model alignment).
-6. **Three remediation options** (A: disclose only, B: RNG-always + log, C: full state machine).
-7. **Follow-up questions for the advisor** (5 bullets — which option satisfies GLI-11 §2.11, refund mechanism needed, RTP re-submission, log retention, jurisdictional deltas).
-8. **Reference files** (4 file paths, so the advisor's technical reviewer can inspect source directly).
+Keep every other behaviour identical — tier CRUD uses the existing endpoints, activate/save flows are unchanged.
 
-## Deliverable 2 — Pre-Approved Implementation Plan
+### 2. `src/routes/admin.jackpot-groups.$id.tsx` — swap body for wizard
+Replace the entire editor body (`<Card>` header + Master Funding + tier table) with:
+- Keep the top back‑link, `<StatusPill>`, active‑lock banner, and the Activate / Disable / Clone / Delete buttons (they're group‑level actions, not tier config).
+- Below that render `<MultiJackpotWizard initialGroup={group} startAtStep={2} />` inside a `fieldset disabled={isActive}` so the whole surface locks while the group is active.
+- Drop `saveProfile`, the local draft state (`draftName`, `draftSource`, etc.), and the shares/tier UI — the wizard now owns them.
 
-**File:** `PreRNG_Gate_Remediation_Plan.docx` / `.pdf`
-**Length:** 1–2 pages
-**Purpose:** Ready to execute the moment the advisor picks Option B. Nothing implemented until greenlit.
+### 3. Route in `admin.jackpots.new.tsx`
+No change — it already renders `<MultiJackpotWizard />` without props, so the new-create path stays step‑1‑first.
 
-Sections:
-1. **Chosen approach** — Option B (RNG-always + suppression logging). Rationale: smallest surface, closes audit gap without changing player-visible behavior or RTP math.
-2. **Scope: what changes**
-   - `src/lib/jackpot/live-engine.ts` — `evaluateLiveSpin`: always call `rng()`, always compute `hitChance`, then set `suppressionReason` when min-win/min-seed gate would have blocked. Return shape adds `rngConsulted: true` and `suppressionReason?: "seed_below_floor" | "pool_below_min_win"`.
-   - `src/routes/api/v1/event/bet.ts` — surface `suppressionReason` in the bet response `perJackpot[]` entries.
-   - `src/routes/api/v1/event/bet.ledger.ts` — persist `suppression_reason` (nullable text) alongside the existing bet record.
-3. **Scope: what does NOT change** (explicit, to bound risk)
-   - Templates (`blueprints/templates.ts`) — unchanged.
-   - Simulator (`simulator.ts`) — unchanged for compliance. Optional mirror-fix noted separately.
-   - RNG source, forced-hit ceiling, wager scaling, financial conservation — unchanged.
-   - UI, wizard, KPI dashboard — unchanged (optional "suppressed spins" KPI called out as future work).
-   - Database schema — one nullable column, no data migration.
-4. **Database change** — single SQL migration adding `suppression_reason text null` to the bet events table. Grants unchanged (column inherits table grants). RLS unchanged.
-5. **Test additions**
-   - New audit test: every wager response reports `rngConsulted: true`, even when `suppressionReason` is set.
-   - New audit test: contributions collected during suppression are counted and reportable.
-   - Existing tests (`tests/audit/resiliency/rng.test.ts`, `tests/audit/financial/conservation.test.ts`) re-run untouched.
-6. **Non-code obligations for the advisor / math owner** (bulleted checklist so nothing falls through the seam that caused this issue):
-   - Disclosure line added to public game rules text.
-   - RTP filing cross-checked against "p on every spin" vs "p when seed ≥ floor" assumption.
-   - Suppression log retention window confirmed per jurisdiction.
-7. **Estimated effort** — ~3 files, ~40 lines of code, ~1 migration, ~2 tests. Half a day of engineering + review.
-8. **Rollback plan** — feature flag `SUPPRESSION_LOGGING_ENABLED`; falling back is a single env-var flip that restores the current gate behavior without redeploy.
+## Notes
+- No API changes. `/api/v1/jackpot-groups/$id` (GET) already returns `children` with the fields the wizard needs.
+- Tier edits inside the wizard hit the same PUT `/api/v1/jackpots/$id` + POST `/api/v1/jackpot-groups/$id/children` routes used today.
+- The compact editor code is removed; the wizard becomes the single source of truth for MultiJackpot editing.
 
-## Production notes
-
-- Use docx-js (same styling as prior `Jackpot_Engine_PM_Compliance_Brief_v3.docx` — Arial, US Letter, 1" margins) for visual continuity.
-- Convert to PDF via LibreOffice.
-- QA each page as image before delivering (per docs artifact skill).
-- Emit `<presentation-artifact>` tags for all 4 files (2 docs × 2 formats).
-
-No code, no schema, no tests written in this task. Advisor decision gates everything downstream.
+## Files touched
+- `src/components/jackpot/MultiJackpotWizard.tsx` (add props + hydration effect, ~40 lines)
+- `src/routes/admin.jackpot-groups.$id.tsx` (rewrite the body around the wizard, net simpler)
