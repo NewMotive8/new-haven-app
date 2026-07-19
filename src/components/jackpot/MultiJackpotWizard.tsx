@@ -589,6 +589,44 @@ export function MultiJackpotWizard({ initialGroup, startAtStep }: MultiJackpotWi
     [savedChildren, lastSnapshot, sharesTotal],
   );
 
+  // Hydrate from an existing group when opened in edit mode. Runs once per id.
+  const hydratedForIdRef = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    if (!initialGroup) return;
+    if (hydratedForIdRef.current === initialGroup.id) return;
+    hydratedForIdRef.current = initialGroup.id;
+
+    setName(initialGroup.name);
+    setContributionType(initialGroup.contributionType);
+    setTotalContributionAmount(
+      initialGroup.contributionType === "percentage"
+        ? Number((initialGroup.masterContributionValue * 100).toFixed(6))
+        : Number(initialGroup.masterContributionValue.toFixed(2)),
+    );
+    setPlayerSharePct(initialGroup.contributionSource === "operator" ? 0 : 100);
+    setAssignment({
+      assignedCategories: initialGroup.assignedCategories ?? [],
+      assignedGameIds: initialGroup.assignedGameIds ?? [],
+    });
+    setGroup({
+      ...initialGroup,
+      playerSharePct: initialGroup.contributionSource === "operator" ? 0 : 100,
+      minWagerAmount: 0,
+      maxWagerAmount: 0,
+      assignedCategories: initialGroup.assignedCategories ?? [],
+      assignedGameIds: initialGroup.assignedGameIds ?? [],
+      eligibility: defaultEligibility(),
+      playerTargeting: defaultPlayerTargeting(),
+      community: defaultCommunity(),
+    } as GroupDTO);
+    const rows = (initialGroup.children ?? [])
+      .map(dtoChildToSavedChild)
+      .sort((a, b) => a.tierRank - b.tierRank);
+    setSavedChildren(rows);
+  }, [initialGroup]);
+
+
+
 
   function nextRank() {
     return Math.max(0, ...savedChildren.map((c) => c.tierRank)) + 1;
