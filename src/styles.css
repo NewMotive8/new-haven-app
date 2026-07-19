@@ -145,11 +145,15 @@
 
 /*
  * Light-mode remap for hardcoded dark utility classes across the admin.
- * Components using semantic tokens (bg-card, text-foreground, border-border)
- * are unaffected; this only rewires fixed neutral-9xx / white classes.
+ * Palette: soft blue-tinted neutrals ("Cloud White" style) with the
+ * project's brand blue (#3b82f6) as the accent. Warm accents (amber/yellow/
+ * orange) are re-tuned so they never render as pale-on-white.
  */
+
+/* Page + surface backgrounds — subtle blue-tinted neutrals, not pure white */
 html[data-theme="light"] .bg-black,
-html[data-theme="light"] .bg-neutral-950,
+html[data-theme="light"] .bg-neutral-950 { background-color: #f6f8fc !important; }
+
 html[data-theme="light"] .bg-neutral-900 { background-color: #ffffff !important; }
 
 html[data-theme="light"] .bg-neutral-900\/60,
@@ -158,33 +162,101 @@ html[data-theme="light"] .bg-neutral-900\/40,
 html[data-theme="light"] .bg-neutral-900\/30,
 html[data-theme="light"] .bg-neutral-800\/60,
 html[data-theme="light"] .bg-neutral-800\/50,
-html[data-theme="light"] .bg-neutral-800\/40 { background-color: rgba(0,0,0,0.03) !important; }
+html[data-theme="light"] .bg-neutral-800\/40 {
+  background-color: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
 
-html[data-theme="light"] .bg-neutral-800 { background-color: #f5f5f5 !important; }
-html[data-theme="light"] .bg-neutral-700 { background-color: #e5e5e5 !important; }
+html[data-theme="light"] .bg-neutral-800 { background-color: #eef2f8 !important; }
+html[data-theme="light"] .bg-neutral-700 { background-color: #e2e8f0 !important; }
 
-html[data-theme="light"] .text-white { color: #0a0a0a !important; }
-html[data-theme="light"] .text-neutral-100 { color: #171717 !important; }
-html[data-theme="light"] .text-neutral-200 { color: #262626 !important; }
-html[data-theme="light"] .text-neutral-300 { color: #404040 !important; }
-html[data-theme="light"] .text-neutral-400 { color: #525252 !important; }
-html[data-theme="light"] .text-neutral-500 { color: #737373 !important; }
+/* Text — never white-on-white. Deep slate for headings, softer for body. */
+html[data-theme="light"] .text-white { color: #0f172a !important; }
+html[data-theme="light"] .text-neutral-100 { color: #0f172a !important; }
+html[data-theme="light"] .text-neutral-200 { color: #1e293b !important; }
+html[data-theme="light"] .text-neutral-300 { color: #334155 !important; }
+html[data-theme="light"] .text-neutral-400 { color: #475569 !important; }
+html[data-theme="light"] .text-neutral-500 { color: #64748b !important; }
 
+/* Borders — soft blue-slate, not grey */
 html[data-theme="light"] .border-neutral-950,
 html[data-theme="light"] .border-neutral-900,
 html[data-theme="light"] .border-neutral-800,
-html[data-theme="light"] .border-neutral-700 { border-color: #e5e5e5 !important; }
+html[data-theme="light"] .border-neutral-700 { border-color: #e2e8f0 !important; }
 
 html[data-theme="light"] .border-white\/10,
-html[data-theme="light"] .border-white\/20 { border-color: rgba(0,0,0,0.1) !important; }
+html[data-theme="light"] .border-white\/20 { border-color: rgba(59, 130, 246, 0.18) !important; }
 
 html[data-theme="light"] .bg-white\/5,
-html[data-theme="light"] .bg-white\/10 { background-color: rgba(0,0,0,0.04) !important; }
+html[data-theme="light"] .bg-white\/10 { background-color: rgba(59, 130, 246, 0.06) !important; }
 
 html[data-theme="light"] .hover\:bg-neutral-800:hover,
-html[data-theme="light"] .hover\:bg-neutral-800\/60:hover { background-color: #f5f5f5 !important; }
-html[data-theme="light"] .hover\:bg-neutral-700:hover { background-color: #e5e5e5 !important; }
+html[data-theme="light"] .hover\:bg-neutral-800\/60:hover { background-color: #eef4ff !important; }
+html[data-theme="light"] .hover\:bg-neutral-700:hover { background-color: #dbeafe !important; }
 
 html[data-theme="light"] .placeholder\:text-neutral-500::placeholder,
-html[data-theme="light"] .placeholder\:text-neutral-600::placeholder { color: #a3a3a3 !important; }
+html[data-theme="light"] .placeholder\:text-neutral-600::placeholder { color: #94a3b8 !important; }
+
+/* ── Warm accents (amber / yellow / orange) ──────────────────────────
+   These read fine on dark surfaces but wash out on white. Force darker,
+   readable tones and swap tinted backgrounds for brand-blue tints where
+   they act as informational surfaces. */
+html[data-theme="light"] .text-amber-200,
+html[data-theme="light"] .text-amber-300,
+html[data-theme="light"] .text-amber-400,
+html[data-theme="light"] .text-yellow-200,
+html[data-theme="light"] .text-yellow-300,
+html[data-theme="light"] .text-yellow-400,
+html[data-theme="light"] .text-orange-200,
+html[data-theme="light"] .text-orange-300,
+html[data-theme="light"] .text-orange-400 { color: #b45309 !important; }
+
+html[data-theme="light"] .text-amber-200\/70,
+html[data-theme="light"] .text-amber-200\/80 { color: #92400e !important; }
+
+html[data-theme="light"] .bg-amber-500\/5,
+html[data-theme="light"] .bg-amber-500\/10,
+html[data-theme="light"] .bg-amber-500\/20,
+html[data-theme="light"] .bg-yellow-500\/10,
+html[data-theme="light"] .bg-orange-500\/10 { background-color: #fef3c7 !important; }
+
+html[data-theme="light"] .border-amber-500\/30,
+html[data-theme="light"] .border-amber-500\/50,
+html[data-theme="light"] .border-amber-500\/60 { border-color: #f59e0b !important; }
+
+/* Emerald / green — darken for readable success text on white */
+html[data-theme="light"] .text-emerald-200,
+html[data-theme="light"] .text-emerald-300,
+html[data-theme="light"] .text-emerald-400 { color: #047857 !important; }
+
+html[data-theme="light"] .bg-emerald-500\/10,
+html[data-theme="light"] .bg-emerald-500\/20 { background-color: #d1fae5 !important; }
+
+/* Blue accents — deepen a touch so they don't feel pale over white */
+html[data-theme="light"] .text-blue-300,
+html[data-theme="light"] .text-blue-400 { color: #1d4ed8 !important; }
+
+html[data-theme="light"] .bg-blue-500\/5,
+html[data-theme="light"] .bg-blue-500\/10 { background-color: #eff6ff !important; }
+
+html[data-theme="light"] .border-blue-500\/30,
+html[data-theme="light"] .border-blue-500\/50,
+html[data-theme="light"] .border-blue-500\/60 { border-color: #3b82f6 !important; }
+
+/* Red / destructive — darker for legibility */
+html[data-theme="light"] .text-red-300,
+html[data-theme="light"] .text-red-400 { color: #b91c1c !important; }
+html[data-theme="light"] .bg-red-500\/5,
+html[data-theme="light"] .bg-red-500\/10 { background-color: #fee2e2 !important; }
+html[data-theme="light"] .border-red-500\/30,
+html[data-theme="light"] .border-red-500\/50 { border-color: #ef4444 !important; }
+
+/* Violet / purple — darken and give a soft brand-adjacent tint */
+html[data-theme="light"] .text-violet-300,
+html[data-theme="light"] .text-violet-400,
+html[data-theme="light"] .text-purple-300,
+html[data-theme="light"] .text-purple-400 { color: #6d28d9 !important; }
+html[data-theme="light"] .bg-violet-500\/10,
+html[data-theme="light"] .bg-purple-500\/10 { background-color: #ede9fe !important; }
+
 

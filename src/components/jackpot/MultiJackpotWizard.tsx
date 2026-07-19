@@ -1378,6 +1378,40 @@ export function MultiJackpotWizard({ initialGroup, startAtStep }: MultiJackpotWi
     }
   }
 
+  /* Edit-mode save: PATCH group profile with current Step-1 values,
+     then return to the MultiJackpots dashboard. Tier edits already
+     persist inline via the /children endpoint. */
+  async function handleSaveAndReturn() {
+    if (!group) return;
+    if (brandId == null) return toast.error("No brand selected");
+    setSubmitting(true);
+    try {
+      await axios.patch(
+        `/api/v1/jackpot-groups/${group.id}`,
+        {
+          name: name.trim() || group.name,
+          contributionSource,
+          contributionType,
+          masterContributionValue: masterValueAsStored(),
+          assignedCategories: assignment.assignedCategories,
+          assignedGameIds: assignment.assignedGameIds,
+        },
+        {
+          headers: {
+            brandId: String(brandId),
+            "Content-Type": "application/json",
+          },
+        },
+      );
+      toast.success("MultiJackpot saved");
+      navigate({ to: "/admin/jackpot-groups" });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error ?? err?.message ?? "Save failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   /* ───────────────── render ───────────────── */
   return (
     <div className="space-y-8">
@@ -1545,18 +1579,33 @@ export function MultiJackpotWizard({ initialGroup, startAtStep }: MultiJackpotWi
             <div className="mt-10 flex items-center justify-between">
               <Button
                 variant="outline"
-                onClick={() => setStep(1)}
+                onClick={() =>
+                  initialGroup
+                    ? navigate({ to: "/admin/jackpot-groups" })
+                    : setStep(1)
+                }
                 className="border-neutral-700 bg-neutral-900 text-neutral-200 hover:bg-neutral-800 hover:text-white"
               >
-                <ChevronLeft className="w-4 h-4 mr-1" /> Back
+                <ChevronLeft className="w-4 h-4 mr-1" />{" "}
+                {initialGroup ? "Cancel" : "Back"}
               </Button>
-              <Button
-                onClick={() => setStep(3)}
-                disabled={savedChildren.length === 0 || !sharesValid}
-                className="bg-blue-500 hover:bg-blue-600 h-11 px-6"
-              >
-                Continue to launch gate <ChevronRight className="ml-1 w-4 h-4" />
-              </Button>
+              {initialGroup ? (
+                <Button
+                  onClick={handleSaveAndReturn}
+                  disabled={submitting || savedChildren.length === 0 || !sharesValid}
+                  className="bg-blue-500 hover:bg-blue-600 h-11 px-6"
+                >
+                  {submitting ? "Saving…" : "Save"}
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => setStep(3)}
+                  disabled={savedChildren.length === 0 || !sharesValid}
+                  className="bg-blue-500 hover:bg-blue-600 h-11 px-6"
+                >
+                  Continue to launch gate <ChevronRight className="ml-1 w-4 h-4" />
+                </Button>
+              )}
             </div>
           </Card>
         </Step2ErrorBoundary>
