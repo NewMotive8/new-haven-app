@@ -644,6 +644,16 @@ export const Route = createFileRoute("/api/v1/event/bet")({
           for (const child of ranked) {
             const childCfg = cfgByJackpotId.get(child.id) ?? inlineConfigFromDto(child);
             const spin = evaluateLiveSpin(childCfg, wager, rng);
+            if (spin.suppressionReason) {
+              logSpinSuppression({
+                transactionId: body.transactionId,
+                brandId: brand,
+                jackpotId: child.id,
+                reason: spin.suppressionReason,
+                hitChance: spin.hitChance,
+                wager,
+              });
+            }
             if (spin.won) {
               const winAmount = spin.winAmount;
               const community = readCommunityConfig(child);
