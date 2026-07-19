@@ -471,10 +471,69 @@ function clampedSingleWeight(
 }
 
 /* ────────────────────────────────────────────────────────────────── */
-export function MultiJackpotWizard() {
+export interface MultiJackpotWizardProps {
+  /** Preloaded group (with children) for edit mode. When omitted, the wizard
+   *  runs its normal create flow starting at step 1. */
+  initialGroup?: {
+    id: number;
+    name: string;
+    status: "draft" | "active" | "disabled";
+    overlappingRule: string;
+    contributionSource: ContributionSource;
+    contributionType: ContributionType;
+    masterContributionValue: number;
+    assignedCategories?: string[];
+    assignedGameIds?: number[];
+    children?: Array<
+      JackpotDTO & {
+        tierRank: number;
+        triggerProbability: number;
+        splitShare: number;
+      }
+    >;
+  };
+  /** Step to open at. Only respected when `initialGroup` is provided. */
+  startAtStep?: 1 | 2 | 3;
+}
+
+function dtoChildToSavedChild(
+  child: JackpotDTO & { tierRank: number; triggerProbability: number; splitShare: number },
+): SavedChild {
+  const cfg = (child.config ?? {}) as Record<string, any>;
+  const pool = (cfg.pool ?? {}) as Record<string, any>;
+  const seed = (cfg.seed ?? {}) as Record<string, any>;
+  const engineV2 = (cfg.engineV2 ?? {}) as Record<string, any>;
+  const draft = (cfg._draft ?? {}) as Record<string, any>;
+  const probability = Number(child.triggerProbability) || 0;
+  const spins = probability > 0 ? Math.max(1, Math.round(1 / probability)) : 0;
+  return {
+    jackpotId: child.id,
+    tierRank: child.tierRank,
+    jackpotName: child.name,
+    tierName: child.name,
+    tierType: (draft.tierType ?? "classic") as TierType,
+    splitShare: Number(child.splitShare) || 0,
+    seedAmount: Number(seed.currentAmount ?? child.seedAmount) || 0,
+    reseedingAmount: Number(seed.minimumSeedAmount ?? child.seedAmount) || 0,
+    poolWeight: Number(engineV2.poolWeight ?? draft.poolWeight ?? 60),
+    seedWeight: Number(engineV2.seedWeight ?? draft.seedWeight ?? 30),
+    houseWeight: Number(engineV2.houseWeight ?? draft.houseWeight ?? 10),
+    triggerSummary: spins > 0 ? `1 in ${spins.toLocaleString()} spins` : "—",
+    probability,
+    volatility: Number(child.volatility ?? draft.volatility ?? 5),
+    maxWinAmount: pool.maximumWinAmount != null ? Number(pool.maximumWinAmount) : undefined,
+    fixedWinAmount: draft.fixedWinAmount != null ? Number(draft.fixedWinAmount) : undefined,
+    maxNumberOfWins: draft.maxNumberOfWins != null ? Number(draft.maxNumberOfWins) : undefined,
+    maxTotalPayout: draft.maxTotalPayout != null ? Number(draft.maxTotalPayout) : undefined,
+  };
+}
+
+export function MultiJackpotWizard({ initialGroup, startAtStep }: MultiJackpotWizardProps = {}) {
   const { brandId } = React.useContext(BrandContext);
   const navigate = useNavigate();
-  const [step, setStep] = React.useState<1 | 2 | 3>(1);
+  const [step, setStep] = React.useState<1 | 2 | 3>(
+    initialGroup ? (startAtStep ?? 2) : 1,
+  );
   const [submitting, setSubmitting] = React.useState(false);
 
   // Step 1 — Master Strategy
@@ -529,6 +588,44 @@ export function MultiJackpotWizard() {
     () => computeDrift(savedChildren, lastSnapshot, sharesTotal),
     [savedChildren, lastSnapshot, sharesTotal],
   );
+
+  // Hydrate from an existing group when opened in edit mode. Runs once per id.
+  const hydratedForIdRef = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    if (!initialGroup) return;
+    if (hydratedForIdRef.current === initialGroup.id) return;
+    hydratedForIdRef.current = initialGroup.id;
+
+    setName(initialGroup.name);
+    setContributionType(initialGroup.contributionType);
+    setTotalContributionAmount(
+      initialGroup.contributionType === "percentage"
+        ? Number((initialGroup.masterContributionValue * 100).toFixed(6))
+        : Number(initialGroup.masterContributionValue.toFixed(2)),
+    );
+    setPlayerSharePct(initialGroup.contributionSource === "operator" ? 0 : 100);
+    setAssignment({
+      assignedCategories: (initialGroup.assignedCategories ?? []) as GameAssignmentValue["assignedCategories"],
+      assignedGameIds: initialGroup.assignedGameIds ?? [],
+    });
+    setGroup({
+      ...initialGroup,
+      playerSharePct: initialGroup.contributionSource === "operator" ? 0 : 100,
+      minWagerAmount: 0,
+      maxWagerAmount: 0,
+      assignedCategories: initialGroup.assignedCategories ?? [],
+      assignedGameIds: initialGroup.assignedGameIds ?? [],
+      eligibility: defaultEligibility(),
+      playerTargeting: defaultPlayerTargeting(),
+      community: defaultCommunity(),
+    } as GroupDTO);
+    const rows = (initialGroup.children ?? [])
+      .map(dtoChildToSavedChild)
+      .sort((a, b) => a.tierRank - b.tierRank);
+    setSavedChildren(rows);
+  }, [initialGroup]);
+
+
 
 
   function nextRank() {

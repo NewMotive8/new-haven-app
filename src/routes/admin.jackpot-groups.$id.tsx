@@ -3,12 +3,8 @@ import * as React from "react";
 import axios from "axios";
 import { useQuery, useQueryClient } from "react-query";
 import { toast } from "sonner";
-import { AlertTriangle, ArrowLeft, Layers, Coins, Copy, Trash2, Pencil } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { AlertTriangle, ArrowLeft, Layers, Copy, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,29 +16,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { BrandContext } from "@/backoffice/app";
-import {
-  denominatorToProbability,
-  formatDropFrequency,
-  probabilityFixed8,
-  probabilityToDenominator,
-} from "@/lib/jackpot/tier-forecast";
-
-const DEFAULT_DAILY_VOLUME = 25000;
+import { MultiJackpotWizard } from "@/components/jackpot/MultiJackpotWizard";
+import type { JackpotDTO } from "@/lib/jackpot/types";
 
 type GroupStatus = "draft" | "active" | "disabled";
 type ContributionSource = "player" | "operator";
 type ContributionType = "percentage" | "fixed";
-
-interface ChildDTO {
-  id: number;
-  name: string;
-  tierRank: number;
-  triggerProbability: number;
-  contributionRate: number;
-  splitShare: number;
-  enabled: boolean;
-  poolBalance: number;
-}
 
 interface GroupDetailDTO {
   id: number;
@@ -52,10 +31,14 @@ interface GroupDetailDTO {
   contributionSource: ContributionSource;
   contributionType: ContributionType;
   masterContributionValue: number;
+  assignedCategories?: string[];
+  assignedGameIds?: number[];
   activatedAt: string | null;
   createdAt: string;
   updatedAt: string;
-  children: ChildDTO[];
+  children: Array<
+    JackpotDTO & { tierRank: number; triggerProbability: number; splitShare: number }
+  >;
 }
 
 function StatusPill({ status }: { status: GroupStatus }) {
@@ -73,14 +56,6 @@ function StatusPill({ status }: { status: GroupStatus }) {
   );
 }
 
-function formatMasterValue(type: ContributionType, value: number): string {
-  if (type === "percentage") return `${(value * 100).toFixed(4)}%`;
-  return value.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
 function JackpotGroupDetailPage() {
   const { id } = useParams({ from: "/admin/jackpot-groups/$id" });
   const { brandId } = React.useContext(BrandContext);
@@ -88,16 +63,6 @@ function JackpotGroupDetailPage() {
   const navigate = useNavigate();
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
-  const nameInputRef = React.useRef<HTMLInputElement | null>(null);
-
-  function focusEditor() {
-    requestAnimationFrame(() => {
-      nameInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      nameInputRef.current?.focus();
-      nameInputRef.current?.select?.();
-    });
-  }
-
 
   const query = useQuery<GroupDetailDTO>({
     queryKey: ["jackpot-group", id, brandId],
@@ -113,54 +78,6 @@ function JackpotGroupDetailPage() {
 
   const group = query.data;
   const isActive = group?.status === "active";
-
-  // Local edit state for header card (only used when not active).
-  const [draftName, setDraftName] = React.useState("");
-  const [draftSource, setDraftSource] = React.useState<ContributionSource>("player");
-  const [draftType, setDraftType] = React.useState<ContributionType>("percentage");
-  const [draftMasterValue, setDraftMasterValue] = React.useState("0.00");
-
-  React.useEffect(() => {
-    if (group) {
-      setDraftName(group.name);
-      setDraftSource(group.contributionSource);
-      setDraftType(group.contributionType);
-      // Display percentage as human %, fixed as currency
-      setDraftMasterValue(
-        group.contributionType === "percentage"
-          ? (group.masterContributionValue * 100).toFixed(4)
-          : group.masterContributionValue.toFixed(2),
-      );
-    }
-  }, [group?.id, group?.updatedAt]);
-
-  const sharesTotal = (group?.children ?? []).reduce(
-    (acc, c) => acc + Number(c.splitShare ?? 0),
-    0,
-  );
-  const sharesValid = Math.abs(sharesTotal - 100) <= 0.01;
-
-  async function saveProfile() {
-    if (!group) return;
-    const raw = Number.parseFloat(draftMasterValue) || 0;
-    const stored = draftType === "percentage" ? raw / 100 : raw;
-    try {
-      await axios.patch(
-        `/api/v1/jackpot-groups/${group.id}`,
-        {
-          name: draftName,
-          contributionSource: draftSource,
-          contributionType: draftType,
-          masterContributionValue: stored,
-        },
-        { headers: { brandId: String(brandId), "Content-Type": "application/json" } },
-      );
-      toast.success("MultiJackpot updated");
-      await queryClient.invalidateQueries(["jackpot-group", id]);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error ?? err?.message ?? "Update failed");
-    }
-  }
 
   async function setStatus(next: GroupStatus) {
     if (!group) return;
@@ -229,6 +146,12 @@ function JackpotGroupDetailPage() {
     );
   }
 
+  const sharesTotal = group.children.reduce(
+    (acc, c) => acc + Number(c.splitShare ?? 0),
+    0,
+  );
+  const sharesValid = Math.abs(sharesTotal - 100) <= 0.01;
+
   return (
     <div className="min-h-screen bg-neutral-950 text-white">
       <div className="max-w-7xl mx-auto px-6 py-10 space-y-6">
@@ -267,286 +190,81 @@ function JackpotGroupDetailPage() {
           </div>
         )}
 
-        <fieldset disabled={isActive} className="space-y-6 group/active">
-          <Card className="p-6 bg-neutral-900/50 border-neutral-800">
-            <div className="flex items-start justify-between gap-4 mb-6">
-              <div>
-                <div className="flex items-center gap-2 text-neutral-400 text-sm mb-1">
-                  <Layers className="w-4 h-4" />
-                  MultiJackpot
-                </div>
-                <h1 className="text-3xl font-semibold">{group.name}</h1>
-                <div className="text-xs text-neutral-500 font-mono mt-1">#{group.id}</div>
-              </div>
-              <div className="flex flex-col items-end gap-2">
-                <StatusPill status={group.status} />
-                {!isActive && (
-                  <div className="flex gap-2 flex-wrap justify-end">
-                    {group.status === "draft" && (
-                      <Button
-                        size="sm"
-                        onClick={() => setStatus("active")}
-                        disabled={!sharesValid || group.children.length === 0}
-                        className="bg-emerald-500 hover:bg-emerald-600"
-                      >
-                        Activate
-                      </Button>
-                    )}
-                    {group.status === "disabled" && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setStatus("draft")}
-                          className="border-neutral-700"
-                        >
-                          Move to draft
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => setStatus("active")}
-                          disabled={!sharesValid || group.children.length === 0}
-                          className="bg-emerald-500 hover:bg-emerald-600"
-                        >
-                          Activate
-                        </Button>
-                      </>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={focusEditor}
-                      className="border-red-500/50 text-red-300 hover:bg-red-500/10 hover:text-red-200"
-                    >
-                      <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleClone}
-                      disabled={busy}
-                      className="border-neutral-700"
-                    >
-                      <Copy className="w-3.5 h-3.5 mr-1.5" /> Clone
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setConfirmDelete(true)}
-                      disabled={busy}
-                      className="border-red-500/50 text-red-300 hover:bg-red-500/10 hover:text-red-200"
-                    >
-                      <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
-                    </Button>
-                  </div>
-                )}
-
-              </div>
+        {/* Group header — status + lifecycle actions */}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-neutral-400 text-sm mb-1">
+              <Layers className="w-4 h-4" />
+              MultiJackpot
             </div>
-
-            <div className="grid md:grid-cols-2 gap-6 max-w-3xl mb-6">
-              <div className="space-y-2">
-                <Label className="text-neutral-300">Name</Label>
-                <Input
-                  ref={nameInputRef}
-                  value={draftName}
-                  onChange={(e) => setDraftName(e.target.value)}
-                  className="bg-neutral-800 border-neutral-700 text-white disabled:opacity-60"
-                />
-              </div>
-            </div>
-
-            {/* Master Funding — unified design (matches MultiJackpot wizard) */}
-            <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-5 mb-4">
-              <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-blue-300 mb-4">
-                <Coins className="w-3.5 h-3.5" /> Master funding
-              </div>
-
-              {/* Type toggle: Fixed | Percent */}
-              <div className="inline-flex gap-2 mb-6">
-                <button
-                  type="button"
-                  onClick={() => setDraftType("fixed")}
-                  disabled={isActive}
-                  className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
-                    draftType === "fixed"
-                      ? "bg-blue-500 text-white"
-                      : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
-                  }`}
-                >
-                  Fixed
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDraftType("percentage")}
-                  disabled={isActive}
-                  className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
-                    draftType === "percentage"
-                      ? "bg-blue-500 text-white"
-                      : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
-                  }`}
-                >
-                  Percent
-                </button>
-              </div>
-
-              {/* Amount input */}
-              <div className="space-y-2 mb-6" style={{ width: 193 }}>
-                <Label className="text-sm font-semibold text-neutral-100">
-                  {draftType === "fixed"
-                    ? "Fixed Contribution Amount"
-                    : "Percent of Wager"}
-                </Label>
-                <div className="relative">
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={draftMasterValue}
-                    onChange={(e) => setDraftMasterValue(e.target.value)}
-                    className="bg-neutral-900 border-neutral-700 text-white tabular-nums pr-8 h-10"
-                  />
-                  <span className="absolute inset-y-0 right-3 flex items-center text-neutral-400 pointer-events-none text-sm">
-                    {draftType === "fixed" ? "€" : "%"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Contribution Source — Player vs Operator split */}
-              <div className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-4 max-w-xl">
-                <div className="text-sm font-semibold text-neutral-100 mb-1">
-                  Contribution Source
-                </div>
-                <p className="text-[11px] text-neutral-500 mb-4">
-                  Choose whether this funding is deducted from the player's wager or paid by the operator.
-                </p>
-
-                {/* Labels row with dynamic arrow */}
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-20 shrink-0 text-center">
-                    <span className="text-[11px] uppercase tracking-wide text-neutral-400">Player</span>
-                  </div>
-                  <div className="flex-1 px-2 text-center">
-                    <div className="flex items-center justify-center gap-1 h-4">
-                      {draftSource === "player" && (
-                        <span className="text-[10px] text-blue-400 font-medium flex items-center gap-0.5">
-                          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                            <path d="M5 8L1 4h8L5 8z" fill="currentColor" />
-                          </svg>
-                          Player
-                        </span>
-                      )}
-                      {draftSource === "operator" && (
-                        <span className="text-[10px] text-amber-400 font-medium flex items-center gap-0.5">
-                          Operator
-                          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                            <path d="M5 8L1 4h8L5 8z" fill="currentColor" />
-                          </svg>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="w-20 shrink-0 text-center">
-                    <span className="text-[11px] uppercase tracking-wide text-neutral-400">Operator</span>
-                  </div>
-                </div>
-
-                {/* Slider row */}
-                <div className="flex items-center gap-3">
-                  <div className="relative w-20 shrink-0">
-                    <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={100}
-                      value={draftSource === "player" ? 100 : 0}
-                      readOnly
-                      className="bg-neutral-900 border-neutral-700 pr-6 tabular-nums h-9 text-center"
-                    />
-                    <span className="absolute inset-y-0 right-2 flex items-center text-neutral-400 pointer-events-none text-xs">%</span>
-                  </div>
-                  <div className="flex-1 px-2 self-center">
-                    <Slider
-                      value={[draftSource === "player" ? 100 : 0]}
-                      min={0}
-                      max={100}
-                      step={100}
-                      onValueChange={(v) =>
-                        setDraftSource((v[0] ?? 100) >= 50 ? "player" : "operator")
-                      }
-                    />
-                  </div>
-                  <div className="relative w-20 shrink-0">
-                    <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={100}
-                      value={draftSource === "operator" ? 100 : 0}
-                      readOnly
-                      className="bg-neutral-900 border-neutral-700 pr-6 tabular-nums h-9 text-center"
-                    />
-                    <span className="absolute inset-y-0 right-2 flex items-center text-neutral-400 pointer-events-none text-xs">%</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 flex items-center justify-between gap-4 flex-wrap">
-                <div className="text-xs text-neutral-400">
-                  Allocated shares:{" "}
-                  <span
-                    className={`font-mono font-semibold ${sharesValid ? "text-emerald-300" : "text-amber-300"}`}
+            <h1 className="text-3xl font-semibold">{group.name}</h1>
+            <div className="text-xs text-neutral-500 font-mono mt-1">#{group.id}</div>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <StatusPill status={group.status} />
+            {!isActive && (
+              <div className="flex gap-2 flex-wrap justify-end">
+                {group.status === "draft" && (
+                  <Button
+                    size="sm"
+                    onClick={() => setStatus("active")}
+                    disabled={!sharesValid || group.children.length === 0}
+                    className="bg-emerald-500 hover:bg-emerald-600"
                   >
-                    {sharesTotal.toFixed(2)}% / 100.00%
-                  </span>
-                </div>
-                {!isActive && (
-                  <Button onClick={saveProfile} size="sm" className="bg-blue-500 hover:bg-blue-600">
-                    Save funding settings
+                    Activate
                   </Button>
                 )}
-              </div>
-            </div>
-
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-neutral-800 text-sm">
-              <Stat label="Created" value={new Date(group.createdAt).toLocaleString()} />
-              <Stat label="Updated" value={new Date(group.updatedAt).toLocaleString()} />
-              <Stat
-                label="Activated"
-                value={group.activatedAt ? new Date(group.activatedAt).toLocaleString() : "—"}
-              />
-              <Stat label="Children" value={String(group.children.length)} />
-            </div>
-          </Card>
-
-          <Card className="bg-neutral-900/50 border-neutral-800 overflow-hidden">
-            <div className="p-4 border-b border-neutral-800 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Child tiers</h2>
-              <span className="text-xs text-neutral-500">
-                Sorted by tier rank (ascending) · Split shares must total 100.00%
-              </span>
-            </div>
-            {group.children.length === 0 ? (
-              <div className="p-8 text-center text-neutral-400">
-                No child jackpots attached yet.
-              </div>
-            ) : (
-              <div className="p-4 space-y-4">
-                {group.children
-                  .slice()
-                  .sort((a, b) => a.tierRank - b.tierRank)
-                  .map((c) => (
-                    <ChildTierEditor
-                      key={c.id}
-                      child={c}
-                      group={group}
-                      brandId={brandId}
-                      onSaved={() => queryClient.invalidateQueries(["jackpot-group", id])}
-                    />
-                  ))}
+                {group.status === "disabled" && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setStatus("draft")}
+                      className="border-neutral-700"
+                    >
+                      Move to draft
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => setStatus("active")}
+                      disabled={!sharesValid || group.children.length === 0}
+                      className="bg-emerald-500 hover:bg-emerald-600"
+                    >
+                      Activate
+                    </Button>
+                  </>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleClone}
+                  disabled={busy}
+                  className="border-neutral-700"
+                >
+                  <Copy className="w-3.5 h-3.5 mr-1.5" /> Clone
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setConfirmDelete(true)}
+                  disabled={busy}
+                  className="border-red-500/50 text-red-300 hover:bg-red-500/10 hover:text-red-200"
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
+                </Button>
               </div>
             )}
-          </Card>
+          </div>
+        </div>
+
+        {/* Reuse the full MultiJackpot wizard, hydrated with the saved group.
+            Locks the whole surface while active — same fields, same UX as create. */}
+        <fieldset disabled={isActive} className="disabled:opacity-70 disabled:pointer-events-none">
+          <MultiJackpotWizard
+            key={`group-${group.id}-${group.updatedAt}`}
+            initialGroup={group}
+            startAtStep={2}
+          />
         </fieldset>
       </div>
 
@@ -580,203 +298,6 @@ function JackpotGroupDetailPage() {
     </div>
   );
 }
-
-function ChildTierEditor({
-  child,
-  group,
-  brandId,
-  onSaved,
-}: {
-  child: ChildDTO;
-  group: GroupDetailDTO;
-  brandId: string | number | null | undefined;
-  onSaved: () => void;
-}) {
-  const [name, setName] = React.useState(child.name);
-  const [denominator, setDenominator] = React.useState<string>(() =>
-    probabilityToDenominator(child.triggerProbability) || "0",
-  );
-  const [splitShare, setSplitShare] = React.useState<string>(() =>
-    Number(child.splitShare ?? 0).toFixed(2),
-  );
-  const [dailyVolume, setDailyVolume] = React.useState<number>(DEFAULT_DAILY_VOLUME);
-  const [saving, setSaving] = React.useState(false);
-
-  React.useEffect(() => {
-    setName(child.name);
-    setDenominator(probabilityToDenominator(child.triggerProbability) || "0");
-    setSplitShare(Number(child.splitShare ?? 0).toFixed(2));
-  }, [child.id, child.name, child.triggerProbability, child.splitShare]);
-
-  const probability = denominatorToProbability(denominator);
-  const dropText = formatDropFrequency(probability, dailyVolume);
-  const shareNum = Number.parseFloat(splitShare) || 0;
-  const derived =
-    (group.masterContributionValue * shareNum) / 100;
-  const derivedLabel =
-    group.contributionType === "percentage"
-      ? `${(derived * 100).toFixed(4)}% of wager`
-      : `${derived.toFixed(4)} / spin`;
-
-  async function save() {
-    setSaving(true);
-    try {
-      // 1) Re-attach via children endpoint to re-derive contribution_percentage from master × share
-      await axios.post(
-        `/api/v1/jackpot-groups/${group.id}/children`,
-        {
-          jackpotId: child.id,
-          tierRank: child.tierRank,
-          triggerProbability: Number(probability.toFixed(8)),
-          splitShare: shareNum,
-          name: name.trim() || child.name,
-        },
-        {
-          headers: {
-            brandId: String(brandId ?? ""),
-            "Content-Type": "application/json",
-          },
-        },
-      );
-      toast.success(`Tier "${name.trim() || child.name}" updated`);
-      onSaved();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error ?? err?.message ?? "Save failed");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="rounded-lg border border-neutral-800 bg-neutral-950/40 p-4 space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-2 flex-1">
-          <Label className="text-neutral-300">
-            Tier Name{" "}
-            <span className="text-neutral-500 font-normal">
-              (operator-facing label)
-            </span>
-          </Label>
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Mini, Super Drop, Friday Booster"
-            className="bg-neutral-800 border-neutral-700 text-white"
-          />
-        </div>
-        <div className="text-right pt-1">
-          <div className="text-xs uppercase text-neutral-500 tracking-wider">
-            Rank
-          </div>
-          <div className="text-white font-mono text-lg">{child.tierRank}</div>
-          <div className="text-xs text-neutral-500 font-mono">#{child.id}</div>
-        </div>
-      </div>
-
-      <div className="rounded-md border border-neutral-800 bg-neutral-900/60 p-4 space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-          <div className="space-y-1">
-            <Label className="text-neutral-400 text-xs uppercase tracking-wider">
-              Odds
-            </Label>
-            <div className="flex items-center gap-2">
-              <span className="text-neutral-300 text-sm whitespace-nowrap">1 in</span>
-              <Input
-                type="number"
-                inputMode="numeric"
-                min={1}
-                step={1}
-                value={denominator}
-                onChange={(e) => setDenominator(e.target.value)}
-                placeholder="50000"
-                className="bg-neutral-800 border-neutral-700 text-white font-mono"
-              />
-              <span className="text-neutral-300 text-sm whitespace-nowrap">spins</span>
-            </div>
-            <div className="text-xs text-neutral-500 font-mono pt-1">
-              Raw probability: {probabilityFixed8(probability)}
-            </div>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-neutral-400 text-xs uppercase tracking-wider">
-              Group Split Share (%)
-            </Label>
-            <div className="relative">
-              <Input
-                type="text"
-                inputMode="decimal"
-                value={splitShare}
-                onChange={(e) => setSplitShare(e.target.value)}
-                placeholder="25.00"
-                className="bg-neutral-800 border-neutral-700 text-white font-mono pr-8"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">
-                %
-              </span>
-            </div>
-            <div className="text-xs text-neutral-500 pt-1">
-              Derived: <span className="text-neutral-300 font-mono">{derivedLabel}</span>{" "}
-              · Pool: {Number(child.poolBalance).toFixed(2)} · Enabled:{" "}
-              {child.enabled ? "yes" : "no"}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-md border border-neutral-800 bg-neutral-900/60 p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <Label className="text-neutral-300">
-            Simulated Daily Volume{" "}
-            <span className="text-neutral-500 font-normal text-xs">
-              (preview only — not saved)
-            </span>
-          </Label>
-          <span className="font-mono text-sm text-white">
-            {dailyVolume.toLocaleString()} spins/day
-          </span>
-        </div>
-        <Slider
-          value={[dailyVolume]}
-          min={1000}
-          max={500000}
-          step={1000}
-          onValueChange={(v) => setDailyVolume(v[0] ?? DEFAULT_DAILY_VOLUME)}
-        />
-        <div className="rounded border border-blue-500/30 bg-blue-500/5 p-3">
-          <div className="text-xs uppercase tracking-wider text-blue-300 mb-1">
-            Estimated Drop Frequency
-          </div>
-          <div className="text-sm text-white">{dropText}</div>
-        </div>
-      </div>
-
-      <div className="flex justify-end">
-        <Button
-          type="button"
-          size="sm"
-          onClick={save}
-          disabled={saving}
-          className="bg-blue-500 hover:bg-blue-600"
-        >
-          Save tier
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-xs uppercase text-neutral-500 tracking-wider mb-1">
-        {label}
-      </div>
-      <div className="text-neutral-200">{value}</div>
-    </div>
-  );
-}
-
-export { formatMasterValue };
 
 export const Route = createFileRoute("/admin/jackpot-groups/$id")({
   ssr: false,
